@@ -1,0 +1,146 @@
+pragma Singleton
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+// Persistent shell settings. Stored outside the stow repo in quickshell's
+// per-shell state dir (~/.local/state/quickshell/by-shell/...) so runtime
+// changes never dirty the config repo.
+//
+// This file is the source of truth for everything the Settings app manages;
+// effects are applied by singletons watching these properties (SystemTheme,
+// NightLight, Wallpaper, Keyboard, PowerConfig, ...).
+Singleton {
+    id: root
+
+    // Appearance
+    property alias darkMode: adapter.darkMode
+    property alias accentColor: adapter.accentColor
+    property alias iconTheme: adapter.iconTheme
+
+    // Wallpaper
+    property alias wallpaperPath: adapter.wallpaperPath
+
+    // Night light
+    property alias nightLightEnabled: adapter.nightLightEnabled
+    property alias nightLightTemp: adapter.nightLightTemp
+    property alias nightLightSchedule: adapter.nightLightSchedule
+    property alias nightLightStart: adapter.nightLightStart
+    property alias nightLightStop: adapter.nightLightStop
+
+    // Bar
+    property alias barWidth: adapter.barWidth
+    property alias barScreen: adapter.barScreen
+    property alias showMediaPill: adapter.showMediaPill
+    property alias showTray: adapter.showTray
+    property alias showBattery: adapter.showBattery
+    property alias showLayoutBox: adapter.showLayoutBox
+    property alias showNetwork: adapter.showNetwork
+    property alias showBluetooth: adapter.showBluetooth
+    property alias showVolume: adapter.showVolume
+    property alias showNotifBell: adapter.showNotifBell
+    property alias showSysMon: adapter.showSysMon
+    property alias showScreenLock: adapter.showScreenLock
+
+    // System monitor popout (conky)
+    property alias conkyConfig: adapter.conkyConfig
+
+    // Notifications
+    property alias notifTimeoutMs: adapter.notifTimeoutMs
+    property alias doNotDisturb: adapter.doNotDisturb
+    // "top-right" | "top-left" | "bottom-right" | "bottom-left"
+    property alias notifPosition: adapter.notifPosition
+
+    // Displays (xrandr args, replayed at login)
+    property alias displayCmd: adapter.displayCmd
+
+    // Keyboard ("" = leave system layout alone; "us" or "us:intl")
+    property alias kbLayout: adapter.kbLayout
+    property alias kbRepeatDelay: adapter.kbRepeatDelay
+    property alias kbRepeatRate: adapter.kbRepeatRate
+
+    // Mouse / touchpad (libinput via xinput)
+    property alias mouseAccel: adapter.mouseAccel
+    property alias naturalScroll: adapter.naturalScroll
+    property alias tapToClick: adapter.tapToClick
+
+    // Power (0 = never)
+    property alias blankMinutes: adapter.blankMinutes
+    property alias dpmsMinutes: adapter.dpmsMinutes
+    property alias batteryWarnPct: adapter.batteryWarnPct
+    property alias batteryCriticalPct: adapter.batteryCriticalPct
+
+    // Autostart: [{ command: string, enabled: bool }]
+    property alias autostartExtra: adapter.autostartExtra
+
+    readonly property string path: Quickshell.statePath("settings.json")
+
+    FileView {
+        id: file
+        path: root.path
+        watchChanges: true
+        onFileChanged: reload()
+        onAdapterUpdated: writeAdapter()
+        onLoadFailed: error => {
+            if (error === FileViewError.FileNotFound)
+                writeAdapter();
+        }
+
+        JsonAdapter {
+            id: adapter
+            property bool darkMode: true
+            property string accentColor: "#2080bb"
+            property string iconTheme: ""
+
+            // Empty on a fresh install: Wallpaper.qml then adopts a
+            // distro-shipped wallpaper and writes the path back here.
+            // "~" in a user-set path expands against $HOME at apply time.
+            property string wallpaperPath: ""
+
+            property bool nightLightEnabled: false
+            property int nightLightTemp: 3000
+            // Schedule is opt-in: off = night light is purely manual
+            // (Super+Shift+N / settings toggle)
+            property bool nightLightSchedule: false
+            property string nightLightStart: "21:00"
+            property string nightLightStop: "07:00"
+
+            property int barWidth: 36
+            // Output name (e.g. "DisplayPort-2") for a single bar;
+            // "" or an unplugged output falls back to bars on every screen
+            property string barScreen: ""
+            property bool showMediaPill: true
+            property bool showTray: true
+            property bool showBattery: true
+            property bool showLayoutBox: true
+            property bool showNetwork: true
+            property bool showBluetooth: true
+            property bool showVolume: true
+            property bool showNotifBell: true
+            property bool showSysMon: true
+            property bool showScreenLock: true
+            property string conkyConfig: ""
+
+            property int notifTimeoutMs: 6000
+            property bool doNotDisturb: false
+            property string notifPosition: "top-right"
+
+            property string displayCmd: ""
+
+            property string kbLayout: ""
+            property int kbRepeatDelay: 400
+            property int kbRepeatRate: 40
+
+            property real mouseAccel: 0
+            property bool naturalScroll: false
+            property bool tapToClick: true
+
+            property int blankMinutes: 10
+            property int dpmsMinutes: 15
+            property int batteryWarnPct: 15
+            property int batteryCriticalPct: 5
+
+            property var autostartExtra: []
+        }
+    }
+}

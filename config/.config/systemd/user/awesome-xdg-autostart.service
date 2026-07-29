@@ -1,0 +1,13 @@
+[Unit]
+Description=Run user XDG autostart entries (~/.config/autostart)
+Documentation=man:systemd.special(7)
+# After the session target so DISPLAY/XAUTHORITY are imported; PartOf so it
+# tears down with the session. Only the session start pulls this in (via
+# the target's Wants), so an awesome restart does NOT relaunch the apps.
+After=awesome-session.target
+PartOf=awesome-session.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=%h/.local/bin/autostart-xdg

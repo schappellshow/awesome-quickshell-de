@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Push dark/light mode to every channel apps use for the "system" theme:
+#   gsettings  → read by xdg-desktop-portal-gtk, which answers Electron and
+#                libadwaita apps (portal routing: .config/xdg-desktop-portal/)
+#   kdeglobals → Qt/KDE apps (via plasma-apply-colorscheme)
+#   qt6ct.conf → Qt apps, via QT_QPA_PLATFORMTHEME=qt6ct (see ~/.xprofile)
+#   xsettingsd + gtk settings.ini → running/starting GTK apps
+# Files are created if missing, so this works on a freshly-stowed machine.
+# Called by quickshell's SystemTheme service on every dark-mode change.
+set -u
+
+mode="${1:-dark}"
+case "$mode" in
+    dark)  scheme=prefer-dark;  gtk_theme=Breeze-Dark; kde_scheme=BreezeDark;  prefer_dark=true; qt_scheme=darker ;;
+    light) scheme=prefer-light; gtk_theme=Breeze;      kde_scheme=BreezeLight; prefer_dark=false; qt_scheme=airy ;;
+    *) echo "usage: system-theme-apply dark|light" >&2; exit 1 ;;
+esac
+
+command -v gsettings >/dev/null && {
+    gsettings set org.gnome.desktop.interface color-scheme "$scheme" 2>/dev/null
+    gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" 2>/dev/null
+}
+
+command -v plasma-apply-colorscheme >/dev/null \
+    && plasma-apply-colorscheme "$kde_scheme" >/dev/null 2>&1
+
+# qt6ct: the platform theme Qt apps read (quickshell's tray menus,
+# pavucontrol-qt, ...). It is a static file, so the toggle has to rewrite
+# the color scheme here. Deliberately NOT tracked in the stow repo: it is
+# rewritten at runtime, and a tracked copy would be dirtied on every
+# toggle (same reasoning as quickshell's settings.json).
+qt6ct="$HOME/.config/qt6ct/qt6ct.conf"
+qt_scheme_path="/usr/share/qt6ct/colors/${qt_scheme}.conf"
+if [ -f "$qt6ct" ]; then
+    # A qt6ct.conf left by qt6ct's own GUI can have no [Appearance] section
+    # at all (just a [SettingsWindow] geometry). Every insert below anchors
+    # on that header, so without it they silently no-op and Qt keeps its
+    # default light palette — seed the section first.
+    grep -q '^\[Appearance\]' "$qt6ct" || printf '\n[Appearance]\nicon_theme=breeze-dark\nstandard_dialogs=default\nstyle=Breeze\n' >>"$qt6ct"
+    # --follow-symlinks so an existing symlink is not replaced by a file
+    if grep -q '^color_scheme_path=' "$qt6ct"; then
+        sed -i --follow-symlinks \
+            "s|^color_scheme_path=.*|color_scheme_path=$qt_scheme_path|" "$qt6ct"
+    else
+        sed -i --follow-symlinks \
+            "/^\[Appearance\]/a color_scheme_path=$qt_scheme_path" "$qt6ct"
+    fi
+    grep -q '^custom_palette=' "$qt6ct" \
+        || sed -i --follow-symlinks '/^\[Appearance\]/a custom_palette=true' "$qt6ct"
+else
+    mkdir -p "${qt6ct%/*}"
+    # breeze-dark is the safe default icon theme: it ships with the KF6
+    # icons package, unlike whatever theme a given machine has installed
+    cat >"$qt6ct" <<EOF
+[Appearance]
+color_scheme_path=$qt_scheme_path
+custom_palette=true
+icon_theme=breeze-dark
+standard_dialogs=default
+style=Breeze
+EOF
+fi
+
+# xsettingsd: edit the existing (often KDE-generated) config, or seed one
+xs="$HOME/.config/xsettingsd/xsettingsd.conf"
+if [ -f "$xs" ]; then
+    if grep -q '^Net/ThemeName ' "$xs"; then
+        sed -i "s|^Net/ThemeName .*|Net/ThemeName \"$gtk_theme\"|" "$xs"
+    else
+        printf 'Net/ThemeName "%s"\n' "$gtk_theme" >>"$xs"
+    fi
+else
+    mkdir -p "${xs%/*}"
+    cat >"$xs" <<EOF
+Net/ThemeName "$gtk_theme"
+Net/IconThemeName "breeze-dark"
+Gtk/CursorThemeName "breeze_cursors"
+Gtk/FontName "Noto Sans,  10"
+EOF
+fi
+pkill -HUP -x xsettingsd 2>/dev/null
+
+# gtk3/gtk4 settings.ini: same edit-or-seed approach
+for v in gtk-3.0 gtk-4.0; do
+    ini="$HOME/.config/$v/settings.ini"
+    if [ -f "$ini" ]; then
+        if grep -q '^gtk-theme-name=' "$ini"; then
+            sed -i "s|^gtk-theme-name=.*|gtk-theme-name=$gtk_theme|" "$ini"
+        else
+            printf 'gtk-theme-name=%s\n' "$gtk_theme" >>"$ini"
+        fi
+        if grep -q '^gtk-application-prefer-dark-theme=' "$ini"; then
+            sed -i "s|^gtk-application-prefer-dark-theme=.*|gtk-application-prefer-dark-theme=$prefer_dark|" "$ini"
+        else
+            printf 'gtk-application-prefer-dark-theme=%s\n' "$prefer_dark" >>"$ini"
+        fi
+    else
+        mkdir -p "${ini%/*}"
+        printf '[Settings]\ngtk-theme-name=%s\ngtk-application-prefer-dark-theme=%s\n' \
+            "$gtk_theme" "$prefer_dark" >"$ini"
+    fi
+done
+
+exit 0

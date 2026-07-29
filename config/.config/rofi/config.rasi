@@ -1,0 +1,15 @@
+configuration {
+    modi:                  "drun,run,window,clipboard:greenclip print";
+    show-icons:            true;
+    display-drun:          "Apps";
+    display-run:           "Run";
+    display-window:        "Windows";
+    display-clipboard:     "Clipboard";
+    drun-display-format:   "{name}";
+    font:                  "Hack 11";
+    sort:                  true;
+    matching:              "fuzzy";
+    terminal:              "ghostty";
+}
+
+@theme "openmandriva"

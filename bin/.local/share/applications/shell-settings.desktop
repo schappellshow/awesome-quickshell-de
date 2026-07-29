@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Shell Settings
+GenericName=System Settings
+Comment=Desktop shell settings (appearance, displays, audio, power, ...)
+Exec=qs ipc call settings open appearance
+Icon=preferences-system
+Terminal=false
+Categories=Settings;DesktopSettings;Qt;
+Keywords=settings;preferences;control;

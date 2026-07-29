@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# autostart-xdg — run the enabled XDG autostart entries from the USER's
+# ~/.config/autostart only.
+#
+# The system-wide /etc/xdg/autostart set is deliberately ignored: it is
+# distro-specific and full of DE daemons this session either starts itself
+# (picom with our config, the polkit agent) or doesn't want (nm-applet,
+# pulseaudio, a welcome screen, ...). Scoping to the user dir means no
+# per-distro mask list — apps the user installs autostart, nothing else.
+#
+# Honors Hidden, X-GNOME-Autostart-enabled, OnlyShowIn / NotShowIn (against
+# XDG_CURRENT_DESKTOP) and TryExec — the same rules a full DE applies.
+# Meant to run once per session (see awesome-xdg-autostart.service), not on
+# every awesome restart.
+set -u
+
+dir="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+[ -d "$dir" ] || exit 0
+desktop="${XDG_CURRENT_DESKTOP:-}"
+
+shopt -s nullglob
+for f in "$dir"/*.desktop; do
+    # Read the [Desktop Entry] group into vars (stop at the next group)
+    hidden="" enabled="" only="" not="" tryexec="" exec=""
+    while IFS='=' read -r key val; do
+        case "$key" in
+            Hidden)                    hidden="$val" ;;
+            X-GNOME-Autostart-enabled) enabled="$val" ;;
+            OnlyShowIn)                only="$val" ;;
+            NotShowIn)                 not="$val" ;;
+            TryExec)                   tryexec="$val" ;;
+            Exec)                      exec="$val" ;;
+        esac
+    done < <(awk 'f && /^\[/ {exit} /^\[Desktop Entry\]/ {f=1; next} f' "$f")
+
+    [ "$hidden" = "true" ]   && continue
+    [ "$enabled" = "false" ] && continue
+
+    # OnlyShowIn: run only if our desktop is listed (an unset desktop can't
+    # confirm a match, so those entries are skipped — the freedesktop rule)
+    if [ -n "$only" ]; then
+        [ -z "$desktop" ] && continue
+        IFS=';' read -ra names <<< "$only"
+        match=0
+        for n in "${names[@]}"; do [ "$n" = "$desktop" ] && match=1; done
+        [ "$match" = 0 ] && continue
+    fi
+    # NotShowIn: skip only if we actually are one of those desktops
+    if [ -n "$not" ] && [ -n "$desktop" ]; then
+        IFS=';' read -ra names <<< "$not"
+        skip=0
+        for n in "${names[@]}"; do [ "$n" = "$desktop" ] && skip=1; done
+        [ "$skip" = 1 ] && continue
+    fi
+    # TryExec: skip if the program isn't installed
+    if [ -n "$tryexec" ] && ! command -v "$tryexec" >/dev/null 2>&1; then
+        continue
+    fi
+    [ -n "$exec" ] || continue
+
+    # Strip Desktop-Entry field codes (%U %F %u %f %i %c %k %d %D %n %N %v %m)
+    exec=$(printf '%s' "$exec" | sed -E 's/%[UFufickdDnNvm]//g; s/  +/ /g')
+
+    setsid sh -c "$exec" >/dev/null 2>&1 &
+done

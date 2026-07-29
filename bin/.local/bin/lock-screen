@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# lock-screen — themed locker wrapper, called by xss-lock (idle + before
+# suspend) and `loginctl lock-session` / Ctrl+Alt+L.
+# Swap lockers here without touching keybinds or xss-lock.
+#
+# Preferred: betterlockscreen (blurred/dimmed wallpaper via i3lock-color;
+# theme in ~/.config/betterlockscreenrc, cache in ~/.cache/betterlockscreen
+# rebuilt on wallpaper changes by quickshell's Wallpaper singleton).
+# Falls back to xsecurelock (login-style password field), then i3lock-color's
+# ring, then plain i3lock.
+#
+# The locker must not fork: xss-lock holds the systemd sleep inhibitor until
+# this process exits, guaranteeing the screen is locked before suspend
+# (xsecurelock also picks up XSS_SLEEP_LOCK_FD natively).
+
+# OpenMandriva palette — keep in sync with quickshell/common/Theme.qml
+BASE=232627ff
+TEXT=ffffffff
+SUBTEXT=afb3bdff
+ACCENT=2080bbff
+BRIGHT=40a5daff
+RED=cc2263ff
+GREEN=40da76ff
+CLEAR=00000000
+
+# Cache check: without generated images betterlockscreen can't lock —
+# fall through to xsecurelock rather than failing open
+if command -v betterlockscreen >/dev/null 2>&1 \
+        && [ -n "$(ls -A "$HOME/.cache/betterlockscreen" 2>/dev/null)" ]; then
+    exec betterlockscreen -l dimblur
+fi
+
+if command -v xsecurelock >/dev/null 2>&1; then
+    export XSECURELOCK_AUTH_BACKGROUND_COLOR="#232627"
+    export XSECURELOCK_AUTH_FOREGROUND_COLOR="#ffffff"
+    export XSECURELOCK_AUTH_WARNING_COLOR="#cc2263"
+    export XSECURELOCK_FONT="Hack:size=13"
+    export XSECURELOCK_PASSWORD_PROMPT="asterisks"
+    export XSECURELOCK_SHOW_USERNAME=1
+    export XSECURELOCK_SHOW_HOSTNAME=0
+    export XSECURELOCK_SHOW_DATETIME=1
+    export XSECURELOCK_DATETIME_FORMAT="%H:%M  —  %A %e %B"
+    export XSECURELOCK_SHOW_KEYBOARD_LAYOUT=0
+    # Blank (DPMS) the screen this many seconds after locking
+    export XSECURELOCK_BLANK_TIMEOUT=60
+    exec xsecurelock
+fi
+
+# i3lock-color ships as /usr/bin/i3lock on OMLx; fall back to plain flags if
+# the installed i3lock is the colorless original.
+if i3lock --help 2>&1 | grep -q -- '--ring-color'; then
+    exec i3lock -n \
+        --color="$BASE" \
+        --clock --force-clock \
+        --time-color="$TEXT" --time-str='%H:%M' --time-font='Hack' --time-size=42 \
+        --date-color="$SUBTEXT" --date-str='%A %e %B' --date-font='Hack' --date-size=14 \
+        --radius=110 --ring-width=6 \
+        --inside-color="$CLEAR" --ring-color="$ACCENT" \
+        --insidever-color="$CLEAR" --ringver-color="$GREEN" \
+        --insidewrong-color="$CLEAR" --ringwrong-color="$RED" \
+        --line-uses-inside \
+        --keyhl-color="$BRIGHT" --bshl-color="$RED" --separator-color="$CLEAR" \
+        --verif-color="$TEXT" --wrong-color="$TEXT" --modif-color="$TEXT" \
+        --verif-text='verifying…' --wrong-text='wrong' --noinput-text='' \
+        --ind-pos='x+w/2:y+h/2'
+else
+    exec i3lock -n -c "${BASE%??}"
+fi

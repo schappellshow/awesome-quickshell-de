@@ -1,0 +1,8 @@
+[Unit]
+Description=AwesomeWM X11 session
+Documentation=man:systemd.special(7)
+BindsTo=graphical-session.target
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target
+# Run the user's ~/.config/autostart entries once the session is up
+Wants=awesome-xdg-autostart.service

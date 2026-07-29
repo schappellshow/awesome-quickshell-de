@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# icon-theme-apply <ThemeName> — push an icon theme to every channel,
+# mirroring system-theme-apply's approach for dark/light mode.
+# Invoked by quickshell (common/SystemTheme.qml) when Settings.iconTheme
+# changes and at shell startup.
+set -u
+name="${1:?usage: icon-theme-apply <ThemeName>}"
+
+# GSettings (read by the GTK portal backend → Electron apps)
+gsettings set org.gnome.desktop.interface icon-theme "$name" 2>/dev/null || true
+
+# KDE apps
+command -v kwriteconfig6 >/dev/null 2>&1 &&
+    kwriteconfig6 --file kdeglobals --group Icons --key Theme "$name" || true
+
+# xsettingsd (live GTK apps)
+f="$HOME/.config/xsettingsd/xsettingsd.conf"
+if [ -f "$f" ]; then
+    if grep -q 'Net/IconThemeName' "$f"; then
+        sed -i "s|Net/IconThemeName.*|Net/IconThemeName \"$name\"|" "$f"
+    else
+        echo "Net/IconThemeName \"$name\"" >> "$f"
+    fi
+    pkill -HUP xsettingsd 2>/dev/null || true
+fi
+
+# GTK ini files (apps started later / without xsettingsd)
+for v in gtk-3.0 gtk-4.0; do
+    ini="$HOME/.config/$v/settings.ini"
+    [ -f "$ini" ] || continue
+    if grep -q 'gtk-icon-theme-name' "$ini"; then
+        sed -i "s|gtk-icon-theme-name=.*|gtk-icon-theme-name=$name|" "$ini"
+    else
+        sed -i "/\[Settings\]/a gtk-icon-theme-name=$name" "$ini"
+    fi
+done
