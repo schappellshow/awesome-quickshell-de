@@ -13,6 +13,25 @@ gsettings set org.gnome.desktop.interface icon-theme "$name" 2>/dev/null || true
 command -v kwriteconfig6 >/dev/null 2>&1 &&
     kwriteconfig6 --file kdeglobals --group Icons --key Theme "$name" || true
 
+# qt6ct — the channel Qt apps actually read for their icon theme, which
+# includes quickshell itself. Without this the shell keeps whatever
+# system-theme-apply seeded at creation (breeze-dark) no matter what is
+# picked in Settings, so the bar and its tray can only draw icons that
+# breeze ships: a third-party app like TeamViewer renders as the
+# missing-icon checkerboard even though the chosen theme has its icon.
+qt6ct="$HOME/.config/qt6ct/qt6ct.conf"
+if [ -f "$qt6ct" ]; then
+    # Every insert anchors on [Appearance]; seed it if qt6ct's own GUI left
+    # a file without one, or the edits below would silently no-op.
+    grep -q '^\[Appearance\]' "$qt6ct" || printf '\n[Appearance]\n' >>"$qt6ct"
+    # --follow-symlinks so an existing symlink is not replaced by a file
+    if grep -q '^icon_theme=' "$qt6ct"; then
+        sed -i --follow-symlinks "s|^icon_theme=.*|icon_theme=$name|" "$qt6ct"
+    else
+        sed -i --follow-symlinks "/^\[Appearance\]/a icon_theme=$name" "$qt6ct"
+    fi
+fi
+
 # xsettingsd (live GTK apps)
 f="$HOME/.config/xsettingsd/xsettingsd.conf"
 if [ -f "$f" ]; then
