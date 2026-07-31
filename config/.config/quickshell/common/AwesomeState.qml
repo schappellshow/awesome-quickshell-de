@@ -9,7 +9,11 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    // Array of { index, outputs: [names], layout, tags: [{index, name, selected, occupied, urgent}] }
+    // Array of { index, outputs: [names], layout,
+    //            tags:   [{ index, name, selected, occupied, urgent, minimized }],
+    //            hidden: [{ id, class, name }] }
+    // `minimized` counts hidden clients on that tag; `hidden` lists the ones
+    // on the tag(s) the screen is currently viewing, keyed by X window id.
     property var screens: []
 
     readonly property string statePath:
@@ -39,6 +43,17 @@ Singleton {
 
     function viewPrev(screenIndex) {
         exec(`require("awful").tag.viewprev(screen[${screenIndex}])`);
+    }
+
+    // Unminimize a specific client and focus it. Matched on X window id, so
+    // it stays correct as the hidden list shifts underneath; awesome's own
+    // awful.client.restore() can only pop the last-minimized one.
+    function restoreClient(windowId) {
+        exec(`for _, c in ipairs(client.get()) do `
+            + `if c.window == ${windowId} then `
+            + `c.minimized = false; `
+            + `c:emit_signal("request::activate", "quickshell.restore", { raise = true }) `
+            + `end end`);
     }
 
     function cycleLayout(screenIndex, dir) {

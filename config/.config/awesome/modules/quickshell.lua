@@ -14,6 +14,43 @@ local function esc(s)
     return out
 end
 
+-- Minimized clients are invisible everywhere else: the tiling layout drops
+-- them, so without this they can only be found through the rofi switcher.
+-- The per-tag count drives the taglist's "something is hidden here" pip;
+-- the per-screen list drives the bar's hidden-windows section.
+local function minimized_on(t)
+    local out = {}
+    for _, c in ipairs(t:clients()) do
+        if c.minimized then
+            out[#out + 1] = c
+        end
+    end
+    return out
+end
+
+-- Minimized clients on the tag(s) this screen is currently viewing. Keyed
+-- by X window id, which is stable and is what the restore command matches
+-- on. Deduped because a client can carry several of the selected tags.
+local function hidden_json(s)
+    local seen, out = {}, {}
+    for _, t in ipairs(s.selected_tags or {}) do
+        for _, c in ipairs(minimized_on(t)) do
+            if not seen[c.window] then
+                seen[c.window] = true
+                -- Both halves of WM_CLASS: they differ in case and content
+                -- ("Helium"/"helium"), and either may be the one that
+                -- matches a desktop entry. Either can also be nil.
+                out[#out + 1] = string.format(
+                    '{"id":%d,"class":"%s","instance":"%s","name":"%s"}',
+                    c.window, esc(c.class or ""), esc(c.instance or ""),
+                    esc(c.name or "")
+                )
+            end
+        end
+    end
+    return table.concat(out, ",")
+end
+
 local function collect()
     local screens = {}
     for s in screen do
@@ -25,20 +62,22 @@ local function collect()
         local tags = {}
         for i, t in ipairs(s.tags) do
             tags[#tags + 1] = string.format(
-                '{"index":%d,"name":"%s","selected":%s,"occupied":%s,"urgent":%s}',
+                '{"index":%d,"name":"%s","selected":%s,"occupied":%s,"urgent":%s,"minimized":%d}',
                 i, esc(t.name),
                 tostring(t.selected),
                 tostring(#t:clients() > 0),
-                tostring(t.urgent or false)
+                tostring(t.urgent or false),
+                #minimized_on(t)
             )
         end
 
         screens[#screens + 1] = string.format(
-            '{"index":%d,"outputs":[%s],"layout":"%s","tags":[%s]}',
+            '{"index":%d,"outputs":[%s],"layout":"%s","tags":[%s],"hidden":[%s]}',
             s.index,
             table.concat(outputs, ","),
             esc(awful.layout.getname(awful.layout.get(s))),
-            table.concat(tags, ",")
+            table.concat(tags, ","),
+            hidden_json(s)
         )
     end
     return '{"screens":[' .. table.concat(screens, ",") .. "]}"
@@ -125,6 +164,12 @@ function M.setup()
     client.connect_signal("tagged",           schedule)
     client.connect_signal("untagged",         schedule)
     client.connect_signal("property::urgent", schedule)
+    -- Minimizing changes neither tags nor occupancy, so without this the
+    -- hidden-window state would never reach the bar. manage/unmanage keep
+    -- the list correct when a minimized client is closed outright.
+    client.connect_signal("property::minimized", schedule)
+    client.connect_signal("manage",              schedule)
+    client.connect_signal("unmanage",            schedule)
     screen.connect_signal("list",             schedule)
     screen.connect_signal("list",             M.apply_bar_padding)
     M.apply_bar_padding()

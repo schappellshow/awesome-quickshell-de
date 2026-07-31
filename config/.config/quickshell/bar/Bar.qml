@@ -34,8 +34,9 @@ PanelWindow {
             }
             sections.push({ aw: aws, x: x, label: label, isHere: isHere });
         }
-        // This screen's full list first, then the other monitors'
-        // compact sections in physical left→right order
+        // This screen first (its label is the bold one), then the other
+        // monitors in physical left→right order. All sections render
+        // identically; only the label weight distinguishes them.
         sections.sort((a, b) => (b.isHere - a.isHere) || (a.x - b.x));
         return sections;
     }
@@ -75,22 +76,30 @@ PanelWindow {
                     spacing: 3
 
                     Text {
-                        // Label only the OTHER monitors' compact sections;
-                        // the full list is implicitly this screen
+                        // Every monitor is labelled now that the sections
+                        // render identically; this screen's label is bold,
+                        // which is the only thing marking it as the one the
+                        // bar lives on.
                         anchors.horizontalCenter: parent.horizontalCenter
                         visible: bar.tagSections.length > 1
-                            && !section.modelData.isHere
                         text: section.modelData.label
                         font.family: Theme.fontFamily
-                        font.bold: true
+                        font.bold: section.modelData.isHere
                         font.pointSize: 6
-                        color: Theme.muted
+                        color: section.modelData.isHere ? Theme.subtext : Theme.muted
                     }
 
                     Workspaces {
                         anchors.horizontalCenter: parent.horizontalCenter
                         awScreen: section.modelData.aw
-                        compact: !section.modelData.isHere
+                    }
+
+                    // Hidden windows sit directly beneath the tags they
+                    // belong to, so nothing extra is needed to say which
+                    // monitor they're on. Absent unless something is hidden.
+                    HiddenWindows {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        awScreen: section.modelData.aw
                     }
                 }
             }
