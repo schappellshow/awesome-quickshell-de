@@ -32,6 +32,12 @@ Scope {
         if (shown) {
             bgProbe.running = true;
             iconProbe.running = true;   // pick up an icon-theme change
+        } else {
+            // Awesome holds a keyboard grab for as long as the menu is up
+            // (see modules/keys.lua). Release it however the menu closed —
+            // key, mouse click on an action, or click on the backdrop —
+            // so the grab can never outlive the window.
+            Quickshell.execDetached(["awesome-client", "power_menu_release()"]);
         }
     }
 
@@ -115,6 +121,32 @@ Scope {
         return -1;
     }
 
+    // Single entry point for keyboard input, whether it arrives from QML's
+    // own Keys handlers or is forwarded by awesome's keygrabber (X11, where
+    // this window can't hold focus). Takes an X keysym name, so single
+    // letters arrive as "s" and named keys as "Left"/"Return"/"Escape".
+    function handleKey(name) {
+        switch (name) {
+        case "Escape":
+        case "BackSpace":       // the same chord that opened the menu
+            shown = false;
+            return;
+        case "Left":
+            selected = (selected + actions.length - 1) % actions.length;
+            return;
+        case "Right":
+            selected = (selected + 1) % actions.length;
+            return;
+        case "Return":
+        case "KP_Enter":
+            activate(selected);
+            return;
+        }
+        const i = indexForKey(name);
+        if (i >= 0)
+            activate(i);
+    }
+
     IpcHandler {
         target: "power"
 
@@ -130,6 +162,12 @@ Scope {
 
         function close(): void {
             root.shown = false;
+        }
+
+        // Keysym forwarded by awesome's keygrabber while the menu is open.
+        function key(name: string): void {
+            if (root.shown)
+                root.handleKey(name);
         }
     }
 
@@ -180,13 +218,16 @@ Scope {
                     anchors.fill: parent
                     focus: true
 
-                    Keys.onEscapePressed: root.shown = false
-                    Keys.onLeftPressed: root.selected =
-                        (root.selected + root.actions.length - 1) % root.actions.length
-                    Keys.onRightPressed: root.selected =
-                        (root.selected + 1) % root.actions.length
-                    Keys.onReturnPressed: root.activate(root.selected)
-                    Keys.onEnterPressed: root.activate(root.selected)
+                    // Used only where this window can actually hold keyboard
+                    // focus. Under X11 it can't (override-redirect), and
+                    // nothing arrives here — awesome forwards keysyms to the
+                    // `key` IPC call above instead. Both routes end up in
+                    // handleKey(), so the behaviour is defined once.
+                    Keys.onEscapePressed: root.handleKey("Escape")
+                    Keys.onLeftPressed: root.handleKey("Left")
+                    Keys.onRightPressed: root.handleKey("Right")
+                    Keys.onReturnPressed: root.handleKey("Return")
+                    Keys.onEnterPressed: root.handleKey("Return")
 
                     // Single-key shortcuts (l/o/s/r/p). Only accept the event
                     // on a match, so Escape/arrows/Enter still reach their

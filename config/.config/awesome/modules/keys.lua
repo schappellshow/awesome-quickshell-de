@@ -27,6 +27,43 @@ local modkey = "Mod4"
 
 local M = {}
 
+-- ── Power menu keyboard ──────────────────────────────────────────────────
+-- quickshell draws the power menu in an override-redirect window, which a
+-- window manager cannot focus and X therefore never sends key events to, so
+-- the menu's own QML Keys handlers can't fire under X11 (`focusable: true`
+-- is a Wayland layer-shell concept). Awesome owns the keyboard, so grab it
+-- here and forward keysyms over IPC; power/PowerMenu.qml stays the single
+-- definition of what each key does.
+local power_grabber = nil
+
+local function power_menu_release()
+    if power_grabber then
+        awful.keygrabber.stop(power_grabber)
+        power_grabber = nil
+    end
+end
+
+-- PowerMenu.qml calls this through awesome-client whenever the menu closes
+-- — including a mouse click or an action picked with the mouse — so the
+-- grab can never outlive the menu and strand the keyboard.
+_G.power_menu_release = power_menu_release
+
+local function power_menu_open()
+    power_menu_release()
+    awful.spawn("qs ipc call power open")
+    power_grabber = awful.keygrabber.run(function(_, key, event)
+        if event ~= "press" then
+            return
+        end
+        -- Escape is handled here as well as in QML: if quickshell dies while
+        -- the grab is active, this is the way out.
+        if key == "Escape" then
+            power_menu_release()
+        end
+        awful.spawn({ "qs", "ipc", "call", "power", "key", key })
+    end)
+end
+
 M.globalkeys = gears.table.join(
 
     -- ── Awesome ────────────────────────────────────────────────────────────
@@ -83,8 +120,7 @@ M.globalkeys = gears.table.join(
         { description = "media player panel", group = "media" }),
 
     -- ── Session ────────────────────────────────────────────────────────────
-    awful.key({ modkey }, "BackSpace",
-        function() awful.spawn("qs ipc call power toggle") end,
+    awful.key({ modkey }, "BackSpace", power_menu_open,
         { description = "power menu", group = "awesome" }),
     awful.key({ "Control", "Mod1" }, "l",
         function() awful.spawn("loginctl lock-session") end,
@@ -324,7 +360,7 @@ M.mainmenu = awful.menu({
             { "Reload",  awesome.restart },
             { "Log Out", function() awesome.quit() end },
         } },
-        { "Power",          function() awful.spawn("qs ipc call power toggle") end },
+        { "Power",          power_menu_open },
     },
 })
 
