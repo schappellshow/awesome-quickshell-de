@@ -18,6 +18,8 @@ everything else costs you one feature.
 |---|---|---|
 | `picom` | Compositing: transparency, blur, rounded corners | Bar/panels look flat and opaque |
 | `rofi` | App launcher, run dialog, window switcher, clipboard | `Super+Space` and friends do nothing |
+| `greenclip` *(binary)* | Clipboard history daemon behind `Super+/` | Clipboard picker opens empty and never records |
+| `rofimoji` *(pip)* | Emoji picker on `Super+.` | `Super+.` does nothing |
 | `feh` | Sets the wallpaper | No wallpaper |
 | `xsettingsd` | Pushes GTK theme/icon changes to running apps | Theme changes need an app restart |
 | `qt6ct` + a Qt platform theme | Qt apps follow dark/light and find icons | Qt apps and tray menus render light |
@@ -35,6 +37,7 @@ everything else costs you one feature.
 | `xsecurelock` *(source build)* | Lock screen with a password prompt | Falls back to `i3lock-color`, then plain `i3lock` |
 | `i3lock-color` | Lock screen fallback | Only matters if xsecurelock is absent too |
 | `betterlockscreen` *(script)* | Blurred-wallpaper lock screen | Falls back to xsecurelock's plain screen |
+| `imagemagick` | Builds betterlockscreen's blur/dim cache | betterlockscreen can't generate a lock image |
 | `gammastep` *(often source)* | Night light / colour temperature | `Super+Shift+N` does nothing |
 | `udiskie` *(often pip)* | Automounts USB sticks and SD cards | Mount removable media by hand |
 | `brightnessctl` | Backlight keys | Brightness keys do nothing (desktops have no backlight anyway) |

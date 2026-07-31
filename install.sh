@@ -113,6 +113,10 @@ pkg_for() {
         dnf:udiskie)       echo "" ;;   # not packaged; pip fallback
         *:udiskie)         echo udiskie ;;
 
+        # --- betterlockscreen's blur/dim cache is built with `convert` ---
+        zypper:imagemagick) echo ImageMagick ;;
+        *:imagemagick)     echo imagemagick ;;
+
         # --- icons ---
         dnf:icons)         echo kf6-breeze-icons ;;
         apt:icons)         echo breeze-icon-theme ;;
@@ -158,7 +162,7 @@ if [ "$PM" != none ] && [ "${SKIP_PACKAGES:-0}" != 1 ]; then
     for key in awesome quickshell picom rofi feh xsettingsd playerctl flameshot \
                brightnessctl blueman thunar qt6ct stow git curl portal polkit \
                kwallet i3lock mixer printer udiskie icons font-mono font-nerd \
-               build; do
+               imagemagick build; do
         names="$(pkg_for "$key")"
         if [ -z "$names" ]; then
             MISSING+=("$key (not packaged for $PM)")
@@ -198,6 +202,53 @@ if [ "${SKIP_BUILDS:-0}" != 1 ]; then
     pam_service=system-auth; [ -f /etc/pam.d/system-auth ] || pam_service=login
     build_from_git xsecurelock https://github.com/google/xsecurelock.git \
         "sh autogen.sh && ./configure --prefix=/usr/local --with-pam-service-name=$pam_service && make -j$(nproc) && sudo make install"
+fi
+
+# ── Single-file tools (essentially unpackaged everywhere) ───────────────
+# Each is used by a binding or script in this repo, so a missing one is a
+# feature that silently does nothing rather than an obvious failure.
+mkdir -p "$HOME/.local/bin"
+
+# Clipboard history: the daemon feeds rofi's clipboard mode (Super+/), and
+# awesome autostarts it. Ships as a static binary; only the AUR packages it.
+if ! command -v greenclip >/dev/null 2>&1; then
+    info "greenclip (clipboard history daemon)"
+    gc_url="$(curl -fsSL https://api.github.com/repos/erebe/greenclip/releases/latest 2>/dev/null \
+        | grep -o '"browser_download_url": *"[^"]*"' | grep -o 'https://[^"]*' | head -1)"
+    if [ -n "${gc_url:-}" ] && curl -fL "$gc_url" -o "$HOME/.local/bin/greenclip" 2>/dev/null; then
+        chmod +x "$HOME/.local/bin/greenclip"
+        ok "greenclip installed"
+    else
+        rm -f "$HOME/.local/bin/greenclip"
+        MISSING+=("greenclip (fetch failed; https://github.com/erebe/greenclip/releases)")
+    fi
+fi
+
+# Blurred-wallpaper lock screen. A single shell script wrapping i3lock-color;
+# lock-screen prefers it, and Wallpaper.qml rebuilds its cache on every
+# wallpaper change. Needs imagemagick, installed above.
+if ! command -v betterlockscreen >/dev/null 2>&1; then
+    info "betterlockscreen (blurred-wallpaper lock screen)"
+    if curl -fsSL https://raw.githubusercontent.com/betterlockscreen/betterlockscreen/main/betterlockscreen \
+            -o "$HOME/.local/bin/betterlockscreen" 2>/dev/null; then
+        chmod +x "$HOME/.local/bin/betterlockscreen"
+        ok "betterlockscreen installed"
+    else
+        rm -f "$HOME/.local/bin/betterlockscreen"
+        MISSING+=("betterlockscreen (fetch failed; falls back to xsecurelock)")
+    fi
+fi
+
+# Emoji picker behind Super+. — python, rarely packaged.
+if ! command -v rofimoji >/dev/null 2>&1; then
+    info "rofimoji (emoji picker)"
+    if command -v pipx >/dev/null 2>&1 && pipx --version >/dev/null 2>&1; then
+        pipx install rofimoji || MISSING+=("rofimoji (pipx install failed)")
+    elif command -v pip3 >/dev/null 2>&1 || command -v pip >/dev/null 2>&1; then
+        python3 -m pip install --user rofimoji || MISSING+=("rofimoji (pip install failed)")
+    else
+        MISSING+=("rofimoji (no pipx/pip; install python3-pip)")
+    fi
 fi
 
 # udiskie: needs the system PyGObject, so pip --user rather than an
