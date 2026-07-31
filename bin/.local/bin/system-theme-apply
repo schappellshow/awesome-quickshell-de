@@ -26,7 +26,7 @@ command -v plasma-apply-colorscheme >/dev/null \
 
 # qt6ct: the platform theme Qt apps read (quickshell's tray menus,
 # pavucontrol-qt, ...). It is a static file, so the toggle has to rewrite
-# the color scheme here. Deliberately NOT tracked in the stow repo: it is
+# the color scheme here. Deliberately NOT tracked in this repo: it is
 # rewritten at runtime, and a tracked copy would be dirtied on every
 # toggle (same reasoning as quickshell's settings.json).
 qt6ct="$HOME/.config/qt6ct/qt6ct.conf"

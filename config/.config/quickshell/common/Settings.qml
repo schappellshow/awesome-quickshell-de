@@ -3,7 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Persistent shell settings. Stored outside the stow repo in quickshell's
+// Persistent shell settings. Stored outside this repo in quickshell's
 // per-shell state dir (~/.local/state/quickshell/by-shell/...) so runtime
 // changes never dirty the config repo.
 //

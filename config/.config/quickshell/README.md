@@ -43,12 +43,13 @@ osd/                       volume/brightness on-screen display
   own `org.freedesktop.Notifications`; naughty still shows awesome's own
   startup/runtime errors.
 
-## Install (OpenMandriva)
+## Install
 
-New machine: run `./install-desktop.sh` from the stow repo root — it
-installs all packages (quickshell, picom, rofi, gammastep, portals, fonts,
-...), stows the configs, fetches greenclip/rofimoji, and seeds the dark
-theme. Minimal manual equivalent:
+New machine: run `./install.sh` from this repo's root — it installs all
+packages (quickshell, picom, rofi, portals, fonts, ...), builds the few
+tools that are rarely packaged (gammastep, xss-lock, xsecurelock), and
+stows `config bin session` into `$HOME`. See the top-level `README.md` and
+`docs/DEPENDENCIES.md`. Minimal manual equivalent on OpenMandriva:
 
 ```sh
 sudo dnf install quickshell quickshell-x11
@@ -75,17 +76,17 @@ qs ipc call sysmon toggle        # Super+Shift+m (conky dashboard popout)
 ## Session security
 
 Locking is not quickshell's job: `xss-lock` (autostarted by awesome) runs
-the `lock-screen` wrapper (from the `local` stow package) on idle (xset,
+the `lock-screen` wrapper (from this repo's `bin/`) on idle (xset,
 Settings → Power page), on `loginctl lock-session` (Ctrl+Alt+L), and before
 suspend via systemd's sleep inhibitor. The wrapper prefers xsecurelock
-(login-style password prompt, source-built by install-desktop.sh) and falls
+(login-style password prompt, source-built by `install.sh`) and falls
 back to i3lock-color's ring indicator. The polkit auth agent is
 lxqt-policykit (Qt, no KDE deps), also autostarted by awesome.
 
 ## System-wide dark/light mode
 
-`common/SystemTheme.qml` runs `~/.local/bin/system-theme-apply` (from the
-`local` stow package) at shell startup and on every Super+Shift+t /
+`common/SystemTheme.qml` runs `~/.local/bin/system-theme-apply` (from this
+repo's `bin/`) at shell startup and on every Super+Shift+t /
 settings-app toggle. That script pushes the mode to every channel apps use
 for the "system" theme: GSettings color-scheme/gtk-theme (read by the GTK
 portal backend, which answers Electron apps like Slack — see
@@ -94,7 +95,7 @@ plasma-apply-colorscheme, qt6ct.conf (Qt apps), and xsettingsd + gtk
 settings.ini (GTK apps). Files are created if missing, for fresh machines.
 
 Qt apps read their palette *and* icon theme through
-`QT_QPA_PLATFORMTHEME=qt6ct`, set in the stowed `shell/.xprofile`. The
+`QT_QPA_PLATFORMTHEME=qt6ct`, set in this repo's `session/.xprofile`. The
 xdgdesktopportal platform theme was tried first and rejected: it supplies a
 color scheme but no icon theme, so Qt's icon lookup fails and
 `Quickshell.iconPath()` returns `image://icon` URLs that never load. qt6ct
