@@ -37,8 +37,31 @@ Column {
             // because it also matches on StartupWMClass and entry name.
             readonly property string appClass: modelData.class || ""
             readonly property string appInstance: modelData.instance || ""
-            readonly property var candidates:
-                [entry.appClass, entry.appInstance].filter(n => n !== "")
+
+            // Names to try, best first. Reverse-DNS classes are common and
+            // almost never match an icon name whole: TeamViewer reports
+            // "com.teamviewer.TeamViewer", whose icon is plain "teamviewer".
+            // So each name also contributes its last dotted segment.
+            readonly property var candidates: {
+                const out = [];
+                for (const n of [entry.appClass, entry.appInstance]) {
+                    if (n === "")
+                        continue;
+                    if (!out.includes(n))
+                        out.push(n);
+                    const tail = n.split(".").pop();
+                    if (tail !== "" && !out.includes(tail))
+                        out.push(tail);
+                }
+                return out;
+            }
+
+            // Last dotted segment of the class, for the degraded initial —
+            // "T" for com.teamviewer.TeamViewer rather than a useless "C".
+            readonly property string displayName: {
+                const n = entry.appClass !== "" ? entry.appClass : entry.appInstance;
+                return n === "" ? "" : n.split(".").pop();
+            }
 
             readonly property var entryMatch: {
                 for (const n of entry.candidates) {
@@ -113,8 +136,8 @@ Column {
             Text {
                 anchors.centerIn: parent
                 visible: icon.status !== Image.Ready
-                text: entry.candidates.length === 0
-                    ? "?" : entry.candidates[0].charAt(0).toUpperCase()
+                text: entry.displayName === ""
+                    ? "?" : entry.displayName.charAt(0).toUpperCase()
                 font.family: Theme.fontFamily
                 font.bold: true
                 font.pointSize: 9
