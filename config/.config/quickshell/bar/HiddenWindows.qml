@@ -106,9 +106,9 @@ Column {
                 return "";
             }
 
-            width: 24
-            height: 24
-            radius: 6
+            width: 20
+            height: 20
+            radius: 5
             anchors.horizontalCenter: parent.horizontalCenter
             // Dimmed at rest: these windows are hidden, and shouldn't pull
             // attention the way the taglist or an urgent tag does.
@@ -122,11 +122,11 @@ Column {
             Image {
                 id: icon
                 anchors.centerIn: parent
-                width: 18
-                height: 18
+                width: 16
+                height: 16
                 source: entry.iconSource
-                sourceSize.width: 36
-                sourceSize.height: 36
+                sourceSize.width: 32
+                sourceSize.height: 32
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
                 visible: status === Image.Ready
@@ -140,7 +140,7 @@ Column {
                     ? "?" : entry.displayName.charAt(0).toUpperCase()
                 font.family: Theme.fontFamily
                 font.bold: true
-                font.pointSize: 9
+                font.pointSize: 8
                 color: Theme.subtext
             }
 
