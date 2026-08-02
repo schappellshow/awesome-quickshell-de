@@ -117,9 +117,14 @@ scr_mem.setup()
 
 -- Stop the systemd session target on real logout (not on Super+Ctrl+R),
 -- so graphical-session services (espanso, ...) shut down like under Plasma.
+-- AWESOME_SESSION goes with it: the user manager lingers, so leaving it set
+-- would follow you into a Plasma session and keep KDE's shortcut daemon
+-- disabled there (see modules/autostart.lua).
 awesome.connect_signal("exit", function(restarting)
     if not restarting then
-        awful.spawn.with_shell("systemctl --user stop awesome-session.target")
+        awful.spawn.with_shell(
+            "systemctl --user unset-environment AWESOME_SESSION 2>/dev/null; "
+            .. "systemctl --user stop awesome-session.target")
     end
 end)
 

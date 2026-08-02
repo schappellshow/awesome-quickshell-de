@@ -287,6 +287,38 @@ elif [ ! -f "$HOME/.bash_profile" ]; then
     ok "created ~/.bash_profile chaining ~/.xprofile"
 fi
 
+# ── Keep KDE's shortcut daemon out of this session ──────────────────────
+# On a machine that has, or used to have, Plasma installed, kglobalacceld is
+# D-Bus activated by any KDE app that happens to run — spectacle, a KWallet
+# prompt — and then claims every shortcut left in ~/.config/kglobalshortcutsrc.
+# Meta+Space is KRunner's default, so it silently shadows the rofi launcher,
+# and a migrated config usually holds dozens more Meta+ bindings.
+#
+# Masking the units would stop that but would also break every global
+# shortcut in a Plasma session, since kglobalaccel serves the whole session
+# and both units are D-Bus activated rather than started by a target. Gate
+# them instead on a variable awesome sets while it runs and clears when it
+# exits (modules/autostart.lua, rc.lua), so a Plasma session is untouched.
+for unit in plasma-kglobalaccel plasma-krunner; do
+    found=""
+    for d in /usr/lib/systemd/user /usr/local/lib/systemd/user /etc/systemd/user; do
+        [ -f "$d/$unit.service" ] && found=1 && break
+    done
+    [ -n "$found" ] || continue
+    dropin="$HOME/.config/systemd/user/$unit.service.d"
+    mkdir -p "$dropin"
+    cat >"$dropin/zz-awesome-session.conf" <<'EOF'
+# Installed by awesome-quickshell-de.
+# Skips this KDE unit while the awesome session is running. A Plasma session,
+# where AWESOME_SESSION is unset, starts it normally — so KRunner and the
+# rest of Plasma's global shortcuts keep working there.
+# Delete this file to restore stock behaviour.
+[Unit]
+ConditionEnvironment=!AWESOME_SESSION=1
+EOF
+    ok "$unit gated on AWESOME_SESSION"
+done
+
 info "systemd user units"
 systemctl --user daemon-reload 2>/dev/null || true
 

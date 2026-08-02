@@ -69,6 +69,31 @@ and the desktop talks to them rather than shipping its own:
 - **CUPS** — printing
 - **polkit** — privilege escalation
 
+## If this machine has Plasma installed
+
+`kglobalacceld` is D-Bus activated by any KDE app you launch — spectacle, a
+KWallet prompt — and then claims every shortcut in
+`~/.config/kglobalshortcutsrc`. `Meta+Space` is KRunner's default, so it
+silently shadows `Super+Space`, and a config migrated from Plasma typically
+holds dozens more `Meta+` bindings that collide with this desktop's.
+
+`install.sh` handles this by adding a drop-in to `plasma-kglobalaccel` and
+`plasma-krunner`:
+
+```ini
+[Unit]
+ConditionEnvironment=!AWESOME_SESSION=1
+```
+
+awesome sets `AWESOME_SESSION=1` at startup and clears it on logout, so the
+units are skipped here and start normally in a Plasma session. Masking them
+would have broken every Plasma shortcut, not just search.
+
+If awesome ever exits without running its exit handler (an X server crash,
+say), the variable can survive — the user manager lingers. Symptom: no
+global shortcuts in Plasma. Clear it with
+`systemctl --user unset-environment AWESOME_SESSION`, or reboot.
+
 ## Notes on source builds
 
 `xss-lock`, `xsecurelock` and sometimes `gammastep` aren't packaged on most

@@ -43,8 +43,16 @@ end
 -- Tie the systemd user session lifecycle to this session: services hooked
 -- to graphical-session.target (espanso, ...) start here like they did
 -- under Plasma. The matching stop lives in rc.lua's exit handler.
+-- AWESOME_SESSION marks "this session is awesome, not Plasma" for the
+-- drop-ins install.sh adds to plasma-kglobalaccel/plasma-krunner: those
+-- units are skipped while it is set, so KDE's shortcut daemon can't claim
+-- Meta+Space (KRunner's default) away from the rofi launcher. Cleared again
+-- in rc.lua's exit handler. A variable we own is used rather than
+-- XDG_CURRENT_DESKTOP because the user manager lingers, so its environment
+-- outlives the session and a stale value would follow you into Plasma.
 awful.spawn.with_shell(
     "systemctl --user import-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP DESKTOP_SESSION 2>/dev/null; "
+    .. "systemctl --user set-environment AWESOME_SESSION=1 2>/dev/null; "
     .. "systemctl --user start awesome-session.target"
 )
 
