@@ -213,18 +213,31 @@ M.globalkeys = gears.table.join(
     -- "Print" covers both full keyboards and 60% boards where Fn+K → Print keycode.
     -- If your 60% sends a different keycode, run `xev` to find it and add it here.
     -- flameshot preferred (region select + annotation); scrot as fallback.
+    --
+    -- The fallback is chosen on whether flameshot EXISTS, never on how it
+    -- exits. `cmd && flameshot gui || scrot` looks equivalent but is not:
+    -- flameshot returns non-zero when a selection is cancelled with Escape,
+    -- so that form silently saved a full-screen scrot every time you changed
+    -- your mind — and, if flameshot's gui mode is broken, on every keypress,
+    -- which looks exactly like the key doing nothing at all.
     awful.key({ }, "Print",
         function()
-            awful.spawn.with_shell(
-                "command -v flameshot >/dev/null && flameshot gui || " ..
-                "scrot '%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/Pictures/Screenshots/'")
+            awful.spawn.with_shell([[
+if command -v flameshot >/dev/null 2>&1; then
+    flameshot gui
+else
+    scrot -s '%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/Pictures/Screenshots/'
+fi]])
         end,
         { description = "screenshot (region)", group = "misc" }),
     awful.key({ "Shift" }, "Print",
         function()
-            awful.spawn.with_shell(
-                "command -v flameshot >/dev/null && flameshot full -p ~/Pictures/Screenshots || " ..
-                "scrot '%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/Pictures/Screenshots/'")
+            awful.spawn.with_shell([[
+if command -v flameshot >/dev/null 2>&1; then
+    flameshot full -p ~/Pictures/Screenshots
+else
+    scrot '%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/Pictures/Screenshots/'
+fi]])
         end,
         { description = "screenshot (full)", group = "misc" }),
 
