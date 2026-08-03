@@ -15,15 +15,27 @@ PopupWindow {
     property int viewYear: new Date().getFullYear()
     property int viewMonth: new Date().getMonth()
 
+    // The wall clock has to be a property, not a `new Date()` read inside
+    // the cells binding. QML can only re-run a binding when something it
+    // depends on changes, and it cannot watch the clock — so the "today"
+    // ring froze at whenever cells last ran (component creation, or the last
+    // month change) and stayed there for as long as quickshell was up.
+    // Refreshed on every open, which is the only time it can be seen.
+    property var today: new Date()
+
     onShownChanged: {
         if (shown)
             goToday();
     }
 
     function goToday() {
-        const now = new Date();
-        viewYear = now.getFullYear();
-        viewMonth = now.getMonth();
+        // Re-read the clock first: assigning viewYear/viewMonth values they
+        // already hold emits no change, so on the common path (opening the
+        // popup during the current month) this assignment is what makes the
+        // cells binding re-evaluate at all.
+        today = new Date();
+        viewYear = today.getFullYear();
+        viewMonth = today.getMonth();
     }
 
     function shiftMonth(delta) {
@@ -40,7 +52,7 @@ PopupWindow {
     readonly property var cells: {
         const first = new Date(viewYear, viewMonth, 1);
         const start = new Date(viewYear, viewMonth, 1 - first.getDay());
-        const today = new Date();
+        const today = panel.today;
         const out = [];
         for (let i = 0; i < 42; i++) {
             const d = new Date(start.getFullYear(), start.getMonth(),
