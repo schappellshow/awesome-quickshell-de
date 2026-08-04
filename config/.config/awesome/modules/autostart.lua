@@ -72,6 +72,22 @@ awful.spawn.with_shell(
 -- Clipboard daemon (feeds Super+/ rofi clipboard picker)
 run_once({ "greenclip", "daemon" })
 
+-- Flameshot's background instance. This is what makes the Copy button work:
+-- on X11 a clipboard selection is served on demand by the process that
+-- owns it, so it lives exactly as long as that process does. `flameshot gui`
+-- launched cold takes the shot, copies, and exits — and CLIPBOARD is left
+-- with no owner the moment it does, so the Copy button appeared to do
+-- nothing and Ctrl+V pasted whatever came before. greenclip doesn't cover
+-- for it either; it never claims ownership of the image.
+--
+-- With this running, Print's `flameshot gui` hands the capture to the
+-- background instance over D-Bus and that instance keeps holding the
+-- selection, so the image stays pasteable for the rest of the session.
+-- install.sh turns its tray icon off; the bar has its own tray and Print is
+-- the entry point. Harmless where flameshot isn't installed (Print falls
+-- back to scrot).
+run_once({ "flameshot" })
+
 -- xsettingsd propagates GTK/icon theme to running apps
 run_once({ "xsettingsd" })
 

@@ -324,6 +324,21 @@ systemctl --user daemon-reload 2>/dev/null || true
 
 mkdir -p "$HOME/Pictures/Screenshots"
 
+# ── Flameshot: background instance, no tray icon ─────────────────────────
+# modules/autostart.lua keeps a flameshot instance running so its Copy button
+# survives the capture (on X11 the copied image dies with the process that owns
+# the selection). That instance ships a tray icon by default, which this
+# desktop doesn't need — the Print key is the entry point and the bar has its
+# own tray. Seed the setting only when the key is absent, so re-running the
+# installer never overrides a tray icon somebody turned back on deliberately.
+# The key is flameshot's own spelling: disabledTrayIcon, not showTrayIcon.
+if command -v flameshot >/dev/null 2>&1 \
+   && ! grep -q '^disabledTrayIcon=' "$HOME/.config/flameshot/flameshot.ini" 2>/dev/null; then
+    if flameshot config --trayicon false >/dev/null 2>&1; then
+        ok "flameshot tray icon disabled (background instance still runs)"
+    fi
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────────
 echo
 if [ ${#MISSING[@]} -gt 0 ]; then

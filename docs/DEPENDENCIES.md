@@ -47,7 +47,7 @@ everything else costs you one feature.
 
 | Package | Provides | If missing |
 |---|---|---|
-| `flameshot` | `Print` screenshot with region select + annotation | Falls back to `scrot` |
+| `flameshot` | `Print` screenshot with region select + annotation. Autostarted as a background instance so its Copy button survives the capture — on X11 the copied image dies with the process that owns the selection | Falls back to `scrot` |
 | `playerctl` | Media keys | Media keys do nothing |
 | `pavucontrol-qt` | Per-app volume mixer | Settings → Audio still handles defaults/volume |
 | `blueman` | Bluetooth pairing wizard | Bar widget still connects known devices |
