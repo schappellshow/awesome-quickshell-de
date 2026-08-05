@@ -50,7 +50,7 @@ awful.rules.rules = {
                 "Arandr", "Blueman-manager", "Gpick", "Kruler",
                 "MessageWin", "Sxiv", "Wpa_gui", "veromix",
                 "xtightvncviewer", "Pavucontrol", "Nm-connection-editor",
-                "pavucontrol-qt", "flameshot", "Proton Mail Bridge",
+                "pavucontrol-qt", "Proton Mail Bridge",
             },
             name  = { "Event Tester" },
             role  = { "AlarmWindow", "ConfigManager", "pop-up" },
@@ -114,6 +114,61 @@ awful.rules.rules = {
                 return require("modules.quickshell").bar_screen()
             end,
         }
+    },
+
+    -- Spectacle's region-select overlay (the Print key). It maps one
+    -- fullscreen window per monitor, each carrying exact min=max size hints
+    -- for the screen it belongs to — 1920x1080, 1920x1080, 1080x1920 on a
+    -- three-monitor setup. The default rule above hands every new client to
+    -- the *focused* screen, which stacked all three on one monitor; going
+    -- fullscreen there then clamped each to that screen's width and its own
+    -- max_height, so two overlays came out 1080x1080 and most of the desktop
+    -- was simply unselectable.
+    --
+    -- So place each overlay on the screen whose geometry matches its hints.
+    -- Identical monitors are handed out one apiece (`taken`), or both
+    -- 1920x1080 overlays would pile onto the first matching screen. The
+    -- fullscreen off/on toggle in the callback is what actually re-applies
+    -- the geometry: awesome computed it against the wrong screen while
+    -- applying properties, and simply reassigning .screen doesn't recompute.
+    {
+        rule = { class = "spectacle" },
+        properties = {
+            border_width      = 0,
+            titlebars_enabled = false,
+            placement         = false,
+        },
+        callback = function(c)
+            local h = c.size_hints
+            -- max_* is what spectacle pins; width/height cover a client that
+            -- only advertises a preferred size.
+            local w  = h and (h.max_width  or h.width)
+            local ht = h and (h.max_height or h.height)
+            if not w or not ht then return end
+
+            local taken = {}
+            for _, o in ipairs(client.get()) do
+                if o ~= c and o.class == "spectacle" and o.screen then
+                    taken[o.screen.index] = true
+                end
+            end
+
+            local target
+            for s in screen do
+                local g = s.geometry
+                if g.width == w and g.height == ht then
+                    -- Prefer an unclaimed screen, but fall back to a matching
+                    -- claimed one rather than leaving the overlay misplaced.
+                    target = target or s
+                    if not taken[s.index] then target = s break end
+                end
+            end
+            if target then
+                c.fullscreen = false
+                c.screen     = target
+                c.fullscreen = true
+            end
+        end
     },
 
     -- Quickshell's normal windows (settings app) float centered. type=normal

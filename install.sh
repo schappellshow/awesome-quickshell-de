@@ -70,7 +70,7 @@ pkg_for() {
         *:feh)            echo feh ;;
         *:xsettingsd)     echo xsettingsd ;;
         *:playerctl)      echo playerctl ;;
-        *:flameshot)      echo flameshot ;;
+        *:spectacle)      echo spectacle ;;
         *:brightnessctl)  echo brightnessctl ;;
         *:blueman)        echo blueman ;;
         *:thunar)         echo thunar ;;
@@ -159,7 +159,7 @@ pkg_for() {
 if [ "$PM" != none ] && [ "${SKIP_PACKAGES:-0}" != 1 ]; then
     info "Resolving packages for $PM"
     want=()
-    for key in awesome quickshell picom rofi feh xsettingsd playerctl flameshot \
+    for key in awesome quickshell picom rofi feh xsettingsd playerctl spectacle \
                brightnessctl blueman thunar qt6ct stow git curl portal polkit \
                kwallet i3lock mixer printer udiskie icons font-mono font-nerd \
                imagemagick build; do
@@ -324,18 +324,29 @@ systemctl --user daemon-reload 2>/dev/null || true
 
 mkdir -p "$HOME/Pictures/Screenshots"
 
-# ── Flameshot: background instance, no tray icon ─────────────────────────
-# modules/autostart.lua keeps a flameshot instance running so its Copy button
-# survives the capture (on X11 the copied image dies with the process that owns
-# the selection). That instance ships a tray icon by default, which this
-# desktop doesn't need — the Print key is the entry point and the bar has its
-# own tray. Seed the setting only when the key is absent, so re-running the
-# installer never overrides a tray icon somebody turned back on deliberately.
-# The key is flameshot's own spelling: disabledTrayIcon, not showTrayIcon.
-if command -v flameshot >/dev/null 2>&1 \
-   && ! grep -q '^disabledTrayIcon=' "$HOME/.config/flameshot/flameshot.ini" 2>/dev/null; then
-    if flameshot config --trayicon false >/dev/null 2>&1; then
-        ok "flameshot tray icon disabled (background instance still runs)"
+# ── Spectacle: keep the editor open after Copy ───────────────────────────
+# modules/keys.lua binds Print to `spectacle -r` in GUI mode deliberately: on
+# X11 a clipboard selection is served on demand by the process holding it, so
+# it dies the instant that process exits. Spectacle's "quit after manual Save
+# or Copy" option does exactly that — you would click Copy, the window would
+# close, and Ctrl+V would paste whatever came before. Pin it off so the editor
+# stays up serving the image.
+#
+# Seed each key only when it is absent, so re-running the installer never
+# overrides something set deliberately in Spectacle's own settings dialog.
+if command -v spectacle >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2>&1; then
+    spectaclerc="$HOME/.config/spectaclerc"
+    if ! grep -q '^quitAfterSaveCopyExport=' "$spectaclerc" 2>/dev/null; then
+        kwriteconfig6 --file spectaclerc --group General \
+                      --key quitAfterSaveCopyExport false
+        ok "spectacle: editor stays open after Copy (clipboard survives)"
+    fi
+    # Where the editor's own Save button writes — same place Shift+Print puts
+    # full-screen shots. Spectacle wants a URL here, not a bare path.
+    if ! grep -q '^imageSaveLocation=' "$spectaclerc" 2>/dev/null; then
+        kwriteconfig6 --file spectaclerc --group ImageSave \
+                      --key imageSaveLocation "file://$HOME/Pictures/Screenshots"
+        ok "spectacle: default save location set to ~/Pictures/Screenshots"
     fi
 fi
 

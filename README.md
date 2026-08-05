@@ -40,7 +40,7 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
 **Window management (AwesomeWM)**
 - Tiling with per-orientation defaults (portrait monitors stack vertically)
 - Directional focus/swap that crosses monitor boundaries
-- 4 tags per screen, rofi launcher, flameshot screenshots
+- 4 tags per screen, rofi launcher, spectacle screenshots
 
 ---
 

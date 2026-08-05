@@ -212,29 +212,41 @@ M.globalkeys = gears.table.join(
     -- ── Screenshot ─────────────────────────────────────────────────────────
     -- "Print" covers both full keyboards and 60% boards where Fn+K → Print keycode.
     -- If your 60% sends a different keycode, run `xev` to find it and add it here.
-    -- flameshot preferred (region select + annotation); scrot as fallback.
+    -- spectacle preferred (region select + annotation); scrot as fallback.
     --
-    -- The fallback is chosen on whether flameshot EXISTS, never on how it
-    -- exits. `cmd && flameshot gui || scrot` looks equivalent but is not:
-    -- flameshot returns non-zero when a selection is cancelled with Escape,
+    -- The fallback is chosen on whether spectacle EXISTS, never on how it
+    -- exits. `cmd && spectacle -r || scrot` looks equivalent but is not:
+    -- these tools return non-zero when a selection is cancelled with Escape,
     -- so that form silently saved a full-screen scrot every time you changed
-    -- your mind — and, if flameshot's gui mode is broken, on every keypress,
+    -- your mind — and, if the capture tool is broken, on every keypress,
     -- which looks exactly like the key doing nothing at all.
+    --
+    -- `spectacle -r` deliberately runs in GUI mode rather than background
+    -- (-b) mode. On X11 a clipboard selection is served on demand by the
+    -- process holding it, so it dies the instant that process exits: `-b`
+    -- copies and quits, leaving Ctrl+V pasting whatever came before. In GUI
+    -- mode the editor stays open after Copy (install.sh pins
+    -- quitAfterSaveCopyExport=false) and keeps serving the image, so paste
+    -- into a doc/message works for as long as that window is open.
     awful.key({ }, "Print",
         function()
             awful.spawn.with_shell([[
-if command -v flameshot >/dev/null 2>&1; then
-    flameshot gui
+if command -v spectacle >/dev/null 2>&1; then
+    spectacle -r
 else
     scrot -s '%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/Pictures/Screenshots/'
 fi]])
         end,
         { description = "screenshot (region)", group = "misc" }),
+    -- Full screen straight to disk: no editor, no clipboard, so background
+    -- mode is the right call here. -n suppresses the "saved" notification
+    -- (the file lands where you expect); spectacle needs an explicit -o or
+    -- it uses its own configured directory.
     awful.key({ "Shift" }, "Print",
         function()
             awful.spawn.with_shell([[
-if command -v flameshot >/dev/null 2>&1; then
-    flameshot full -p ~/Pictures/Screenshots
+if command -v spectacle >/dev/null 2>&1; then
+    spectacle -f -b -n -o ~/Pictures/Screenshots/"$(date +%Y-%m-%d_%H-%M-%S)".png
 else
     scrot '%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/Pictures/Screenshots/'
 fi]])
