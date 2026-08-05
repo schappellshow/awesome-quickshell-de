@@ -71,6 +71,7 @@ pkg_for() {
         *:xsettingsd)     echo xsettingsd ;;
         *:playerctl)      echo playerctl ;;
         *:spectacle)      echo spectacle ;;
+        *:nomacs)         echo nomacs ;;
         *:brightnessctl)  echo brightnessctl ;;
         *:blueman)        echo blueman ;;
         *:thunar)         echo thunar ;;
@@ -160,6 +161,7 @@ if [ "$PM" != none ] && [ "${SKIP_PACKAGES:-0}" != 1 ]; then
     info "Resolving packages for $PM"
     want=()
     for key in awesome quickshell picom rofi feh xsettingsd playerctl spectacle \
+               nomacs \
                brightnessctl blueman thunar qt6ct stow git curl portal polkit \
                kwallet i3lock mixer printer udiskie icons font-mono font-nerd \
                imagemagick build; do
@@ -347,6 +349,27 @@ if command -v spectacle >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2
         kwriteconfig6 --file spectaclerc --group ImageSave \
                       --key imageSaveLocation "file://$HOME/Pictures/Screenshots"
         ok "spectacle: default save location set to ~/Pictures/Screenshots"
+    fi
+fi
+
+# ── nomacs: follow the desktop's light/dark theme ────────────────────────
+# nomacs ships its own Light/Dark stylesheets and picks Light by default, so it
+# turns up bright white beside every other app here. System.css hands theming
+# back to the Qt platform theme (qt6ct), which is what the rest of the Qt side
+# of this desktop already follows, so it tracks the shell's dark/light switch.
+# The key really is spelled themeName312, and it lives in a file whose name
+# contains a space. Seeded only when absent, like the rest of these.
+nomacsrc="$HOME/.config/nomacs/Image Lounge.conf"
+if command -v nomacs >/dev/null 2>&1 \
+   && ! grep -q '^themeName312=' "$nomacsrc" 2>/dev/null; then
+    mkdir -p "$(dirname "$nomacsrc")"
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+        kwriteconfig6 --file "$nomacsrc" --group DisplaySettings \
+                      --key themeName312 System.css
+        ok "nomacs follows the desktop light/dark theme"
+    elif [ ! -s "$nomacsrc" ]; then
+        printf '[DisplaySettings]\nthemeName312=System.css\n' > "$nomacsrc"
+        ok "nomacs follows the desktop light/dark theme"
     fi
 fi
 

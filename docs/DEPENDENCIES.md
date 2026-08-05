@@ -48,6 +48,7 @@ everything else costs you one feature.
 | Package | Provides | If missing |
 |---|---|---|
 | `spectacle` | `Print` screenshot with region select + annotation. Runs in GUI mode so the editor stays open holding the clipboard — on X11 the copied image dies with the process that owns the selection. Its region overlay needs the placement rule in `modules/rules.lua` to cover every monitor | Falls back to `scrot` |
+| `nomacs` | Image viewer with the quick edits (crop, rotate, resize, brightness/contrast). Qt6 with no KF6 dependencies, so qt6ct themes it with everything else; `install.sh` points it at its `System.css` theme so it follows dark/light | Images open in whatever else is installed |
 | `playerctl` | Media keys | Media keys do nothing |
 | `pavucontrol-qt` | Per-app volume mixer | Settings → Audio still handles defaults/volume |
 | `blueman` | Bluetooth pairing wizard | Bar widget still connects known devices |

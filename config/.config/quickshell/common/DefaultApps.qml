@@ -40,8 +40,14 @@ Singleton {
         const extra = {
             "x-scheme-handler/http":
                 ["x-scheme-handler/https", "text/html"],
+            // Every raster type a viewer plausibly owns, plus svg. A short
+            // list left the types it missed pointing at the *previous* viewer:
+            // picking a new one moved png/jpeg/gif/webp and quietly stranded
+            // tiff and svg on the app you were replacing, so it was still
+            // installed and still opening files.
             "image/png":
-                ["image/jpeg", "image/gif", "image/webp"],
+                ["image/jpeg", "image/gif", "image/webp", "image/tiff",
+                 "image/bmp", "image/avif", "image/heif", "image/svg+xml"],
             "video/mp4":
                 ["video/x-matroska", "video/webm", "video/quicktime"],
             "audio/mpeg":
