@@ -94,6 +94,46 @@ say), the variable can survive — the user manager lingers. Symptom: no
 global shortcuts in Plasma. Clear it with
 `systemctl --user unset-environment AWESOME_SESSION`, or reboot.
 
+### Blank "Open with" dialogs, defaults ignored
+
+Symptom: a KDE app (Dolphin, most often) shows an *Open with* dialog that is
+completely empty, and files open in the wrong application no matter what
+`~/.config/mimeapps.list` says.
+
+KDE builds its application index (`ksycoca`) from an XDG menu file, looked up
+as `$XDG_CONFIG_DIRS/menus/${XDG_MENU_PREFIX}applications.menu`. Plasma sets
+`XDG_MENU_PREFIX=plasma-` and reads its own file, so it never touches the
+unprefixed name — which on OpenMandriva is a symlink into a `kde5` directory
+the KF6 migration deleted. This session sets no prefix, lands on the dangling
+symlink, and KDE ends up with no application tree at all.
+
+`config/.config/menus/applications.menu` is a generic freedesktop menu that
+takes precedence (`~/.config` is searched before `/etc/xdg`), so nothing
+root-owned is touched and a distribution update can't revert it. Confirm with
+the index size — the difference is not subtle:
+
+```sh
+kbuildsycoca6 --noincremental
+stat -c %s ~/.cache/ksycoca6_*        # ~230 KB broken, ~610 KB healthy
+```
+
+### "Show in folder" opens the wrong file manager
+
+Chromium-family browsers (Helium, Brave, Chrome) implement the downloads
+"Show in folder" button by calling `org.freedesktop.FileManager1.ShowItems`
+on the session bus — **not** `xdg-open`. Setting `inode/directory` therefore
+has no effect on it. Both Dolphin and Thunar ship a `.service` file claiming
+that name, and Dolphin's tends to win.
+
+`install.sh` copies the preferred file manager's own service file to
+`~/.local/share/dbus-1/services/org.freedesktop.FileManager1.service`, which
+outranks `/usr/share`. Check who currently holds the name with:
+
+```sh
+busctl --user call org.freedesktop.DBus /org/freedesktop/DBus \
+    org.freedesktop.DBus StartServiceByName su org.freedesktop.FileManager1 0
+```
+
 ## Notes on source builds
 
 `xss-lock`, `xsecurelock` and sometimes `gammastep` aren't packaged on most

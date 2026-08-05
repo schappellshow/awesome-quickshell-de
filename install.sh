@@ -350,6 +350,61 @@ if command -v spectacle >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2
     fi
 fi
 
+# ── "Show in folder": point FileManager1 at our file manager ─────────────
+# Chromium-family browsers (Helium, Brave, Chrome) implement the downloads
+# "Show in folder" button by calling org.freedesktop.FileManager1.ShowItems on
+# the session bus — not by running xdg-open. So setting inode/directory to
+# Thunar has no effect on it whatsoever: the name goes to whichever package's
+# .service file D-Bus picks, and on a machine that also has Plasma installed
+# org.kde.dolphin.FileManager1.service wins over Thunar's, so downloads opened
+# in Dolphin.
+#
+# $XDG_DATA_HOME/dbus-1/services outranks the system directory, so copy the
+# *distro's own* service file for the preferred file manager there. Copying
+# beats hand-writing an Exec line: every file manager has its own activation
+# flag (--gapplication-service, --daemon, ...) and the copy inherits whatever
+# SystemdService= the package shipped. Preference order matches the
+# filemanager list in rc.lua.
+#
+# Only seeded when absent, so a deliberate override survives a re-run.
+fm_service_src() {
+    local bin="$1" f
+    for f in /usr/share/dbus-1/services/*.service; do
+        [ -e "$f" ] || continue
+        grep -q '^Name=org\.freedesktop\.FileManager1[[:space:]]*$' "$f" || continue
+        if grep -qiE "^Exec=[^[:space:]]*/${bin}([[:space:]]|$)" "$f"; then
+            echo "$f"; return 0
+        fi
+    done
+    return 1
+}
+
+fm_service_dest="$HOME/.local/share/dbus-1/services/org.freedesktop.FileManager1.service"
+if [ ! -e "$fm_service_dest" ]; then
+    for fm in thunar pcmanfm-qt pcmanfm nemo nautilus dolphin; do
+        command -v "$fm" >/dev/null 2>&1 || continue
+        if fm_src="$(fm_service_src "$fm")"; then
+            mkdir -p "$(dirname "$fm_service_dest")"
+            cp "$fm_src" "$fm_service_dest"
+            ok "\"Show in folder\" routed to $fm (FileManager1 override)"
+            break
+        fi
+    done
+fi
+
+# ── KDE application index (ksycoca) ──────────────────────────────────────
+# config/.config/menus/applications.menu exists because OpenMandriva's
+# /etc/xdg/menus/applications.menu is a symlink into a kde5 directory the KF6
+# migration removed, and Plasma never notices since it reads its own
+# plasma-applications.menu via XDG_MENU_PREFIX. Without a menu, KDE builds no
+# application tree — Dolphin's "Open with" dialog comes up blank and files
+# stop opening in their configured default. Rebuild the index now so the fix
+# takes effect without waiting for a relog.
+if command -v kbuildsycoca6 >/dev/null 2>&1; then
+    kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
+    ok "KDE application index rebuilt (Open With / default apps)"
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────────
 echo
 if [ ${#MISSING[@]} -gt 0 ]; then

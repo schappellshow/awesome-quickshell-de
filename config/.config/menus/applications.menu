@@ -1,0 +1,133 @@
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN"
+ "http://www.freedesktop.org/standards/menu-spec/1.0/menu.dtd">
+
+<!--
+  The XDG application menu for this session.
+
+  Why this file exists: KDE libraries (KService/ksycoca) build their view of
+  "every installed application" from a menu file, looked up as
+  $XDG_CONFIG_DIRS/menus/${XDG_MENU_PREFIX}applications.menu. Plasma sets
+  XDG_MENU_PREFIX=plasma- and reads its own file; this session sets no prefix,
+  so the lookup lands on plain applications.menu — and on OpenMandriva that
+  path is a symlink into a kde5 directory the KF6 migration deleted. A
+  dangling symlink means no menu, which means no application tree, which is
+  why Dolphin's "Open with" dialog came up completely blank and PDFs stopped
+  opening in their configured default. Rebuilding ksycoca showed the damage
+  plainly: 231 KB without a menu, 628 KB with one.
+
+  QStandardPaths searches ~/.config before /etc/xdg, so this file wins over
+  the broken system symlink without touching anything root owns (and without
+  being reverted by the next distribution update).
+
+  The content is deliberately generic freedesktop categories rather than a
+  copy of plasma-applications.menu, so it also works on machines that have
+  Dolphin/Okular but no Plasma installed. Missing .directory files are
+  harmless — a submenu just falls back to displaying its <Name>.
+
+  Only KDE apps actually read this. rofi (Super+Space) reads .desktop files
+  directly and never needed it.
+-->
+
+<Menu>
+    <Name>Applications</Name>
+    <Directory>X-GNOME-Menu-Applications.directory</Directory>
+
+    <!-- Index the standard locations: {~/.local/share,/usr/share}/applications
+         for entries, .../desktop-directories for the category names, and
+         applications-merged for drop-ins packages install. -->
+    <DefaultAppDirs/>
+    <DefaultDirectoryDirs/>
+    <DefaultMergeDirs/>
+
+    <Menu>
+        <Name>Accessories</Name>
+        <Directory>Utility.directory</Directory>
+        <Include>
+            <And>
+                <Category>Utility</Category>
+                <Not><Category>Settings</Category></Not>
+                <Not><Category>System</Category></Not>
+            </And>
+        </Include>
+    </Menu>
+
+    <Menu>
+        <Name>Development</Name>
+        <Directory>Development.directory</Directory>
+        <Include><Category>Development</Category></Include>
+    </Menu>
+
+    <Menu>
+        <Name>Education</Name>
+        <Directory>Education.directory</Directory>
+        <Include><Category>Education</Category></Include>
+    </Menu>
+
+    <Menu>
+        <Name>Games</Name>
+        <Directory>Game.directory</Directory>
+        <Include><Category>Game</Category></Include>
+    </Menu>
+
+    <Menu>
+        <Name>Graphics</Name>
+        <Directory>Graphics.directory</Directory>
+        <Include><Category>Graphics</Category></Include>
+    </Menu>
+
+    <Menu>
+        <Name>Internet</Name>
+        <Directory>Network.directory</Directory>
+        <Include><Category>Network</Category></Include>
+    </Menu>
+
+    <Menu>
+        <Name>Multimedia</Name>
+        <Directory>AudioVideo.directory</Directory>
+        <Include><Category>AudioVideo</Category></Include>
+    </Menu>
+
+    <Menu>
+        <Name>Office</Name>
+        <Directory>Office.directory</Directory>
+        <Include><Category>Office</Category></Include>
+    </Menu>
+
+    <Menu>
+        <Name>Science</Name>
+        <Directory>Science.directory</Directory>
+        <Include><Category>Science</Category></Include>
+    </Menu>
+
+    <Menu>
+        <Name>Settings</Name>
+        <Directory>Settings.directory</Directory>
+        <Include>
+            <And>
+                <Category>Settings</Category>
+                <Not><Category>System</Category></Not>
+            </And>
+        </Include>
+    </Menu>
+
+    <Menu>
+        <Name>System</Name>
+        <Directory>System.directory</Directory>
+        <Include>
+            <Or>
+                <Category>System</Category>
+                <Category>Emulator</Category>
+            </Or>
+        </Include>
+    </Menu>
+
+    <!-- Anything that claimed no category above still has to appear, or the
+         "Open with" list would silently omit it — which is the whole bug this
+         file exists to fix. -->
+    <Menu>
+        <Name>Other</Name>
+        <Directory>Other.directory</Directory>
+        <OnlyUnallocated/>
+        <Include><All/></Include>
+    </Menu>
+</Menu>
