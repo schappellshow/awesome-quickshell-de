@@ -116,6 +116,35 @@ awful.rules.rules = {
         }
     },
 
+    -- Zoom's in-meeting annotation toolbar. Zoom maps it as type=normal with
+    -- the name "annotate_toolbar" and a natural size of 112x112 — nothing
+    -- marks it as a dialog or utility window, so the default rule tiled it
+    -- like an application: awesome handed it half the meeting (928x1064) and
+    -- shoved the meeting itself aside. Zoom re-opens it repeatedly during a
+    -- call, so closing it by hand never stuck.
+    --
+    -- floating alone only downgrades the problem — it then hovers over the
+    -- meeting instead of splitting it. hidden keeps it out of the way
+    -- entirely, which is what you want unless you actually annotate shared
+    -- screens. To get it back for a call, drop the `hidden` line and reload
+    -- (Super+Ctrl+R), or unhide the live window:
+    --
+    --   awesome-client 'for _,c in ipairs(client.get()) do
+    --       if c.class == "zoom" and tostring(c.name):match("annotate_toolbar")
+    --       then c.hidden = false end end'
+    {
+        rule = { class = "zoom", name = "annotate_toolbar" },
+        properties = {
+            floating          = true,
+            placement         = false,
+            border_width      = 0,
+            titlebars_enabled = false,
+            skip_taskbar      = true,
+            focus             = false,
+            hidden            = true,
+        }
+    },
+
     -- Spectacle's region-select overlay (the Print key). It maps one
     -- fullscreen window per monitor, each carrying exact min=max size hints
     -- for the screen it belongs to — 1920x1080, 1920x1080, 1080x1920 on a
