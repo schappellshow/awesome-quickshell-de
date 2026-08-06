@@ -84,27 +84,26 @@ done | head -1
     // showing a doubled or smeared image until feh was re-run by hand. The
     // same applies on hotplug, where the screen set changes mid-session.
     //
-    // Keyed on the screen COUNT and geometry rather than a plain screens
-    // binding, so it fires when the arrangement actually changes.
-    property string lastGeometry: ""
+    // This MUST be a declarative binding, not a function called from
+    // Quickshell.onScreensChanged. ShellScreen's x/y/width/height are
+    // notified by that screen's own `geometryChanged`; screensChanged fires
+    // only when outputs are added or removed. Rotating an output — exactly
+    // what the saved layout does to the portrait monitor — keeps the same
+    // three ShellScreens, so the old screensChanged handler never ran and
+    // the login-time wallpaper was left painted for the pre-rotation
+    // geometry (a 5760x1080 root pixmap under a 4920x1920 X screen: every
+    // monitor offset, and the portrait one stretched past its bottom edge).
+    //
+    // Reading s.x/s.y/s.width/s.height inside the binding subscribes to each
+    // screen's geometryChanged; reading Quickshell.screens subscribes to
+    // screensChanged. So one property now covers both rotate/resize and
+    // plug/unplug.
+    readonly property string geometryKey: Quickshell.screens
+        .map(s => s.name + ":" + s.x + "," + s.y + ":" + s.width + "x" + s.height)
+        .sort()
+        .join("|")
 
-    function geometryKey() {
-        return Quickshell.screens
-            .map(s => s.name + ":" + s.x + "," + s.y + ":" + s.width + "x" + s.height)
-            .sort()
-            .join("|");
-    }
-
-    Connections {
-        target: Quickshell
-        function onScreensChanged() {
-            const key = root.geometryKey();
-            if (key === root.lastGeometry)
-                return;
-            root.lastGeometry = key;
-            settle.restart();
-        }
-    }
+    onGeometryKeyChanged: settle.restart()
 
     // Debounce: a layout change emits several events, and xrandr may still
     // be mid-flight on the first one
@@ -114,8 +113,5 @@ done | head -1
         onTriggered: root.apply()
     }
 
-    Component.onCompleted: {
-        lastGeometry = geometryKey();
-        apply();
-    }
+    Component.onCompleted: apply()
 }
