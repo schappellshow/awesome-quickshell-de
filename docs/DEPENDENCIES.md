@@ -135,6 +135,32 @@ busctl --user call org.freedesktop.DBus /org/freedesktop/DBus \
     org.freedesktop.DBus StartServiceByName su org.freedesktop.FileManager1 0
 ```
 
+## Locking before suspend
+
+`xss-lock --transfer-sleep-lock` passes logind's delay inhibitor to the
+locker as `$XSS_SLEEP_LOCK_FD`. The locker closes that fd once the screen is
+genuinely covered, and that — not its exit — is what tells logind it may
+suspend. **Only xsecurelock implements this.** betterlockscreen and i3lock
+have no idea the variable exists.
+
+So `lock-screen` routes sleep locks to xsecurelock and leaves idle/manual
+locks on betterlockscreen, which has no inhibitor to release.
+
+Symptom when this is wrong, once per suspend:
+
+```
+systemd-logind: Delay lock is active (UID 1001/mike, PID .../xss-lock)
+                but inhibitor timeout is reached.
+```
+
+logind waited its `InhibitDelayMaxSec` (5s default) and gave up. Suspend then
+proceeds on a timer rather than on the locker actually being ready, which
+races a slow lock — a large blurred image on a multi-monitor desktop, or a
+busy machine — against the kernel taking the display away from X.
+
+Check with `journalctl -b | grep 'Delay lock'`. A healthy suspend logs
+nothing there.
+
 ## Notes on source builds
 
 `xss-lock`, `xsecurelock` and sometimes `gammastep` aren't packaged on most

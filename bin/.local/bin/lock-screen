@@ -10,8 +10,26 @@
 # ring, then plain i3lock.
 #
 # The locker must not fork: xss-lock holds the systemd sleep inhibitor until
-# this process exits, guaranteeing the screen is locked before suspend
-# (xsecurelock also picks up XSS_SLEEP_LOCK_FD natively).
+# this process exits.
+#
+# Locking BEFORE A SUSPEND is a different job from locking on idle, and only
+# xsecurelock does it correctly here. xss-lock --transfer-sleep-lock passes
+# logind's delay inhibitor down as $XSS_SLEEP_LOCK_FD; the locker is meant to
+# close it the moment the screen is actually covered, which is what tells
+# logind it may now suspend. xsecurelock implements that. betterlockscreen
+# does not know the variable exists, so the fd stayed open for the whole lock
+# and logind gave up on its own 5s timeout instead — "Delay lock is active
+# (xss-lock) but inhibitor timeout is reached", on every single suspend since
+# this was written.
+#
+# That is not just cosmetic: it means suspend proceeded on a timer with no
+# guarantee the locker had finished starting, so a slow lock (big blurred
+# image, busy machine) raced the kernel's handover of the display. See
+# docs/DEPENDENCIES.md.
+#
+# So: sleep locks go to xsecurelock, which reports readiness exactly. Idle
+# and manual locks keep betterlockscreen's blurred wallpaper — no inhibitor
+# is involved there, so there is nothing to race.
 
 # OpenMandriva palette — keep in sync with quickshell/common/Theme.qml
 BASE=232627ff
@@ -23,9 +41,16 @@ RED=cc2263ff
 GREEN=40da76ff
 CLEAR=00000000
 
+# Sleep lock in flight: use the locker that can release it (see above).
+# exec keeps the inherited fd open for xsecurelock to close itself.
+sleep_lock=""
+if [ -n "${XSS_SLEEP_LOCK_FD:-}" ] && command -v xsecurelock >/dev/null 2>&1; then
+    sleep_lock=1
+fi
+
 # Cache check: without generated images betterlockscreen can't lock —
 # fall through to xsecurelock rather than failing open
-if command -v betterlockscreen >/dev/null 2>&1 \
+if [ -z "$sleep_lock" ] && command -v betterlockscreen >/dev/null 2>&1 \
         && [ -n "$(ls -A "$HOME/.cache/betterlockscreen" 2>/dev/null)" ]; then
     exec betterlockscreen -l dimblur
 fi
