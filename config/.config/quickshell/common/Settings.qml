@@ -32,6 +32,7 @@ Singleton {
     property alias barWidth: adapter.barWidth
     property alias barScreen: adapter.barScreen
     property alias barOpacity: adapter.barOpacity
+    property alias barBlur: adapter.barBlur
     // "" = follow Theme.fontFamily
     property alias fontLabels: adapter.fontLabels
     property alias fontClock: adapter.fontClock
@@ -121,6 +122,10 @@ Singleton {
             // as one surface. Anything between is a tinted glass bar.
             // Needs a compositor (picom) for anything but 100.
             property int barOpacity: 0
+            // Blur strength, 0-100, applied to the wallpaper behind the bar.
+            // Pairs with barOpacity: blur alone is frosted glass, blur plus
+            // some opacity is tinted frosted glass.
+            property int barBlur: 0
 
             // Bar fonts. Empty means "whatever Theme.fontFamily is", so a
             // fresh install follows the theme and an uninstalled font

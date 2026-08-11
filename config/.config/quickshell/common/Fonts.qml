@@ -35,7 +35,12 @@ Singleton {
     Process {
         id: monoProc
         running: true
-        command: ["sh", "-c", "fc-list ':spacing=100' family 2>/dev/null"]
+        // charset=41 is Latin capital "A": it drops symbol and cursor fonts
+        // that fontconfig calls monospaced but which render text as shapes
+        // ("Cursor" was an unpickable row of glyphs). A family that cannot
+        // draw an A cannot draw a bar label, so this is the honest filter
+        // rather than a blocklist of names.
+        command: ["sh", "-c", "fc-list ':spacing=100:charset=41' family 2>/dev/null"]
         stdout: StdioCollector {
             onStreamFinished: {
                 // fc-list prints comma-separated aliases per line; each

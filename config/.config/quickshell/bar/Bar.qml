@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import QtQuick.Effects
 import "../common"
 
 // Vertical left bar, one per screen. Transparent window; content sits in
@@ -48,13 +49,67 @@ PanelWindow {
     }
     implicitWidth: Settings.barWidth
 
-    // Bar background. The pills stay opaque Theme.base regardless, so this
-    // one slider spans the whole range the settings page offers: at 0 the
-    // window vanishes and the pills float on the desktop (the stock look),
-    // at 100 the window matches the pills and the whole thing reads as a
-    // single solid bar, and between the two it's tinted glass.
-    color: Qt.rgba(Theme.base.r, Theme.base.g, Theme.base.b,
-                   Settings.barOpacity / 100)
+    // Background is built up in layers below (blur, then tint), so the
+    // window itself contributes nothing.
+    color: "transparent"
+
+    // ── Blurred wallpaper ───────────────────────────────────────────────
+    // The bar blurs its OWN copy of the wallpaper rather than whatever the
+    // compositor has behind it — an X client can't read the screen beneath
+    // itself. The copy is faithful here because awesome pads the screen by
+    // the bar's width (modules/quickshell.lua apply_bar_padding), so no
+    // tiled window is ever underneath: what's back there IS the wallpaper.
+    // A floating window straying under the bar won't show through the blur,
+    // which is the one visible cost of doing it this way.
+    Item {
+        anchors.fill: parent
+        visible: Settings.barBlur > 0 && wallCopy.status === Image.Ready
+        clip: true
+
+        Image {
+            id: wallCopy
+            // The bar sits on the screen's edge, so its top-left coincides
+            // with the screen's: draw the wallpaper at full screen size from
+            // 0,0 and the slice showing through lines up with what feh
+            // painted. PreserveAspectCrop matches feh --bg-fill.
+            x: 0
+            y: 0
+            width: bar.screen.width
+            height: bar.screen.height
+            fillMode: Image.PreserveAspectCrop
+            visible: false          // drawn only through the effect below
+            asynchronous: true
+            source: {
+                const p = Settings.wallpaperPath;
+                if (p === "")
+                    return "";
+                return "file://" + (p.startsWith("~/")
+                    ? Quickshell.env("HOME") + p.slice(1) : p);
+            }
+        }
+
+        MultiEffect {
+            x: wallCopy.x
+            y: wallCopy.y
+            width: wallCopy.width
+            height: wallCopy.height
+            source: wallCopy
+            blurEnabled: true
+            blurMax: 48
+            blur: Settings.barBlur / 100
+        }
+    }
+
+    // ── Tint ────────────────────────────────────────────────────────────
+    // Sits over the blur, so the two sliders compose: opacity alone is
+    // tinted glass over the live desktop, blur alone is frosted glass, and
+    // together they're tinted frosted glass. At 100% opacity the tint is
+    // solid and the blur beneath it stops mattering.
+    Rectangle {
+        anchors.fill: parent
+        color: Qt.rgba(Theme.base.r, Theme.base.g, Theme.base.b,
+                       Settings.barOpacity / 100)
+    }
 
     // No strut: X11 struts can't reserve the left edge of a middle monitor.
     // Awesome pads the screen instead (modules/quickshell.lua

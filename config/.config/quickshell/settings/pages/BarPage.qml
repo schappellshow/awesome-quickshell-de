@@ -28,15 +28,14 @@ SettingsPage {
         onMoved: value => Settings.barOpacity = value
     }
 
-    Text {
-        width: parent.width
-        text: "0% is the stock look — an invisible bar with opaque pills "
-            + "floating on the desktop. 100% is a solid bar, where the pills "
-            + "blend into it. Anything between needs picom running."
-        wrapMode: Text.Wrap
-        font.family: Theme.fontFamily
-        font.pointSize: 8
-        color: Theme.muted
+    SliderRow {
+        label: "Background blur"
+        from: 0
+        to: 100
+        step: 5
+        suffix: "%"
+        value: Settings.barBlur
+        onMoved: value => Settings.barBlur = value
     }
 
     CycleRow {
