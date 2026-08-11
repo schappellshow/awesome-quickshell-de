@@ -31,6 +31,7 @@ Singleton {
     // Bar
     property alias barWidth: adapter.barWidth
     property alias barScreen: adapter.barScreen
+    property alias barOpacity: adapter.barOpacity
     property alias showMediaPill: adapter.showMediaPill
     property alias showTray: adapter.showTray
     property alias showBattery: adapter.showBattery
@@ -110,6 +111,12 @@ Singleton {
             // Output name (e.g. "DisplayPort-2") for a single bar;
             // "" or an unplugged output falls back to bars on every screen
             property string barScreen: ""
+            // Bar background opacity, 0-100. 0 = the stock look: an
+            // invisible bar with opaque pills floating on the desktop.
+            // 100 = a solid bar, where the pills share its colour and read
+            // as one surface. Anything between is a tinted glass bar.
+            // Needs a compositor (picom) for anything but 100.
+            property int barOpacity: 0
             property bool showMediaPill: true
             property bool showTray: true
             property bool showBattery: true

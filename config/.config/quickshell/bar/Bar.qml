@@ -47,7 +47,14 @@ PanelWindow {
         bottom: true
     }
     implicitWidth: Settings.barWidth
-    color: "transparent"
+
+    // Bar background. The pills stay opaque Theme.base regardless, so this
+    // one slider spans the whole range the settings page offers: at 0 the
+    // window vanishes and the pills float on the desktop (the stock look),
+    // at 100 the window matches the pills and the whole thing reads as a
+    // single solid bar, and between the two it's tinted glass.
+    color: Qt.rgba(Theme.base.r, Theme.base.g, Theme.base.b,
+                   Settings.barOpacity / 100)
 
     // No strut: X11 struts can't reserve the left edge of a middle monitor.
     // Awesome pads the screen instead (modules/quickshell.lua
