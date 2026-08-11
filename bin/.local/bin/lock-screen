@@ -12,24 +12,34 @@
 # The locker must not fork: xss-lock holds the systemd sleep inhibitor until
 # this process exits.
 #
-# Locking BEFORE A SUSPEND is a different job from locking on idle, and only
-# xsecurelock does it correctly here. xss-lock --transfer-sleep-lock passes
-# logind's delay inhibitor down as $XSS_SLEEP_LOCK_FD; the locker is meant to
-# close it the moment the screen is actually covered, which is what tells
-# logind it may now suspend. xsecurelock implements that. betterlockscreen
-# does not know the variable exists, so the fd stayed open for the whole lock
-# and logind gave up on its own 5s timeout instead — "Delay lock is active
-# (xss-lock) but inhibitor timeout is reached", on every single suspend since
-# this was written.
+# Locking BEFORE A SUSPEND has one extra job that betterlockscreen cannot do.
+# xss-lock --transfer-sleep-lock passes logind's delay inhibitor down as
+# $XSS_SLEEP_LOCK_FD, and closing that fd is what tells logind the screen is
+# covered and it may suspend. betterlockscreen has never heard of the
+# variable, so it holds the inhibitor for the whole lock and logind falls back
+# to its own 5s timeout:
 #
-# That is not just cosmetic: it means suspend proceeded on a timer with no
-# guarantee the locker had finished starting, so a slow lock (big blurred
-# image, busy machine) raced the kernel's handover of the display. See
-# docs/DEPENDENCIES.md.
+#   Delay lock is active (UID .../mike, PID .../xss-lock) but inhibitor
+#   timeout is reached.
 #
-# So: sleep locks go to xsecurelock, which reports readiness exactly. Idle
-# and manual locks keep betterlockscreen's blurred wallpaper — no inhibitor
-# is involved there, so there is nothing to race.
+# That costs 5s per suspend and means suspend proceeds on a timer rather than
+# on confirmation. We accept it, because the alternatives are worse:
+#
+#   - Handing sleep locks to xsecurelock (which does implement the protocol)
+#     works, but you get its plain login field on resume instead of the
+#     blurred wallpaper. That is the whole reason betterlockscreen is here.
+#   - Releasing the fd ourselves needs a reliable "screen is covered now"
+#     signal, and there isn't one. betterlockscreen runs i3lock with -n
+#     (lockargs=(-n), around line 851 of the script), so it does NOT fork —
+#     `betterlockscreen -l` blocks until you UNLOCK. An earlier attempt here
+#     read its return as "locked", which was exactly backwards: it fired on
+#     unlock, found no i3lock running, fell through, and locked the screen a
+#     second time. Two lock screens, two passwords, and the inhibitor still
+#     timed out.
+#
+# The 5s is bounded and harmless; a lock screen that asks twice is not.
+#
+# See docs/DEPENDENCIES.md.
 
 # OpenMandriva palette — keep in sync with quickshell/common/Theme.qml
 BASE=232627ff
@@ -41,16 +51,12 @@ RED=cc2263ff
 GREEN=40da76ff
 CLEAR=00000000
 
-# Sleep lock in flight: use the locker that can release it (see above).
-# exec keeps the inherited fd open for xsecurelock to close itself.
-sleep_lock=""
-if [ -n "${XSS_SLEEP_LOCK_FD:-}" ] && command -v xsecurelock >/dev/null 2>&1; then
-    sleep_lock=1
-fi
-
 # Cache check: without generated images betterlockscreen can't lock —
-# fall through to xsecurelock rather than failing open
-if [ -z "$sleep_lock" ] && command -v betterlockscreen >/dev/null 2>&1 \
+# fall through to xsecurelock rather than failing open.
+# One locker for every path (idle, Ctrl+Alt+L, pre-suspend): a lock screen
+# that looks different depending on how it was triggered is a bug report
+# waiting to happen, and the sleep-lock fd can't be honoured here anyway.
+if command -v betterlockscreen >/dev/null 2>&1 \
         && [ -n "$(ls -A "$HOME/.cache/betterlockscreen" 2>/dev/null)" ]; then
     exec betterlockscreen -l dimblur
 fi
@@ -73,7 +79,12 @@ fi
 
 # i3lock-color ships as /usr/bin/i3lock on OMLx; fall back to plain flags if
 # the installed i3lock is the colorless original.
-if i3lock --help 2>&1 | grep -q -- '--ring-color'; then
+#
+# Detect on --version, not --help: i3lock-color's --help prints the SHORT
+# upstream usage line and lists none of the colour options, so probing it for
+# --ring-color reports "plain i3lock" on a machine where i3lock-color is very
+# much installed. --version carries the fork's own copyright line.
+if i3lock --version 2>&1 | grep -qiE 'cassandra fox|raymond li'; then
     exec i3lock -n \
         --color="$BASE" \
         --clock --force-clock \

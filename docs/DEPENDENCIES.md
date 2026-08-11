@@ -143,23 +143,35 @@ genuinely covered, and that — not its exit — is what tells logind it may
 suspend. **Only xsecurelock implements this.** betterlockscreen and i3lock
 have no idea the variable exists.
 
-So `lock-screen` routes sleep locks to xsecurelock and leaves idle/manual
-locks on betterlockscreen, which has no inhibitor to release.
-
-Symptom when this is wrong, once per suspend:
+So every suspend logs this, once:
 
 ```
 systemd-logind: Delay lock is active (UID 1001/mike, PID .../xss-lock)
                 but inhibitor timeout is reached.
 ```
 
-logind waited its `InhibitDelayMaxSec` (5s default) and gave up. Suspend then
-proceeds on a timer rather than on the locker actually being ready, which
-races a slow lock — a large blurred image on a multi-monitor desktop, or a
-busy machine — against the kernel taking the display away from X.
+logind waited its `InhibitDelayMaxSec` (5s default) and gave up. **This is
+expected here and is not a fault.** `lock-screen` uses betterlockscreen for
+every path — idle, `Ctrl+Alt+L`, and pre-suspend — so the inhibitor is held
+until you unlock and the timeout always fires. The cost is 5s per suspend.
 
-Check with `journalctl -b | grep 'Delay lock'`. A healthy suspend logs
-nothing there.
+The two ways to avoid it were both tried and are worse:
+
+- **Route sleep locks to xsecurelock.** Works, releases the fd exactly. But
+  you get its plain login field on resume instead of the blurred wallpaper,
+  and a lock screen whose appearance depends on how it was triggered.
+- **Release the fd from `lock-screen` once the lock is up.** Needs a
+  trustworthy "covered now" signal, and there isn't one. betterlockscreen
+  runs i3lock with `-n` (`lockargs=(-n)` in its script), so it does *not*
+  fork — `betterlockscreen -l` blocks until you **unlock**. Treating its
+  return as "locked" fires at unlock time, finds no i3lock, and locks the
+  screen a second time: two lock screens, two passwords, inhibitor still
+  timing out.
+
+If the 5s ever matters more than the wallpaper, drop `--transfer-sleep-lock`
+from the `xss-lock` line in `modules/autostart.lua`: xss-lock then releases
+the inhibitor itself once the locker is spawned. That trades a confirmed lock
+for a spawned one.
 
 ## Notes on source builds
 
