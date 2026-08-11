@@ -57,7 +57,7 @@ Column {
                 Text {
                     anchors.centerIn: parent
                     text: entry.modelData.name
-                    font.family: Theme.fontFamily
+                    font.family: Theme.labelFont
                     font.bold: true
                     font.pointSize: 7
                     color: entry.modelData.urgent   ? Theme.text

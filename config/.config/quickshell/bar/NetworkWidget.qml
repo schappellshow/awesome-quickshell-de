@@ -28,7 +28,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "NET"
-            font.family: Theme.fontFamily
+            font.family: Theme.labelFont
             font.bold: true
             font.pointSize: 7
             color: Theme.muted

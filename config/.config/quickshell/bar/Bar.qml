@@ -90,7 +90,7 @@ PanelWindow {
                         anchors.horizontalCenter: parent.horizontalCenter
                         visible: bar.tagSections.length > 1
                         text: section.modelData.label
-                        font.family: Theme.fontFamily
+                        font.family: Theme.labelFont
                         font.bold: section.modelData.isHere
                         font.pointSize: 6
                         color: section.modelData.isHere ? Theme.subtext : Theme.muted

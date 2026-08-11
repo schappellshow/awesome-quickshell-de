@@ -25,7 +25,7 @@ Item {
     Text {
         anchors.centerIn: parent
         text: root.abbrev[root.layoutName] ?? (root.layoutName ? root.layoutName.slice(0, 3) : "---")
-        font.family: Theme.fontFamily
+        font.family: Theme.labelFont
         font.bold: true
         font.pointSize: 8
         color: mouse.containsMouse ? Theme.text : Theme.muted

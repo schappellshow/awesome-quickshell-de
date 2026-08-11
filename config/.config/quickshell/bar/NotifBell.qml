@@ -18,7 +18,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "NTF"
-            font.family: Theme.fontFamily
+            font.family: Theme.labelFont
             font.bold: true
             font.pointSize: 7
             color: Theme.muted
@@ -28,7 +28,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Settings.doNotDisturb ? "zZ"
                 : NotifHistory.unread > 0 ? String(NotifHistory.unread) : "–"
-            font.family: Theme.fontFamily
+            font.family: Theme.labelFont
             font.pointSize: 9
             // OM magenta for DND (Theme.urgent/red is #cc2263, the brand
             // pink) — gold is reserved for "warning" levels like 70%+ load

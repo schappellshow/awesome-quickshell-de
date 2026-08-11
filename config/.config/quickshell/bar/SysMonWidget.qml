@@ -25,7 +25,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "CPU"
-            font.family: Theme.fontFamily
+            font.family: Theme.labelFont
             font.bold: true
             font.pointSize: 7
             // Accent hints that the conky dashboard is open
@@ -35,7 +35,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: SysMon.cpuPct + "%"
-            font.family: Theme.fontFamily
+            font.family: Theme.labelFont
             font.pointSize: 9
             color: root.pctColor(SysMon.cpuPct)
         }
@@ -43,7 +43,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "RAM"
-            font.family: Theme.fontFamily
+            font.family: Theme.labelFont
             font.bold: true
             font.pointSize: 7
             color: SysMon.conkyRunning ? Theme.accentBright : Theme.muted
@@ -52,7 +52,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: SysMon.memPct + "%"
-            font.family: Theme.fontFamily
+            font.family: Theme.labelFont
             font.pointSize: 9
             color: root.pctColor(SysMon.memPct)
         }

@@ -17,7 +17,7 @@ Column {
     Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: root.charging ? "CHG" : "BAT"
-        font.family: Theme.fontFamily
+        font.family: Theme.labelFont
         font.bold: true
         font.pointSize: 7
         color: Theme.muted
@@ -26,7 +26,7 @@ Column {
     Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: root.pct + "%"
-        font.family: Theme.fontFamily
+        font.family: Theme.labelFont
         font.pointSize: 9
         color: root.pct <= 15 ? Theme.urgent
              : root.pct <= 30 ? Theme.gold

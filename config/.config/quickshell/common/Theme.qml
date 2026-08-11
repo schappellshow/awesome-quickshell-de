@@ -38,6 +38,20 @@ Singleton {
     // Nerd Font for icon glyphs (fonts-ttf-nerd-jetbrains-mono). Only used
     // for icons — text stays in Hack. Glyphs are monochrome and honour
     // QML `color`, unlike emoji.
+    //
+    // Deliberately NOT user-selectable: this is glyph coverage, not taste.
+    // Pointing it at a font without the Nerd Font private-use area turns
+    // every icon in the bar into a tofu box.
     readonly property string iconFont: "JetBrainsMono Nerd Font"
+
+    // Bar fonts, user-selectable from Settings → Bar. Each falls back to
+    // fontFamily when unset, so an empty setting and an uninstalled font
+    // both land on the theme default instead of Qt's generic fallback.
+    readonly property string labelFont: Settings.fontLabels !== ""
+                                            ? Settings.fontLabels : fontFamily
+    readonly property string clockFont: Settings.fontClock !== ""
+                                            ? Settings.fontClock : fontFamily
+    readonly property string appFont:   Settings.fontApps !== ""
+                                            ? Settings.fontApps : fontFamily
     readonly property int radius: 10
 }

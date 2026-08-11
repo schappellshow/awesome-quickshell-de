@@ -16,7 +16,7 @@ Column {
     Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: String(parent.hours12).padStart(2, "0")
-        font.family: Theme.fontFamily
+        font.family: Theme.clockFont
         font.bold: true
         font.pointSize: 13
         color: Theme.text
@@ -25,7 +25,7 @@ Column {
     Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: String(clock.minutes).padStart(2, "0")
-        font.family: Theme.fontFamily
+        font.family: Theme.clockFont
         font.pointSize: 11
         color: Theme.subtext
     }
@@ -33,7 +33,7 @@ Column {
     Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: clock.hours < 12 ? "AM" : "PM"
-        font.family: Theme.fontFamily
+        font.family: Theme.clockFont
         font.pointSize: 7
         color: Theme.muted
     }

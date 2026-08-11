@@ -19,7 +19,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Audio.muted ? "MUT" : "VOL"
-            font.family: Theme.fontFamily
+            font.family: Theme.labelFont
             font.bold: true
             font.pointSize: 7
             color: Audio.muted ? Theme.urgent : Theme.muted
@@ -28,7 +28,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Math.round(Audio.volume * 100) + "%"
-            font.family: Theme.fontFamily
+            font.family: Theme.labelFont
             font.pointSize: 9
             color: Audio.muted ? Theme.muted : Theme.subtext
         }

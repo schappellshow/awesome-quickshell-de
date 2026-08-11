@@ -32,6 +32,10 @@ Singleton {
     property alias barWidth: adapter.barWidth
     property alias barScreen: adapter.barScreen
     property alias barOpacity: adapter.barOpacity
+    // "" = follow Theme.fontFamily
+    property alias fontLabels: adapter.fontLabels
+    property alias fontClock: adapter.fontClock
+    property alias fontApps: adapter.fontApps
     property alias showMediaPill: adapter.showMediaPill
     property alias showTray: adapter.showTray
     property alias showBattery: adapter.showBattery
@@ -117,6 +121,13 @@ Singleton {
             // as one surface. Anything between is a tinted glass bar.
             // Needs a compositor (picom) for anything but 100.
             property int barOpacity: 0
+
+            // Bar fonts. Empty means "whatever Theme.fontFamily is", so a
+            // fresh install follows the theme and an uninstalled font
+            // degrades to the theme default rather than to Qt's fallback.
+            property string fontLabels: ""
+            property string fontClock: ""
+            property string fontApps: ""
             property bool showMediaPill: true
             property bool showTray: true
             property bool showBattery: true

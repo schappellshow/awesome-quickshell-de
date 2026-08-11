@@ -138,7 +138,7 @@ Column {
                 visible: icon.status !== Image.Ready
                 text: entry.displayName === ""
                     ? "?" : entry.displayName.charAt(0).toUpperCase()
-                font.family: Theme.fontFamily
+                font.family: Theme.labelFont
                 font.bold: true
                 font.pointSize: 8
                 color: Theme.subtext
