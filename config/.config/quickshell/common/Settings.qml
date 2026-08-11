@@ -41,6 +41,7 @@ Singleton {
     property alias showNotifBell: adapter.showNotifBell
     property alias showSysMon: adapter.showSysMon
     property alias showScreenLock: adapter.showScreenLock
+    property alias showNightLight: adapter.showNightLight
 
     // System monitor popout (conky)
     property alias conkyConfig: adapter.conkyConfig
@@ -119,6 +120,7 @@ Singleton {
             property bool showNotifBell: true
             property bool showSysMon: true
             property bool showScreenLock: true
+            property bool showNightLight: true
             property string conkyConfig: ""
 
             property int notifTimeoutMs: 6000

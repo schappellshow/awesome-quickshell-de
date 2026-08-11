@@ -49,6 +49,12 @@ SettingsPage {
     }
 
     ToggleRow {
+        label: "Night light"
+        checked: Settings.showNightLight
+        onToggled: value => Settings.showNightLight = value
+    }
+
+    ToggleRow {
         label: "Screen lock (auto-lock state)"
         checked: Settings.showScreenLock
         onToggled: value => Settings.showScreenLock = value

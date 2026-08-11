@@ -207,6 +207,12 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
             }
 
+            // Directly above the lock, and behaves the same way: click or
+            // keybind (Super+Shift+N) both land on NightLight.toggle().
+            NightLightWidget {
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+
             ScreenLockWidget {
                 anchors.horizontalCenter: parent.horizontalCenter
             }
