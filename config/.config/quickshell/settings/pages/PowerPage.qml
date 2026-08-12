@@ -30,7 +30,7 @@ SettingsPage {
     ToggleRow {
         label: "Keep awake (until shell restart)"
         checked: PowerConfig.keepAwake
-        onToggled: value => PowerConfig.keepAwake = value
+        onToggled: value => Settings.keepAwake = value
     }
 
     SectionLabel { text: "BATTERY (LAPTOPS)" }

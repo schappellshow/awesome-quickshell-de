@@ -3,13 +3,20 @@ import QtQuick
 import Quickshell
 
 // Screen blank/DPMS timeouts via xset (this is what triggers xss-lock's
-// idle lock), plus a non-persisted keep-awake override. Owns the values
-// that used to be hard-coded in awesome's autostart.
+// idle lock), plus the keep-awake override. Owns the values that used to be
+// hard-coded in awesome's autostart.
 Singleton {
     id: root
 
-    // Manual hold (Super+Z / the SCN pill / Settings)
-    property bool keepAwake: false
+    // Manual hold (Super+Z / the SCN pill / Settings). Lives in Settings, so
+    // the keybind, the pill, the settings window and a shell reload all
+    // agree on it — the same arrangement as NightLight.
+    readonly property bool keepAwake: Settings.keepAwake
+
+    function toggleAwake() {
+        Settings.keepAwake = !Settings.keepAwake;
+    }
+
     // Held by an app via org.freedesktop.ScreenSaver — video playback etc.
     // (see local/.local/bin/screensaver-inhibitor). Kept separate from
     // keepAwake so a video ending can't switch off a hold the user set by

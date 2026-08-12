@@ -77,6 +77,7 @@ Singleton {
     property alias tapToClick: adapter.tapToClick
 
     // Power (0 = never)
+    property alias keepAwake: adapter.keepAwake
     property alias blankMinutes: adapter.blankMinutes
     property alias dpmsMinutes: adapter.dpmsMinutes
     property alias batteryWarnPct: adapter.batteryWarnPct
@@ -177,6 +178,12 @@ Singleton {
             property bool naturalScroll: false
             property bool tapToClick: true
 
+            // Manual keep-awake hold (Super+Z / the SCN pill). Persisted so
+            // it survives a shell reload the same way night light does: a
+            // hold you set by hand is a decision, not session state, and
+            // having it silently lapse means re-setting it without noticing
+            // it had gone.
+            property bool keepAwake: false
             property int blankMinutes: 10
             property int dpmsMinutes: 15
             property int batteryWarnPct: 15

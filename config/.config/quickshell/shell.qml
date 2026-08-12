@@ -133,12 +133,12 @@ ShellRoot {
         target: "keepawake"
 
         function toggle(): void {
-            PowerConfig.keepAwake = !PowerConfig.keepAwake;
+            PowerConfig.toggleAwake();
+            const on = PowerConfig.keepAwake;
             Quickshell.execDetached(["notify-send",
-                PowerConfig.keepAwake ? "Keep awake: ON" : "Keep awake: off",
-                PowerConfig.keepAwake
-                    ? "Screen blanking, locking and display-off disabled"
-                    : "Normal idle timeouts restored"]);
+                on ? "Keep awake: ON" : "Keep awake: off",
+                on ? "Screen blanking, locking and display-off disabled"
+                   : "Normal idle timeouts restored"]);
         }
     }
 

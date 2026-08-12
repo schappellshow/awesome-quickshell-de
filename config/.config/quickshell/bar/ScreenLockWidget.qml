@@ -57,7 +57,7 @@ Item {
             if (mouseEvent.button === Qt.RightButton)
                 Quickshell.execDetached(["loginctl", "lock-session"]);
             else
-                PowerConfig.keepAwake = !PowerConfig.keepAwake;
+                PowerConfig.toggleAwake();
         }
     }
 }

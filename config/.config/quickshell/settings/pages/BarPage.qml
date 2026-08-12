@@ -59,40 +59,6 @@ SettingsPage {
         }
     }
 
-    SectionLabel { text: "FONTS" }
-
-    FontRow {
-        label: "Section labels"
-        sample: "NGT  VOL  NET  CPU"
-        current: Settings.fontLabels
-        onSelected: family => Settings.fontLabels = family
-    }
-
-    FontRow {
-        label: "Clock"
-        sample: "07 48 AM"
-        current: Settings.fontClock
-        onSelected: family => Settings.fontClock = family
-    }
-
-    FontRow {
-        label: "App names"
-        sample: "Firefox  Ghostty  Slack"
-        current: Settings.fontApps
-        onSelected: family => Settings.fontApps = family
-    }
-
-    Text {
-        width: parent.width
-        text: "Icon glyphs always use the Nerd Font — that's glyph coverage, "
-            + "not styling, and changing it would turn every bar icon into a "
-            + "box. App names apply once the Apps section exists."
-        wrapMode: Text.Wrap
-        font.family: Theme.fontFamily
-        font.pointSize: 8
-        color: Theme.muted
-    }
-
     SectionLabel { text: "SECTIONS" }
 
     Text {
@@ -192,6 +158,39 @@ SettingsPage {
         text: "Click the CPU/RAM pill (or Super+Shift+M) to toggle the "
             + "conky dashboard — it pops out beside the bar, above your "
             + "windows, and toggles away again. Right-click opens htop."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+    SectionLabel { text: "FONTS" }
+
+    FontRow {
+        label: "Section labels"
+        sample: "NGT  VOL  NET  CPU"
+        current: Settings.fontLabels
+        onSelected: family => Settings.fontLabels = family
+    }
+
+    FontRow {
+        label: "Clock"
+        sample: "07 48 AM"
+        current: Settings.fontClock
+        onSelected: family => Settings.fontClock = family
+    }
+
+    FontRow {
+        label: "App names"
+        sample: "Firefox  Ghostty  Slack"
+        current: Settings.fontApps
+        onSelected: family => Settings.fontApps = family
+    }
+
+    Text {
+        width: parent.width
+        text: "Icon glyphs always use the Nerd Font — that's glyph coverage, "
+            + "not styling, and changing it would turn every bar icon into a "
+            + "box. App names apply once the Apps section exists."
         wrapMode: Text.Wrap
         font.family: Theme.fontFamily
         font.pointSize: 8
