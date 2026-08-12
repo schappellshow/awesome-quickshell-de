@@ -8,10 +8,16 @@ import "../common"
 // tags that are selected, occupied or urgent. An empty tag isn't drawn at
 // all: its absence is the information (nothing is running there), and the
 // tags are reached by keybind rather than by clicking a fixed position.
-Column {
+Grid {
     id: root
 
     property var awScreen
+    property bool vertical: true
+
+    rows: root.vertical ? 0 : 1
+    columns: root.vertical ? 1 : 0
+    horizontalItemAlignment: Grid.AlignHCenter
+    verticalItemAlignment: Grid.AlignVCenter
 
     // Gap between entries. Has to stay comfortably larger than the 2px
     // inside each entry, or an underline reads as belonging to the pill
@@ -32,7 +38,8 @@ Column {
 
             required property var modelData
 
-            anchors.horizontalCenter: parent.horizontalCenter
+            // Pill over underline in either orientation: the marker belongs
+            // to the tag above it, not to the direction of the bar.
             spacing: 2
 
             Rectangle {

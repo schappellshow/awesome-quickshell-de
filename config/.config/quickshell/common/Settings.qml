@@ -37,6 +37,10 @@ Singleton {
     property alias fontLabels: adapter.fontLabels
     property alias fontClock: adapter.fontClock
     property alias fontApps: adapter.fontApps
+    // Section arrangement: [{ id, slot }] — see common/BarSections.qml
+    property alias barSections: adapter.barSections
+    property alias showTags: adapter.showTags
+    property alias showClock: adapter.showClock
     property alias showMediaPill: adapter.showMediaPill
     property alias showTray: adapter.showTray
     property alias showBattery: adapter.showBattery
@@ -133,6 +137,14 @@ Singleton {
             property string fontLabels: ""
             property string fontClock: ""
             property string fontApps: ""
+
+            // Which slot each bar section sits in and the order within it,
+            // as [{ id, slot }]. Empty means the shipped arrangement; a
+            // section missing from a saved list is restored to its default
+            // position rather than dropped (common/BarSections.qml).
+            property var barSections: []
+            property bool showTags: true
+            property bool showClock: true
             property bool showMediaPill: true
             property bool showTray: true
             property bool showBattery: true

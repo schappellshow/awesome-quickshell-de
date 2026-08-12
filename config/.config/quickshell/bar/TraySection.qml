@@ -6,10 +6,16 @@ import "../common"
 
 // StatusNotifierItem tray. Left-click activates, right-click opens the
 // item's menu. Note: legacy XEmbed-only tray apps will not appear.
-Column {
+Grid {
     id: root
 
     property var barWindow
+    property bool vertical: true
+
+    rows: root.vertical ? 0 : 1
+    columns: root.vertical ? 1 : 0
+    horizontalItemAlignment: Grid.AlignHCenter
+    verticalItemAlignment: Grid.AlignVCenter
 
     spacing: 6
 

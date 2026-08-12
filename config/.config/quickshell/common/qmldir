@@ -19,4 +19,5 @@ singleton SysMon SysMon.qml
 singleton BarState BarState.qml
 singleton DefaultApps DefaultApps.qml
 singleton BarSpace BarSpace.qml
+singleton BarSections BarSections.qml
 singleton Fonts Fonts.qml

@@ -11,12 +11,18 @@ import "../common"
 //
 // Click an icon to restore that specific window (awesome's Super+Ctrl+N can
 // only pop the most recently minimized one).
-Column {
+Grid {
     id: root
 
     property var awScreen
+    property bool vertical: true
 
     readonly property var items: root.awScreen ? (root.awScreen.hidden || []) : []
+
+    rows: root.vertical ? 0 : 1
+    columns: root.vertical ? 1 : 0
+    horizontalItemAlignment: Grid.AlignHCenter
+    verticalItemAlignment: Grid.AlignVCenter
 
     spacing: 4
     visible: root.items.length > 0
@@ -109,7 +115,6 @@ Column {
             width: 20
             height: 20
             radius: 5
-            anchors.horizontalCenter: parent.horizontalCenter
             // Dimmed at rest: these windows are hidden, and shouldn't pull
             // attention the way the taglist or an urgent tag does.
             color: hover.hovered ? Theme.surface : "transparent"

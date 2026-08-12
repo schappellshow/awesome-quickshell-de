@@ -4,7 +4,8 @@ import QtQuick.Effects
 import "../common"
 
 // Vertical left bar, one per screen. Transparent window; content sits in
-// floating pills (taglist top, clock center, tray/battery/layout bottom).
+// floating pills, one per slot (see common/BarSections.qml for what a slot
+// is and how sections are assigned to them).
 PanelWindow {
     id: bar
 
@@ -13,6 +14,8 @@ PanelWindow {
 
     // Awesome's view of this screen (tags, layout), matched by output name
     readonly property var awScreen: AwesomeState.forOutput(bar.screen.name)
+
+    readonly property bool vertical: true
 
     // Tags are per-screen in awesome; with one bar we show every screen's
     // taglist, ordered to match the physical left→right arrangement.
@@ -116,25 +119,37 @@ PanelWindow {
     // apply_bar_padding, re-pushed by common/BarSpace.qml on changes).
     exclusionMode: ExclusionMode.Ignore
 
+    // ── Sections ────────────────────────────────────────────────────────
+    // Every section is declared once, here, and then reparented into the
+    // pill for its slot. Declaring them statically (rather than loading
+    // them from a component map) is what lets the panels below keep plain
+    // `id` references to the widgets they hang off, and keeps each
+    // section's wiring — screen index, bar window, layout name — where it
+    // can be read.
+    //
+    // Nothing is ever drawn in the pool itself: reflow() runs before the
+    // first frame and empties it.
     Item {
-        anchors.fill: parent
+        id: pool
+        visible: false
 
-        Pill {
-            id: tagPill
-            anchors.top: parent.top
-            anchors.topMargin: 8
-            anchors.horizontalCenter: parent.horizontalCenter
-            visible: bar.tagSections.length > 0
+        Grid {
+            id: tagsGroup
+            visible: Settings.showTags && bar.tagSections.length > 0
+            rows: bar.vertical ? 0 : 1
+            columns: bar.vertical ? 1 : 0
+            spacing: 6
+            horizontalItemAlignment: Grid.AlignHCenter
+            verticalItemAlignment: Grid.AlignVCenter
 
             Repeater {
                 model: bar.tagSections
 
                 Column {
-                    id: section
+                    id: tagScreen
 
                     required property var modelData
 
-                    anchors.horizontalCenter: parent.horizontalCenter
                     spacing: 3
 
                     Text {
@@ -144,16 +159,17 @@ PanelWindow {
                         // bar lives on.
                         anchors.horizontalCenter: parent.horizontalCenter
                         visible: bar.tagSections.length > 1
-                        text: section.modelData.label
+                        text: tagScreen.modelData.label
                         font.family: Theme.labelFont
-                        font.bold: section.modelData.isHere
+                        font.bold: tagScreen.modelData.isHere
                         font.pointSize: 6
-                        color: section.modelData.isHere ? Theme.subtext : Theme.muted
+                        color: tagScreen.modelData.isHere ? Theme.subtext : Theme.muted
                     }
 
                     Workspaces {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        awScreen: section.modelData.aw
+                        vertical: bar.vertical
+                        awScreen: tagScreen.modelData.aw
                     }
 
                     // Hidden windows sit directly beneath the tags they
@@ -161,145 +177,181 @@ PanelWindow {
                     // monitor they're on. Absent unless something is hidden.
                     HiddenWindows {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        awScreen: section.modelData.aw
+                        vertical: bar.vertical
+                        awScreen: tagScreen.modelData.aw
                     }
                 }
             }
         }
 
-        // Media section — only there when an MPRIS player exists; sits
-        // just above the bottom status cluster.
+        // Clock plus the click target that opens the calendar. Wrapping
+        // them means the calendar keeps working wherever the clock is
+        // moved to.
+        Item {
+            id: clockGroup
+            visible: Settings.showClock
+            implicitWidth: clockStack.implicitWidth
+            implicitHeight: clockStack.implicitHeight
+
+            ClockStack {
+                id: clockStack
+                anchors.centerIn: parent
+                vertical: bar.vertical
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: BarState.toggleCalendar()
+            }
+        }
+
+        // Media button — only there when an MPRIS player exists.
         // Left-click: media panel; right-click: play/pause.
-        Pill {
-            id: mediaPill
-            anchors.bottom: bottomPill.top
-            anchors.bottomMargin: 6
-            anchors.horizontalCenter: parent.horizontalCenter
+        Item {
+            id: mediaButton
+
             visible: Media.active !== null && Settings.showMediaPill
-            padV: 5
+            width: 20
+            height: 20
 
-            Item {
-                width: 20
-                height: 20
+            // Drawn pause bars + non-emoji play glyph: ⏸/▶ fall back
+            // to the color emoji font, which ignores `color` entirely
+            // (that was the orange pause button)
+            Row {
+                anchors.centerIn: parent
+                visible: Media.active !== null && Media.active.isPlaying
+                spacing: 3
 
-                // Drawn pause bars + non-emoji play glyph: ⏸/▶ fall back
-                // to the color emoji font, which ignores `color` entirely
-                // (that was the orange pause button)
-                Row {
-                    anchors.centerIn: parent
-                    visible: Media.active !== null && Media.active.isPlaying
-                    spacing: 3
+                Rectangle { width: 3; height: 11; radius: 1; color: Theme.muted }
+                Rectangle { width: 3; height: 11; radius: 1; color: Theme.muted }
+            }
 
-                    Rectangle { width: 3; height: 11; radius: 1; color: Theme.muted }
-                    Rectangle { width: 3; height: 11; radius: 1; color: Theme.muted }
-                }
+            Text {
+                anchors.centerIn: parent
+                visible: Media.active === null || !Media.active.isPlaying
+                text: "►"
+                font.pointSize: 9
+                color: Theme.muted
+            }
 
-                Text {
-                    anchors.centerIn: parent
-                    visible: Media.active === null || !Media.active.isPlaying
-                    text: "►"
-                    font.pointSize: 9
-                    color: Theme.muted
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onClicked: mouseEvent => {
-                        if (mouseEvent.button === Qt.RightButton) {
-                            if (Media.active)
-                                Media.active.togglePlaying();
-                        } else {
-                            Media.toggleOn(bar.screen.name);
-                        }
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: mouseEvent => {
+                    if (mouseEvent.button === Qt.RightButton) {
+                        if (Media.active)
+                            Media.active.togglePlaying();
+                    } else {
+                        Media.toggleOn(bar.screen.name);
                     }
                 }
             }
         }
 
+        TraySection {
+            id: traySection
+            barWindow: bar
+            vertical: bar.vertical
+            visible: Settings.showTray
+        }
+
+        NotifBell { id: notifBell }
+        VolumeWidget { id: volumeWidget }
+        NetworkWidget { id: networkWidget }
+        BluetoothWidget { id: bluetoothWidget }
+        SysMonWidget { id: sysMonWidget }
+
+        // Behaves the same way as the keybind (Super+Shift+N): both land
+        // on NightLight.toggle().
+        NightLightWidget { id: nightLightWidget }
+
+        ScreenLockWidget { id: screenLockWidget }
+        Battery { id: batteryWidget }
+
+        LayoutBox {
+            id: layoutBox
+            visible: Settings.showLayoutBox
+            screenIndex: bar.awScreen ? bar.awScreen.index : 1
+            layoutName: bar.awScreen ? bar.awScreen.layout : ""
+        }
+    }
+
+    readonly property var sectionItems: ({
+        "tags":          tagsGroup,
+        "clock":         clockGroup,
+        "media":         mediaButton,
+        "tray":          traySection,
+        "notifications": notifBell,
+        "volume":        volumeWidget,
+        "network":       networkWidget,
+        "bluetooth":     bluetoothWidget,
+        "sysmon":        sysMonWidget,
+        "nightlight":    nightLightWidget,
+        "lock":          screenLockWidget,
+        "battery":       batteryWidget,
+        "layout":        layoutBox
+    })
+
+    // Re-home every section into its slot's pill. A positioner orders by
+    // child order and reparenting appends, so emptying the pills first and
+    // then re-adding in layout order is what makes the order come out
+    // right — there is no "insert at index" for a QML positioner.
+    function reflow() {
+        const slots = {
+            "start": startPill.container,
+            "center": centerPill.container,
+            "end": endPill.container
+        };
+        for (const id in bar.sectionItems)
+            bar.sectionItems[id].parent = pool;
+        for (const section of BarSections.arrangement) {
+            const item = bar.sectionItems[section.id];
+            if (item)
+                item.parent = slots[section.slot] || slots["end"];
+        }
+    }
+
+    Component.onCompleted: bar.reflow()
+
+    Connections {
+        target: BarSections
+        function onArrangementChanged() { bar.reflow(); }
+    }
+
+    Item {
+        anchors.fill: parent
+
         Pill {
-            id: clockPill
+            id: startPill
+            vertical: bar.vertical
+            anchors.top: parent.top
+            anchors.topMargin: 8
+            anchors.horizontalCenter: parent.horizontalCenter
+        }
+
+        Pill {
+            id: centerPill
+            vertical: bar.vertical
             anchors.centerIn: parent
-            padH: 6
-
-            ClockStack {}
-        }
-
-        // Click the clock for the calendar (Pill routes children into its
-        // column, so the MouseArea overlays it from outside)
-        MouseArea {
-            anchors.fill: clockPill
-            onClicked: BarState.toggleCalendar()
         }
 
         Pill {
-            id: bottomPill
+            id: endPill
+            vertical: bar.vertical
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 8
             anchors.horizontalCenter: parent.horizontalCenter
-            padV: 6
-
-            // Pill stacks children top-aligned at x=0; center each one
-            TrayColumn {
-                anchors.horizontalCenter: parent.horizontalCenter
-                barWindow: bar
-                visible: Settings.showTray
-            }
-
-            NotifBell {
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            VolumeWidget {
-                id: volumeWidget
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            NetworkWidget {
-                id: networkWidget
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            BluetoothWidget {
-                id: bluetoothWidget
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            SysMonWidget {
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            // Directly above the lock, and behaves the same way: click or
-            // keybind (Super+Shift+N) both land on NightLight.toggle().
-            NightLightWidget {
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            ScreenLockWidget {
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            Battery {
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            LayoutBox {
-                anchors.horizontalCenter: parent.horizontalCenter
-                visible: Settings.showLayoutBox
-                screenIndex: bar.awScreen ? bar.awScreen.index : 1
-                layoutName: bar.awScreen ? bar.awScreen.layout : ""
-            }
         }
     }
 
     MediaPanel {
         barWindow: bar
-        anchorItem: mediaPill
+        anchorItem: mediaButton
     }
 
     CalendarPopup {
         barWindow: bar
-        anchorItem: clockPill
+        anchorItem: clockGroup
         shown: BarState.calendarOpen
     }
 

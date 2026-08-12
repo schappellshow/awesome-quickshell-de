@@ -84,73 +84,85 @@ SettingsPage {
 
     SectionLabel { text: "SECTIONS" }
 
-    ToggleRow {
-        label: "Media button"
-        checked: Settings.showMediaPill
-        onToggled: value => Settings.showMediaPill = value
+    Text {
+        width: parent.width
+        text: "The bar has three groups — top, middle and bottom — each drawn "
+            + "as one pill. Move a section between groups with its chip, and "
+            + "reorder it inside a group with the arrows."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
     }
 
-    ToggleRow {
-        label: "System tray"
-        checked: Settings.showTray
-        onToggled: value => Settings.showTray = value
+    // One block per slot, listing that slot's sections in bar order — so
+    // this list is a small picture of the bar itself.
+    Repeater {
+        model: BarSections.slotIds
+
+        Column {
+            id: slotBlock
+
+            required property var modelData
+
+            readonly property var sections:
+                BarSections.layout.filter(s => s.slot === slotBlock.modelData)
+
+            width: parent.width
+            spacing: 2
+
+            Item {
+                width: parent.width
+                height: 22
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: BarSections.slotLabel(slotBlock.modelData)
+                    font.family: Theme.fontFamily
+                    font.bold: true
+                    font.pointSize: 9
+                    color: Theme.subtext
+                }
+            }
+
+            // An empty group is a legitimate arrangement, and saying so
+            // beats an unexplained gap.
+            Text {
+                visible: slotBlock.sections.length === 0
+                text: "empty"
+                font.family: Theme.fontFamily
+                font.italic: true
+                font.pointSize: 9
+                color: Theme.muted
+            }
+
+            Repeater {
+                model: slotBlock.sections
+
+                SectionRow {
+                    required property var modelData
+
+                    label: modelData.label
+                    slotName: BarSections.slotLabel(modelData.slot)
+                    shown: modelData.shown
+                    canUp: BarSections.canMove(modelData.id, -1)
+                    canDown: BarSections.canMove(modelData.id, 1)
+
+                    onToggled: value => BarSections.setShown(modelData.id, value)
+                    onMoved: delta => BarSections.move(modelData.id, delta)
+                    onSlotCycled: BarSections.cycleSlot(modelData.id)
+                }
+            }
+        }
     }
 
-    ToggleRow {
-        label: "Notification bell"
-        checked: Settings.showNotifBell
-        onToggled: value => Settings.showNotifBell = value
-    }
-
-    ToggleRow {
-        label: "Night light"
-        checked: Settings.showNightLight
-        onToggled: value => Settings.showNightLight = value
-    }
-
-    ToggleRow {
-        label: "Screen lock (auto-lock state)"
-        checked: Settings.showScreenLock
-        onToggled: value => Settings.showScreenLock = value
-    }
-
-    ToggleRow {
-        label: "Volume"
-        checked: Settings.showVolume
-        onToggled: value => Settings.showVolume = value
-    }
-
-    ToggleRow {
-        label: "Network"
-        checked: Settings.showNetwork
-        onToggled: value => Settings.showNetwork = value
-    }
-
-    ToggleRow {
-        label: "Bluetooth"
-        checked: Settings.showBluetooth
-        onToggled: value => Settings.showBluetooth = value
-    }
-
-    ToggleRow {
-        label: "Battery"
-        checked: Settings.showBattery
-        onToggled: value => Settings.showBattery = value
-    }
-
-    ToggleRow {
-        label: "Layout indicator"
-        checked: Settings.showLayoutBox
-        onToggled: value => Settings.showLayoutBox = value
+    ButtonRow {
+        label: "Restore the default arrangement"
+        buttonText: "Reset"
+        onClicked: BarSections.reset()
     }
 
     SectionLabel { text: "SYSTEM MONITOR" }
-
-    ToggleRow {
-        label: "CPU/RAM pill"
-        checked: Settings.showSysMon
-        onToggled: value => Settings.showSysMon = value
-    }
 
     TextFieldRow {
         label: "Conky config for the popout (Enter to apply)"
