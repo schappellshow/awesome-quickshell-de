@@ -3,9 +3,9 @@ import Quickshell
 import QtQuick.Effects
 import "../common"
 
-// Vertical left bar, one per screen. Transparent window; content sits in
-// floating pills, one per slot (see common/BarSections.qml for what a slot
-// is and how sections are assigned to them).
+// Edge bar, one per screen. Transparent window; content sits in floating
+// pills, one per slot (see common/BarSections.qml for what a slot is and how
+// sections are assigned to them).
 PanelWindow {
     id: bar
 
@@ -15,7 +15,7 @@ PanelWindow {
     // Awesome's view of this screen (tags, layout), matched by output name
     readonly property var awScreen: AwesomeState.forOutput(bar.screen.name)
 
-    readonly property bool vertical: true
+    readonly property bool vertical: BarEdge.vertical
 
     // Tags are per-screen in awesome; with one bar we show every screen's
     // taglist, ordered to match the physical left→right arrangement.
@@ -45,12 +45,18 @@ PanelWindow {
         return sections;
     }
 
+    // Anchored to three edges: the two the bar spans, and the one it sits
+    // on. The unanchored side is the one barWidth then measures, so the same
+    // setting is the bar's width when it's vertical and its height when it
+    // isn't.
     anchors {
-        left: true
-        top: true
-        bottom: true
+        left: BarEdge.edge !== "right"
+        right: BarEdge.edge !== "left"
+        top: BarEdge.edge !== "bottom"
+        bottom: BarEdge.edge !== "top"
     }
     implicitWidth: Settings.barWidth
+    implicitHeight: Settings.barWidth
 
     // Background is built up in layers below (blur, then tint), so the
     // window itself contributes nothing.
@@ -71,12 +77,14 @@ PanelWindow {
 
         Image {
             id: wallCopy
-            // The bar sits on the screen's edge, so its top-left coincides
-            // with the screen's: draw the wallpaper at full screen size from
-            // 0,0 and the slice showing through lines up with what feh
-            // painted. PreserveAspectCrop matches feh --bg-fill.
-            x: 0
-            y: 0
+            // Draw the whole wallpaper at screen size, offset so that the
+            // slice showing through the bar lines up with what feh painted
+            // underneath it. On the left or top edge the bar's origin is the
+            // screen's, so the offset is zero; on the right or bottom it is
+            // however far in from that edge the bar starts.
+            // PreserveAspectCrop matches feh --bg-fill.
+            x: BarEdge.edge === "right" ? -(bar.screen.width - bar.width) : 0
+            y: BarEdge.edge === "bottom" ? -(bar.screen.height - bar.height) : 0
             width: bar.screen.width
             height: bar.screen.height
             fillMode: Image.PreserveAspectCrop
@@ -114,7 +122,7 @@ PanelWindow {
                        Settings.barOpacity / 100)
     }
 
-    // No strut: X11 struts can't reserve the left edge of a middle monitor.
+    // No strut: X11 struts can't reserve an inner edge of a middle monitor.
     // Awesome pads the screen instead (modules/quickshell.lua
     // apply_bar_padding, re-pushed by common/BarSpace.qml on changes).
     exclusionMode: ExclusionMode.Ignore
@@ -136,8 +144,7 @@ PanelWindow {
         Grid {
             id: tagsGroup
             visible: Settings.showTags && bar.tagSections.length > 0
-            rows: bar.vertical ? 0 : 1
-            columns: bar.vertical ? 1 : 0
+            columns: bar.vertical ? 1 : 99
             spacing: 6
             horizontalItemAlignment: Grid.AlignHCenter
             verticalItemAlignment: Grid.AlignVCenter
@@ -145,11 +152,17 @@ PanelWindow {
             Repeater {
                 model: bar.tagSections
 
-                Column {
+                // The screen's label sits above its tags on a vertical bar
+                // and beside them on a horizontal one — stacked, the group
+                // is taller than a horizontal bar is thick.
+                Grid {
                     id: tagScreen
 
                     required property var modelData
 
+                    columns: bar.vertical ? 1 : 99
+                    horizontalItemAlignment: Grid.AlignHCenter
+                    verticalItemAlignment: Grid.AlignVCenter
                     spacing: 3
 
                     Text {
@@ -157,7 +170,6 @@ PanelWindow {
                         // render identically; this screen's label is bold,
                         // which is the only thing marking it as the one the
                         // bar lives on.
-                        anchors.horizontalCenter: parent.horizontalCenter
                         visible: bar.tagSections.length > 1
                         text: tagScreen.modelData.label
                         font.family: Theme.labelFont
@@ -167,8 +179,6 @@ PanelWindow {
                     }
 
                     Workspaces {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        vertical: bar.vertical
                         awScreen: tagScreen.modelData.aw
                     }
 
@@ -176,8 +186,6 @@ PanelWindow {
                     // belong to, so nothing extra is needed to say which
                     // monitor they're on. Absent unless something is hidden.
                     HiddenWindows {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        vertical: bar.vertical
                         awScreen: tagScreen.modelData.aw
                     }
                 }
@@ -196,8 +204,7 @@ PanelWindow {
             ClockStack {
                 id: clockStack
                 anchors.centerIn: parent
-                vertical: bar.vertical
-            }
+                }
 
             MouseArea {
                 anchors.fill: parent
@@ -251,7 +258,6 @@ PanelWindow {
         TraySection {
             id: traySection
             barWindow: bar
-            vertical: bar.vertical
             visible: Settings.showTray
         }
 
@@ -321,26 +327,28 @@ PanelWindow {
     Item {
         anchors.fill: parent
 
+        // Placed by x/y rather than anchors. Flipping a set of anchors as
+        // the bar changes edge goes through a moment where left and
+        // horizontalCenter are both set — an invalid combination that leaves
+        // the pill sized wrong afterwards. Arithmetic has no such state.
         Pill {
             id: startPill
-            vertical: bar.vertical
-            anchors.top: parent.top
-            anchors.topMargin: 8
-            anchors.horizontalCenter: parent.horizontalCenter
+            x: bar.vertical ? (parent.width - width) / 2 : 8
+            y: bar.vertical ? 8 : (parent.height - height) / 2
         }
 
         Pill {
             id: centerPill
-            vertical: bar.vertical
-            anchors.centerIn: parent
+            x: (parent.width - width) / 2
+            y: (parent.height - height) / 2
         }
 
         Pill {
             id: endPill
-            vertical: bar.vertical
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 8
-            anchors.horizontalCenter: parent.horizontalCenter
+            x: bar.vertical ? (parent.width - width) / 2
+                            : parent.width - width - 8
+            y: bar.vertical ? parent.height - height - 8
+                            : (parent.height - height) / 2
         }
     }
 

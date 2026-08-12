@@ -15,12 +15,11 @@ Grid {
     id: root
 
     property var awScreen
-    property bool vertical: true
+    property bool vertical: BarEdge.vertical
 
     readonly property var items: root.awScreen ? (root.awScreen.hidden || []) : []
 
-    rows: root.vertical ? 0 : 1
-    columns: root.vertical ? 1 : 0
+    columns: root.vertical ? 1 : 99
     horizontalItemAlignment: Grid.AlignHCenter
     verticalItemAlignment: Grid.AlignVCenter
 

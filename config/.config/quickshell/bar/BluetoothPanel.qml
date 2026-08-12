@@ -25,13 +25,10 @@ PopupWindow {
     implicitHeight: card.implicitHeight
 
     anchor.window: barWindow
-    anchor.rect.x: barWindow ? barWindow.implicitWidth + 6 : 42
-    anchor.rect.y: {
-        if (!anchorItem)
-            return 100;
-        const p = anchorItem.mapToItem(null, 0, anchorItem.height / 2);
-        return Math.max(8, p.y - panel.implicitHeight / 2);
-    }
+    anchor.rect.x: BarEdge.popupX(panel.barWindow, panel.anchorItem,
+                                  panel.implicitWidth)
+    anchor.rect.y: BarEdge.popupY(panel.barWindow, panel.anchorItem,
+                                  panel.implicitHeight)
 
     Rectangle {
         id: card

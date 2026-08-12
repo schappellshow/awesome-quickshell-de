@@ -8,7 +8,7 @@ import "../common"
 Item {
     id: root
 
-    property bool vertical: true
+    property bool vertical: BarEdge.vertical
 
     readonly property int hours12: (clock.hours % 12) === 0 ? 12 : clock.hours % 12
     readonly property string hh: String(root.hours12).padStart(2, "0")

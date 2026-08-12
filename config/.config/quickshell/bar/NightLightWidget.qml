@@ -22,13 +22,17 @@ Item {
     // Bar convention: "on" = accent blue, "off/inactive" = gray.
     readonly property color col: on ? Theme.accentBright : Theme.subtext
 
-    Column {
+    // Label over value on a vertical bar, label beside it on a horizontal
+    // one — a two-line stack is taller than a horizontal bar is thick.
+    Grid {
         id: stack
         anchors.centerIn: parent
-        spacing: 1
+        columns: BarEdge.vertical ? 1 : 99
+        horizontalItemAlignment: Grid.AlignHCenter
+        verticalItemAlignment: Grid.AlignVCenter
+        spacing: BarEdge.vertical ? 1 : 4
 
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: "NGT"
             font.family: Theme.labelFont
             font.bold: true
@@ -45,7 +49,6 @@ Item {
         // them (this shipped as two empty strings the first time). The
         // escape also greps.
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: root.on ? "\uf186" : "\uf185"
             font.family: Theme.iconFont
             font.pointSize: 10

@@ -126,12 +126,15 @@ Singleton {
         return layout.filter(s => s.slot === slot);
     }
 
-    // Slots are named for where they land, not for the abstraction: on a
-    // vertical bar "start" is the top.
+    // Slots are named for where they land, not for the abstraction: "start"
+    // is the top of a vertical bar and the left of a horizontal one, and the
+    // settings page should say which.
     function slotLabel(slot) {
-        return slot === "start" ? "Top"
-             : slot === "center" ? "Middle"
-             : "Bottom";
+        if (slot === "center")
+            return "Middle";
+        if (BarEdge.vertical)
+            return slot === "start" ? "Top" : "Bottom";
+        return slot === "start" ? "Left" : "Right";
     }
 
     // `arrangement` is a binding's value; the reordering helpers below work

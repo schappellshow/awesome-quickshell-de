@@ -10,13 +10,17 @@ Item {
     implicitWidth: col.implicitWidth
     implicitHeight: col.implicitHeight
 
-    Column {
+    // Label over value on a vertical bar, label beside it on a horizontal
+    // one — a two-line stack is taller than a horizontal bar is thick.
+    Grid {
         id: col
         anchors.centerIn: parent
-        spacing: 1
+        columns: BarEdge.vertical ? 1 : 99
+        horizontalItemAlignment: Grid.AlignHCenter
+        verticalItemAlignment: Grid.AlignVCenter
+        spacing: BarEdge.vertical ? 1 : 4
 
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: "NTF"
             font.family: Theme.labelFont
             font.bold: true
@@ -25,7 +29,6 @@ Item {
         }
 
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: Settings.doNotDisturb ? "zZ"
                 : NotifHistory.unread > 0 ? String(NotifHistory.unread) : "–"
             font.family: Theme.labelFont

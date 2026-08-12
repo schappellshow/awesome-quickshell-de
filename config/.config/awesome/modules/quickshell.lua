@@ -104,8 +104,9 @@ end
 -- Reserve space for the quickshell bar. X11 struts can't express "left
 -- edge of a middle monitor", so the bar sets no strut (ExclusionMode.
 -- Ignore) and we pad the screen(s) it lives on instead. Reads barWidth/
--- barScreen from quickshell's settings.json; quickshell re-invokes this
--- via awesome-client when those settings change (common/BarSpace.qml).
+-- barScreen/barPosition from quickshell's settings.json; quickshell
+-- re-invokes this via awesome-client when those settings change
+-- (common/BarSpace.qml).
 local function read_qs_settings()
     local content = ""
     local f = io.popen("cat " .. os.getenv("HOME")
@@ -132,10 +133,14 @@ function M.bar_screen()
     return screen.primary
 end
 
+local BAR_EDGES = { left = true, right = true, top = true, bottom = true }
+
 function M.apply_bar_padding()
     local content = read_qs_settings()
     local width  = tonumber(content:match('"barWidth"%s*:%s*(%d+)')) or 36
     local target = content:match('"barScreen"%s*:%s*"([^"]*)"') or ""
+    local edge   = content:match('"barPosition"%s*:%s*"([^"]*)"') or "left"
+    if not BAR_EDGES[edge] then edge = "left" end
 
     -- Unplugged/unknown output → quickshell falls back to bars on every
     -- screen; mirror that here
@@ -152,7 +157,11 @@ function M.apply_bar_padding()
         for name in pairs(s.outputs) do
             if name == target then has_bar = true end
         end
-        s.padding = has_bar and { left = width + 3 } or { left = 0 }
+        -- Write every side, so a bar that moved doesn't leave the padding
+        -- it reserved on its old edge behind
+        local pad = { left = 0, right = 0, top = 0, bottom = 0 }
+        if has_bar then pad[edge] = width + 3 end
+        s.padding = pad
     end
 end
 

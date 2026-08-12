@@ -18,13 +18,17 @@ Item {
     implicitWidth: col.implicitWidth
     implicitHeight: col.implicitHeight
 
-    Column {
+    // Label over value on a vertical bar, label beside it on a horizontal
+    // one — a two-line stack is taller than a horizontal bar is thick.
+    Grid {
         id: col
         anchors.centerIn: parent
-        spacing: 1
+        columns: BarEdge.vertical ? 1 : 99
+        horizontalItemAlignment: Grid.AlignHCenter
+        verticalItemAlignment: Grid.AlignVCenter
+        spacing: BarEdge.vertical ? 1 : 4
 
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: "BT"
             font.family: Theme.labelFont
             font.bold: true
@@ -35,7 +39,6 @@ Item {
         // fa-bluetooth-b rune (U+F294): blue when a device is connected,
         // gray when the adapter is on but idle, dim when off.
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: String.fromCodePoint(0xf294)
             font.family: Theme.iconFont
             font.pointSize: 10

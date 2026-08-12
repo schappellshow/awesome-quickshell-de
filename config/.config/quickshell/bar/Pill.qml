@@ -11,7 +11,7 @@ import "../common"
 Rectangle {
     id: pill
 
-    property bool vertical: true
+    property bool vertical: BarEdge.vertical
     // Padding along the bar and across it. Swapping them with the
     // orientation keeps a horizontal bar as thin as a vertical one is
     // narrow, rather than making it tall.
@@ -36,8 +36,14 @@ Rectangle {
     Grid {
         id: grid
         anchors.centerIn: parent
-        rows: pill.vertical ? 0 : 1
-        columns: pill.vertical ? 1 : 0
+        // One column, or one row wide enough for anything. `rows` is left
+        // alone deliberately: setting both means that when the bar changes
+        // edge, QML re-evaluates them one at a time and Grid spends an
+        // instant believing it is 1×1, which it complains about. Only
+        // `columns` moving avoids that state entirely. Every Grid in the bar
+        // switches orientation this way. The unused columns cost one
+        // trailing `spacing` and nothing else.
+        columns: pill.vertical ? 1 : 99
         spacing: 4
         horizontalItemAlignment: Grid.AlignHCenter
         verticalItemAlignment: Grid.AlignVCenter

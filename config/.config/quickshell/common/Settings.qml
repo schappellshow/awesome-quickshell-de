@@ -29,6 +29,7 @@ Singleton {
     property alias nightLightStop: adapter.nightLightStop
 
     // Bar
+    property alias barPosition: adapter.barPosition
     property alias barWidth: adapter.barWidth
     property alias barScreen: adapter.barScreen
     property alias barOpacity: adapter.barOpacity
@@ -116,6 +117,10 @@ Singleton {
             property string nightLightStart: "21:00"
             property string nightLightStop: "07:00"
 
+            // Which edge the bar lives on: "left" | "right" | "top" |
+            // "bottom". barWidth is its thickness on that edge, so a
+            // horizontal bar is 36px tall rather than 36px wide.
+            property string barPosition: "left"
             property int barWidth: 36
             // Output name (e.g. "DisplayPort-2") for a single bar;
             // "" or an unplugged output falls back to bars on every screen

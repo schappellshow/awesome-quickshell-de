@@ -17,13 +17,17 @@ Item {
              : Theme.subtext;
     }
 
-    Column {
+    // Label over value on a vertical bar, label beside it on a horizontal
+    // one — a two-line stack is taller than a horizontal bar is thick.
+    Grid {
         id: col
         anchors.centerIn: parent
-        spacing: 1
+        columns: BarEdge.vertical ? 1 : 99
+        horizontalItemAlignment: Grid.AlignHCenter
+        verticalItemAlignment: Grid.AlignVCenter
+        spacing: BarEdge.vertical ? 1 : 4
 
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: "CPU"
             font.family: Theme.labelFont
             font.bold: true
@@ -33,7 +37,6 @@ Item {
         }
 
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: SysMon.cpuPct + "%"
             font.family: Theme.labelFont
             font.pointSize: 9
@@ -41,7 +44,6 @@ Item {
         }
 
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: "RAM"
             font.family: Theme.labelFont
             font.bold: true
@@ -50,7 +52,6 @@ Item {
         }
 
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: SysMon.memPct + "%"
             font.family: Theme.labelFont
             font.pointSize: 9

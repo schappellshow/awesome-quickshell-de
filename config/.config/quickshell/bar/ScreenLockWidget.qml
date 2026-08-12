@@ -22,13 +22,17 @@ Item {
     implicitWidth: stack.implicitWidth
     implicitHeight: stack.implicitHeight
 
-    Column {
+    // Label over value on a vertical bar, label beside it on a horizontal
+    // one — a two-line stack is taller than a horizontal bar is thick.
+    Grid {
         id: stack
         anchors.centerIn: parent
-        spacing: 1
+        columns: BarEdge.vertical ? 1 : 99
+        horizontalItemAlignment: Grid.AlignHCenter
+        verticalItemAlignment: Grid.AlignVCenter
+        spacing: BarEdge.vertical ? 1 : 4
 
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: "SCN"
             font.family: Theme.labelFont
             font.bold: true
@@ -39,7 +43,6 @@ Item {
         // Nerd Font padlock glyph: nf-fa-lock (U+F023) / nf-fa-unlock
         // (U+F09C). Monochrome, so it honours `color` like the bar text.
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
             text: root.closed ? "" : ""
             font.family: Theme.iconFont
             font.pointSize: 10

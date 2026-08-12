@@ -10,10 +10,9 @@ Grid {
     id: root
 
     property var barWindow
-    property bool vertical: true
+    property bool vertical: BarEdge.vertical
 
-    rows: root.vertical ? 0 : 1
-    columns: root.vertical ? 1 : 0
+    columns: root.vertical ? 1 : 99
     horizontalItemAlignment: Grid.AlignHCenter
     verticalItemAlignment: Grid.AlignVCenter
 
@@ -58,8 +57,17 @@ Grid {
                 anchor.window: root.barWindow
             }
 
+            // Open off the icon's inward-facing edge, so the menu unfolds
+            // over the desktop rather than back across the bar.
             function openMenu() {
-                const p = trayItem.mapToItem(null, trayItem.width, trayItem.height / 2);
+                const edge = BarEdge.edge;
+                const px = root.vertical
+                    ? (edge === "right" ? 0 : trayItem.width)
+                    : trayItem.width / 2;
+                const py = root.vertical
+                    ? trayItem.height / 2
+                    : (edge === "bottom" ? 0 : trayItem.height);
+                const p = trayItem.mapToItem(null, px, py);
                 menuAnchor.anchor.rect = Qt.rect(p.x, p.y, 1, 1);
                 menuAnchor.open();
             }

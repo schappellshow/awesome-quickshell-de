@@ -27,9 +27,15 @@ Singleton {
         // offset here. (The awesome rule additionally pins the window to
         // the bar's screen.)
         // +11: conky positions its window ~11px left of the requested gap
-        // (own-window margin quirk), measured against awesome's geometry
-        const x = Settings.barWidth + 19;
-        const y = 20;
+        // (own-window margin quirk), measured against awesome's geometry.
+        // The popout hugs whichever edge the bar is on, and anchors to that
+        // same corner so it grows away from the bar rather than under it.
+        const clear = Settings.barWidth + 19;
+        const align = BarEdge.edge === "right" ? "top_right"
+                    : BarEdge.edge === "bottom" ? "bottom_left"
+                    : "top_left";
+        const x = BarEdge.vertical ? clear : 20;
+        const y = BarEdge.vertical ? 20 : clear;
         // Optional integration: conky is not required by this desktop. With
         // no config set (or the file missing) fall back to any *.conkyrc in
         // ~/.conky, then to conky's own defaults; if conky isn't installed
@@ -44,9 +50,9 @@ Singleton {
             "  -name '*.conkyrc' 2>/dev/null | sort | head -1); " +
             "cd \"$HOME/.conky\" 2>/dev/null; " +
             "if [ -n \"$cfg\" ] && [ -f \"$cfg\" ]; then " +
-            "  conky -c \"$cfg\" -a top_left -x " + x + " -y " + y + " >/dev/null 2>&1 & " +
+            "  conky -c \"$cfg\" -a " + align + " -x " + x + " -y " + y + " >/dev/null 2>&1 & " +
             "else " +
-            "  conky -a top_left -x " + x + " -y " + y + " >/dev/null 2>&1 & " +
+            "  conky -a " + align + " -x " + x + " -y " + y + " >/dev/null 2>&1 & " +
             "fi",
             "conky-toggle", cfg]);
         conkyRunning = !conkyRunning;

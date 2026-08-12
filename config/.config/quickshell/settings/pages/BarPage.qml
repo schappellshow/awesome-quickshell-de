@@ -8,8 +8,19 @@ SettingsPage {
 
     SectionLabel { text: "GEOMETRY" }
 
+    CycleRow {
+        label: "Position"
+        value: BarEdge.label(BarEdge.edge)
+        onCycle: {
+            const i = BarEdge.edges.indexOf(BarEdge.edge);
+            Settings.barPosition = BarEdge.edges[(i + 1) % BarEdge.edges.length];
+        }
+    }
+
     SliderRow {
-        label: "Bar width"
+        // Width on a vertical bar, height on a horizontal one — one setting
+        // either way, so it's named for what it always is.
+        label: "Bar thickness"
         from: 28
         to: 48
         step: 2
@@ -86,8 +97,10 @@ SettingsPage {
 
     Text {
         width: parent.width
-        text: "The bar has three groups — top, middle and bottom — each drawn "
-            + "as one pill. Move a section between groups with its chip, and "
+        text: "The bar has three groups — "
+            + BarSections.slotLabel("start").toLowerCase() + ", " + BarSections.slotLabel("center").toLowerCase() + " and "
+            + BarSections.slotLabel("end").toLowerCase() + " — each drawn as "
+            + "one pill. Move a section between groups with its chip, and "
             + "reorder it inside a group with the arrows."
         wrapMode: Text.Wrap
         font.family: Theme.fontFamily
