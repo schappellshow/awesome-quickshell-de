@@ -40,16 +40,21 @@ Item {
             color: Theme.muted
         }
 
-        // Nerd Font glyphs: nf-fa-moon_o (U+F186) / nf-fa-sun_o (U+F185).
-        // Monochrome like the padlock, so they honour `color` — the emoji
-        // ☀/🌙 would not.
+        // Nerd Font glyphs: nf-fa-moon_o (U+F186) for on, and the Weather
+        // Icons filled sun (U+E368) for off. Monochrome like the padlock, so
+        // they honour `color` — the emoji ☀/🌙 would not.
+        //
+        // The sun used to be nf-fa-sun_o (U+F185), whose disc is small enough
+        // that at 10pt the eight rays close up into a ring and the whole
+        // thing reads as a gear. This one keeps a solid disc with the rays
+        // still separated at that size.
         //
         // Written as \u escapes, not literal characters: these live in the
         // Unicode private use area, and pasting them around silently loses
         // them (this shipped as two empty strings the first time). The
         // escape also greps.
         Text {
-            text: root.on ? "\uf186" : "\uf185"
+            text: root.on ? "\uf186" : "\ue368"
             font.family: Theme.iconFont
             font.pointSize: 10
             color: root.col
