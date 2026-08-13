@@ -22,3 +22,4 @@ singleton BarSpace BarSpace.qml
 singleton BarSections BarSections.qml
 singleton BarEdge BarEdge.qml
 singleton Fonts Fonts.qml
+singleton TrayItems TrayItems.qml

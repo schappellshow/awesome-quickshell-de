@@ -141,6 +141,56 @@ SettingsPage {
         onClicked: BarSections.reset()
     }
 
+    SectionLabel { text: "SYSTEM TRAY" }
+
+    Text {
+        width: parent.width
+        text: "Everything in the tray right now, plus anything you've "
+            + "hidden. Turning one off only removes its icon — the app keeps "
+            + "running exactly as it was, and the icon returns the moment "
+            + "you turn it back on."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
+    Text {
+        visible: TrayItems.known.length === 0
+        text: "Nothing in the tray at the moment."
+        font.family: Theme.fontFamily
+        font.italic: true
+        font.pointSize: 9
+        color: Theme.muted
+    }
+
+    Repeater {
+        model: TrayItems.known
+
+        TrayRow {
+            required property var modelData
+
+            label: modelData.name
+            iconSource: modelData.item
+                ? TrayItems.fixIcon(modelData.item.icon) : ""
+            running: modelData.running
+            shown: !modelData.hidden
+
+            onToggled: value =>
+                TrayItems.setHidden(modelData.key, modelData.name, !value)
+        }
+    }
+
+    ButtonRow {
+        // Only worth offering when something is actually hidden — otherwise
+        // it's a button that does nothing, sitting under a list of things
+        // that are all already on.
+        visible: Settings.trayHidden.length > 0
+        label: "Show every tray icon again"
+        buttonText: "Reset"
+        onClicked: TrayItems.reset()
+    }
+
     SectionLabel { text: "SYSTEM MONITOR" }
 
     TextFieldRow {

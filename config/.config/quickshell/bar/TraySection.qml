@@ -6,6 +6,9 @@ import "../common"
 
 // StatusNotifierItem tray. Left-click activates, right-click opens the
 // item's menu. Note: legacy XEmbed-only tray apps will not appear.
+//
+// Individual icons can be hidden from the Bar settings page; the Grid leaves
+// invisible children out of its layout, so a hidden one costs no space.
 Grid {
     id: root
 
@@ -26,29 +29,14 @@ Grid {
 
             required property var modelData
 
+            visible: !TrayItems.isHidden(trayItem.modelData)
+
             width: 18
             height: 18
 
-            // quickshell can't search SNI custom icon paths (apps like
-            // Spotify ship "image://icon/<name>?path=<dir>") — rebuild
-            // those into direct file URLs so they don't render as the
-            // missing-icon checkerboard.
-            function fixIcon(icon) {
-                const m = /^image:\/\/icon\/(.*)\?path=(.*)$/.exec(icon);
-                if (m) {
-                    // Some apps (rustdesk) put an absolute path in the icon
-                    // NAME — joining it onto the dir doubles the path
-                    if (m[1].startsWith("/"))
-                        return "file://" + m[1];
-                    return "file://" + m[2] + "/" + m[1]
-                        + (m[1].includes(".") ? "" : ".png");
-                }
-                return icon;
-            }
-
             IconImage {
                 anchors.fill: parent
-                source: trayItem.fixIcon(trayItem.modelData.icon)
+                source: TrayItems.fixIcon(trayItem.modelData.icon)
             }
 
             QsMenuAnchor {

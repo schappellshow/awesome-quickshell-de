@@ -44,6 +44,8 @@ Singleton {
     property alias showClock: adapter.showClock
     property alias showMediaPill: adapter.showMediaPill
     property alias showTray: adapter.showTray
+    // Tray icons hidden by hand: [{ key, name }] — see common/TrayItems.qml
+    property alias trayHidden: adapter.trayHidden
     property alias showBattery: adapter.showBattery
     property alias showLayoutBox: adapter.showLayoutBox
     property alias showNetwork: adapter.showNetwork
@@ -153,6 +155,13 @@ Singleton {
             property bool showClock: true
             property bool showMediaPill: true
             property bool showTray: true
+
+            // Tray icons hidden by hand, as [{ key, name }]. The name is
+            // stored alongside the key so a hidden app can still be listed
+            // (and un-hidden) while it isn't running — see
+            // common/TrayItems.qml.
+            property var trayHidden: []
+
             property bool showBattery: true
             property bool showLayoutBox: true
             property bool showNetwork: true
