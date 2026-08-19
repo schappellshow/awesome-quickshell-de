@@ -64,10 +64,16 @@ done | head -1
             args.push(p);
         Quickshell.execDetached(args);
         // Rebuild the lock screen's blurred/dimmed cache to match
-        // (betterlockscreen lives in ~/.local/bin; skip silently if absent)
+        // (bin/.local/bin/lock-image; skip silently if absent). It stamps its
+        // output, so the repeat calls this binding makes on a layout change
+        // cost ~0.05s once the first one has run.
+        //
+        // The path goes through $1 rather than being interpolated into the
+        // script: a wallpaper filename containing a quote would otherwise end
+        // the string and run whatever followed it.
         Quickshell.execDetached(["sh", "-c",
-            "command -v betterlockscreen >/dev/null && " +
-            "betterlockscreen -u '" + p + "' >/dev/null 2>&1 || true"]);
+            'command -v lock-image >/dev/null && exec lock-image "$1" || true',
+            "sh", p]);
     }
 
     Connections {

@@ -3,21 +3,32 @@
 # suspend) and `loginctl lock-session` / Ctrl+Alt+L.
 # Swap lockers here without touching keybinds or xss-lock.
 #
-# Preferred: betterlockscreen (blurred/dimmed wallpaper via i3lock-color;
-# theme in ~/.config/betterlockscreenrc, cache in ~/.cache/betterlockscreen
-# rebuilt on wallpaper changes by quickshell's Wallpaper singleton).
+# Preferred: i3lock-color drawing the pre-rendered background that lock-image
+# builds (blurred/dimmed wallpaper plus the login panel, cached in
+# ~/.cache/lock-screen, rebuilt on wallpaper and layout changes by
+# quickshell's Wallpaper singleton).
 # Falls back to xsecurelock (login-style password field), then i3lock-color's
-# ring, then plain i3lock.
+# bare ring, then plain i3lock.
+#
+# WHY NOT betterlockscreen. It used to own this path, and it is a wrapper
+# around this same i3lock-color binary — it never drew anything itself. But it
+# hardcodes every position and size (`local fontlg=32` … `--ind-pos=x+310:…`)
+# and exposes none of them in betterlockscreenrc, so the layout could not be
+# configured at all: the indicator ring overlapped the greeter text and there
+# was no setting that could move either. Calling i3lock-color ourselves costs
+# ~40 lines and makes the whole layout ours. lock-image took over generating
+# the background, which was the only other thing betterlockscreen did.
 #
 # The locker must not fork: xss-lock holds the systemd sleep inhibitor until
-# this process exits.
+# this process exits. Hence -n, and hence no `exec` into a backgrounding
+# locker.
 #
-# Locking BEFORE A SUSPEND has one extra job that betterlockscreen cannot do.
-# xss-lock --transfer-sleep-lock passes logind's delay inhibitor down as
+# Locking BEFORE A SUSPEND has one extra job that no i3lock-family locker can
+# do. xss-lock --transfer-sleep-lock passes logind's delay inhibitor down as
 # $XSS_SLEEP_LOCK_FD, and closing that fd is what tells logind the screen is
-# covered and it may suspend. betterlockscreen has never heard of the
-# variable, so it holds the inhibitor for the whole lock and logind falls back
-# to its own 5s timeout:
+# covered and it may suspend. i3lock has never heard of the variable, so it
+# holds the inhibitor for the whole lock and logind falls back to its own 5s
+# timeout:
 #
 #   Delay lock is active (UID .../mike, PID .../xss-lock) but inhibitor
 #   timeout is reached.
@@ -27,15 +38,13 @@
 #
 #   - Handing sleep locks to xsecurelock (which does implement the protocol)
 #     works, but you get its plain login field on resume instead of the
-#     blurred wallpaper. That is the whole reason betterlockscreen is here.
+#     blurred wallpaper. That is the whole reason we are here.
 #   - Releasing the fd ourselves needs a reliable "screen is covered now"
-#     signal, and there isn't one. betterlockscreen runs i3lock with -n
-#     (lockargs=(-n), around line 851 of the script), so it does NOT fork —
-#     `betterlockscreen -l` blocks until you UNLOCK. An earlier attempt here
-#     read its return as "locked", which was exactly backwards: it fired on
-#     unlock, found no i3lock running, fell through, and locked the screen a
-#     second time. Two lock screens, two passwords, and the inhibitor still
-#     timed out.
+#     signal, and there isn't one. i3lock -n does not fork, so it blocks until
+#     you UNLOCK. An earlier attempt here read its return as "locked", which
+#     was exactly backwards: it fired on unlock, found no i3lock running, fell
+#     through, and locked the screen a second time. Two lock screens, two
+#     passwords, and the inhibitor still timed out.
 #
 # The 5s is bounded and harmless; a lock screen that asks twice is not.
 #
@@ -51,16 +60,175 @@ RED=cc2263ff
 GREEN=40da76ff
 CLEAR=00000000
 
-# Cache check: without generated images betterlockscreen can't lock —
-# fall through to xsecurelock rather than failing open.
-# One locker for every path (idle, Ctrl+Alt+L, pre-suspend): a lock screen
-# that looks different depending on how it was triggered is a bug report
-# waiting to happen, and the sleep-lock fd can't be honoured here anyway.
-if command -v betterlockscreen >/dev/null 2>&1 \
-        && [ -n "$(ls -A "$HOME/.cache/betterlockscreen" 2>/dev/null)" ]; then
-    exec betterlockscreen -l dimblur
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/lock-screen"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell"
+IMAGE="$CACHE/lock.png"
+
+# ── Already locked? ─────────────────────────────────────────────────────────
+# xss-lock can fire while a lock is up (idle timer landing on a manual lock,
+# or a suspend request during one). Stacking lockers is the "two passwords"
+# bug above, so treat an existing locker as success: the screen IS covered,
+# which is all the caller needs to be true.
+if pgrep -x i3lock >/dev/null 2>&1 || pgrep -x xsecurelock >/dev/null 2>&1; then
+    exit 0
 fi
 
+# ── Settings ────────────────────────────────────────────────────────────────
+# Read from quickshell's settings.json so the Settings app is the single
+# source of truth; every default below reproduces the previous
+# betterlockscreen appearance exactly, so an unconfigured system looks the
+# same as it always did. The shell-id directory is hashed from the config
+# path, so glob for it rather than hardcoding.
+setting() {
+    local key="$1" def="$2" val="" f
+    for f in "$STATE"/by-shell/*/settings.json; do
+        [ -f "$f" ] || continue
+        val=$(jq -r --arg k "$key" '.[$k] // empty' "$f" 2>/dev/null) && break
+    done
+    [ -n "$val" ] && printf '%s' "$val" || printf '%s' "$def"
+}
+
+if command -v jq >/dev/null 2>&1; then
+    LOCK_FONT=$(setting lockFont Hack)
+    # The greeter is left-aligned at ix-265 and the ring's left edge is at
+    # ix-25, so the message has 240px before it runs under the circle. In Hack
+    # at 16 that is about 26 characters. betterlockscreen's stock
+    # "Type password to unlock..." measures 261px and overlapped the ring —
+    # which is the bug that started all of this. Keep replacements short, or
+    # drop lockTextSize to buy room.
+    LOCK_TEXT=$(setting lockText "Enter Password")
+    TIME_FMT=$(setting lockTimeFormat "%I:%M %p")
+    SIZE_LG=$(setting lockClockSize 32)
+    SIZE_MD=$(setting lockTextSize 16)
+    SIZE_SM=$(setting lockSmallSize 12)
+    RADIUS=$(setting lockRingRadius 25)
+    RING_W=$(setting lockRingWidth 5)
+    # Panel geometry belongs to lock-image (it paints the panel into the
+    # image), but we need the same numbers to place the ring and text ON it.
+    # Keep the defaults here identical to lock-image's.
+    PANEL_W=$(setting lockPanelWidth 340)
+    PANEL_H=$(setting lockPanelHeight 100)
+    PANEL_X=$(setting lockPanelX 25)
+    PANEL_Y=$(setting lockPanelY 130)
+else
+    LOCK_FONT=Hack
+    LOCK_TEXT="Enter Password"
+    TIME_FMT="%I:%M %p"
+    SIZE_LG=32 SIZE_MD=16 SIZE_SM=12 RADIUS=25 RING_W=5
+    PANEL_W=340 PANEL_H=100 PANEL_X=25 PANEL_Y=130
+fi
+
+# ── Layout ──────────────────────────────────────────────────────────────────
+# Every position is DERIVED from the panel geometry and the font sizes rather
+# than written down, because the Settings app can change both. Hardcoded
+# offsets were correct for exactly one combination of sizes and silently
+# wrong for every other — a bad property for a screen you only see when you
+# cannot fix it.
+#
+# Positions use i3lock-color's expression syntax, evaluated per monitor:
+# x/y/w/h are that monitor's geometry, ix/iy the indicator's centre.
+#
+# Horizontal — the ring sits a fixed margin in from the panel's right edge,
+# the text column a fixed inset from its left:
+#
+#   ring x = panel_x + panel_w - radius - RING_MARGIN
+#   text x = panel_x + TEXT_INSET              (expressed as ix + TEXT_DX)
+#
+# Vertical — y offsets are BASELINES, chosen so the visible text block is
+# centred on the panel, which is also where the ring sits:
+#
+#   ring y = panel_y - panel_h/2       (panel centre, measured up from y+h)
+#
+# The block runs from the top of the clock's ink to the greeter's baseline.
+# Cap height is a fixed fraction of font size (~0.72 for the clock's digits,
+# ~0.75 for a capitalised greeter), so with a baseline gap G:
+#
+#   block top = clock_y - ascent(clock)     block bottom = clock_y + G
+#   centre on iy  =>  clock_y = (ascent(clock) - G) / 2
+#
+# At the defaults that yields clock_y=0, greeter_y=+22 — NOT betterlockscreen's
+# -10/+12, and the difference is the bug it shipped with: those were centred
+# for THREE lines, because it also drew a keyboard-layout line at iy+32. We
+# never pass --keylayout, so that line never rendered and its reserved space
+# pulled the visible text 10px above centre.
+#
+# Ring inset from the panel's right edge, text inset from its left. These two
+# are the actual design constants; everything else follows from them.
+RING_MARGIN=30
+TEXT_INSET=20
+
+RING_X=$(( PANEL_X + PANEL_W - RADIUS - RING_MARGIN ))
+RING_Y=$(( PANEL_Y - PANEL_H / 2 ))
+TEXT_DX=$(( PANEL_X + TEXT_INSET - RING_X ))
+
+# Cap height as a fraction of font size. Integer maths keeps this dependency
+# free; the ratios are close enough for any text font, and a pixel out on a
+# 100px panel is not visible.
+ASC_LG=$(( SIZE_LG * 72 / 100 ))
+ASC_MD=$(( SIZE_MD * 75 / 100 ))
+ASC_SM=$(( SIZE_SM * 75 / 100 ))
+
+# Gap between the clock's baseline and the greeter's ink, scaled to the
+# greeter so the pair stays visually paired at any size.
+GAP=$(( SIZE_MD * 625 / 1000 ))
+BASE_GAP=$(( ASC_MD + GAP ))
+
+CLOCK_Y=$(( (ASC_LG - BASE_GAP) / 2 ))
+GREET_Y=$(( CLOCK_Y + BASE_GAP ))
+LAYOUT_Y=$(( GREET_Y + ASC_SM + GAP ))
+
+# printf gives the explicit sign the expression syntax needs: a computed 0 has
+# to render as "+0", and a negative offset as "-5" rather than "+-5".
+CLOCK_OFF=$(printf '%+d' "$CLOCK_Y")
+GREET_OFF=$(printf '%+d' "$GREET_Y")
+LAYOUT_OFF=$(printf '%+d' "$LAYOUT_Y")
+TEXT_OFF=$(printf '%+d' "$TEXT_DX")
+
+# No `exec`: if i3lock refuses to start (bad argument, cannot grab the
+# keyboard) we must still cover the screen, and exec would have thrown away
+# our chance to try. i3lock -n returns only when the screen is UNLOCKED, so
+# reaching the next line at all means locking failed.
+if [ -f "$IMAGE" ] && i3lock --version 2>&1 | grep -qiE 'cassandra fox|raymond li'; then
+    i3lock -n \
+        --image "$IMAGE" \
+        --color "${BASE%??}" \
+        --screen 0 \
+        --ind-pos="x+$RING_X:y+h-$RING_Y" \
+        --radius="$RADIUS" --ring-width="$RING_W" \
+        --inside-color="$CLEAR" --ring-color="$ACCENT" \
+        --insidever-color="$CLEAR" --ringver-color="$GREEN" \
+        --insidewrong-color="cc226322" --ringwrong-color="$RED" \
+        --separator-color="$CLEAR" \
+        --line-uses-inside \
+        --keyhl-color="$BRIGHT" --bshl-color="$RED" \
+        --clock --force-clock \
+        --time-pos="ix$TEXT_OFF:iy$CLOCK_OFF" --time-align 1 \
+        --time-str="$TIME_FMT" --time-color="$TEXT" \
+        --time-font="$LOCK_FONT" --time-size="$SIZE_LG" \
+        --date-str="" \
+        --greeter-pos="ix$TEXT_OFF:iy$GREET_OFF" --greeter-align 1 \
+        --greeter-text="$LOCK_TEXT" --greeter-color="$SUBTEXT" \
+        --greeter-font="$LOCK_FONT" --greeter-size="$SIZE_MD" \
+        --layout-pos="ix$TEXT_OFF:iy$LAYOUT_OFF" --layout-align 1 \
+        --layout-color="$SUBTEXT" \
+        --layout-font="$LOCK_FONT" --layout-size="$SIZE_SM" \
+        --verif-pos='ix+35:iy-34' --verif-align 2 \
+        --verif-text='verifying…' --verif-color="$TEXT" \
+        --verif-font="$LOCK_FONT" --verif-size="$SIZE_SM" \
+        --wrong-pos='ix+24:iy-34' --wrong-align 2 \
+        --wrong-text='wrong' --wrong-color="$RED" \
+        --wrong-font="$LOCK_FONT" --wrong-size="$SIZE_SM" \
+        --modif-pos='ix+45:iy+43' --modif-align 2 \
+        --modif-color="$TEXT" --modif-size="$SIZE_SM" \
+        --noinput-text='' \
+        --pass-media-keys --pass-screen-keys \
+        --pass-volume-keys --pass-power-keys \
+    && exit 0
+fi
+
+# ── Fallbacks ───────────────────────────────────────────────────────────────
+# Reached only when the cache is missing or i3lock would not start. Covering
+# the screen now matters more than covering it prettily.
 if command -v xsecurelock >/dev/null 2>&1; then
     export XSECURELOCK_AUTH_BACKGROUND_COLOR="#232627"
     export XSECURELOCK_AUTH_FOREGROUND_COLOR="#ffffff"

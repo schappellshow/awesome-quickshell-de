@@ -35,9 +35,9 @@ everything else costs you one feature.
 | `kwallet` + `kwallet-pam` | Secret Service — apps store credentials | Apps re-prompt for logins every start |
 | `xss-lock` *(source build)* | Idle lock, `loginctl lock-session`, lock-before-suspend | Screen never locks automatically |
 | `xsecurelock` *(source build)* | Lock screen with a password prompt | Falls back to `i3lock-color`, then plain `i3lock` |
-| `i3lock-color` | Lock screen fallback | Only matters if xsecurelock is absent too |
-| `betterlockscreen` *(script)* | Blurred-wallpaper lock screen | Falls back to xsecurelock's plain screen |
-| `imagemagick` | Builds betterlockscreen's blur/dim cache | betterlockscreen can't generate a lock image |
+| `i3lock-color` | The lock screen itself (`lock-screen`) | Falls back to xsecurelock's plain screen |
+| `imagemagick` | `lock-image` builds the blur/dim cache | No lock image; `lock-screen` falls back to xsecurelock |
+| `jq` | `lock-screen` / `lock-image` read settings.json | Both fall back to built-in defaults |
 | `gammastep` *(often source)* | Night light / colour temperature | `Super+Shift+N` does nothing |
 | `udiskie` *(often pip)* | Automounts USB sticks and SD cards | Mount removable media by hand |
 | `brightnessctl` | Backlight keys | Brightness keys do nothing (desktops have no backlight anyway) |
@@ -140,8 +140,8 @@ busctl --user call org.freedesktop.DBus /org/freedesktop/DBus \
 `xss-lock --transfer-sleep-lock` passes logind's delay inhibitor to the
 locker as `$XSS_SLEEP_LOCK_FD`. The locker closes that fd once the screen is
 genuinely covered, and that — not its exit — is what tells logind it may
-suspend. **Only xsecurelock implements this.** betterlockscreen and i3lock
-have no idea the variable exists.
+suspend. **Only xsecurelock implements this.** i3lock has no idea the
+variable exists.
 
 So every suspend logs this, once:
 
@@ -151,9 +151,9 @@ systemd-logind: Delay lock is active (UID 1001/mike, PID .../xss-lock)
 ```
 
 logind waited its `InhibitDelayMaxSec` (5s default) and gave up. **This is
-expected here and is not a fault.** `lock-screen` uses betterlockscreen for
-every path — idle, `Ctrl+Alt+L`, and pre-suspend — so the inhibitor is held
-until you unlock and the timeout always fires. The cost is 5s per suspend.
+expected here and is not a fault.** `lock-screen` uses i3lock-color for every
+path — idle, `Ctrl+Alt+L`, and pre-suspend — so the inhibitor is held until
+you unlock and the timeout always fires. The cost is 5s per suspend.
 
 The two ways to avoid it were both tried and are worse:
 
@@ -161,12 +161,12 @@ The two ways to avoid it were both tried and are worse:
   you get its plain login field on resume instead of the blurred wallpaper,
   and a lock screen whose appearance depends on how it was triggered.
 - **Release the fd from `lock-screen` once the lock is up.** Needs a
-  trustworthy "covered now" signal, and there isn't one. betterlockscreen
-  runs i3lock with `-n` (`lockargs=(-n)` in its script), so it does *not*
-  fork — `betterlockscreen -l` blocks until you **unlock**. Treating its
-  return as "locked" fires at unlock time, finds no i3lock, and locks the
-  screen a second time: two lock screens, two passwords, inhibitor still
-  timing out.
+  trustworthy "covered now" signal, and there isn't one. `i3lock -n` does
+  *not* fork — it blocks until you **unlock**. Treating its return as
+  "locked" fires at unlock time, finds no i3lock, and locks the screen a
+  second time: two lock screens, two passwords, inhibitor still timing out.
+  (This is also why `lock-screen` checks for a running locker before starting
+  one.)
 
 If the 5s ever matters more than the wallpaper, drop `--transfer-sleep-lock`
 from the `xss-lock` line in `modules/autostart.lua`: xss-lock then releases

@@ -13,8 +13,8 @@ Scope {
     property bool shown: false
     property int selected: 0
 
-    // Per-output blurred wallpaper backgrounds, borrowed from
-    // betterlockscreen's cache so the menu matches the lock screen.
+    // Per-output blurred wallpaper backgrounds, borrowed from lock-image's
+    // cache so the menu matches the lock screen.
     // Missing cache (or a monitor without one) falls back to plain dim.
     property var bgs: ({})
 
@@ -68,10 +68,18 @@ Scope {
 
     Process {
         id: bgProbe
+        // One file per output, named for the output. The cache this replaced
+        // was keyed "<index>-<output>", and stale directories from earlier
+        // monitor arrangements survived alongside current ones — so stripping
+        // the index could map DisplayPort-2 to a months-old image depending
+        // on glob order. lock-image writes bare output names and overwrites
+        // in place, which removes the ambiguity rather than tie-breaking it.
         command: ["sh", "-c",
-            "for d in \"$HOME\"/.cache/betterlockscreen/*/; do " +
-            "n=${d%/}; n=${n##*/}; n=${n#*-}; " +
-            "[ -f \"$d/dimblur.png\" ] && echo \"$n $d/dimblur.png\"; done"]
+            "for f in \"$HOME\"/.cache/lock-screen/*.png; do " +
+            "[ -f \"$f\" ] || continue; " +
+            "n=${f##*/}; n=${n%.png}; " +
+            "[ \"$n\" = lock ] && continue; " +
+            "echo \"$n $f\"; done"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const map = {};

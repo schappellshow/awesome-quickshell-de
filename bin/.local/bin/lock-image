@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# lock-image — build the lock screen's blurred/dimmed background cache.
+#
+# Replaces `betterlockscreen -u`. Called by quickshell's Wallpaper singleton
+# (common/Wallpaper.qml) whenever the wallpaper or the screen layout changes,
+# and usable by hand:  lock-image [wallpaper]
+#
+# Produces, in ~/.cache/lock-screen:
+#
+#   <output>.png   one per connected output, at that output's resolution,
+#                  dimmed and blurred, WITHOUT the login panel. The power
+#                  menu (quickshell/power/PowerMenu.qml) uses these as its
+#                  per-monitor background, which is why the panel is absent:
+#                  the menu draws its own chrome.
+#   lock.png       the whole X screen as one image, the per-output images
+#                  composited at their real positions, WITH a login panel on
+#                  each. This is what `lock-screen` hands to i3lock --image.
+#
+# Two files rather than one because i3lock takes a single image for the whole
+# X screen, while the power menu needs to know which pixels belong to which
+# monitor.
+#
+# Everything is rendered to a temporary directory and moved into place at the
+# end. A lock screen reading a half-written PNG is a black screen you still
+# have to type your password into, so the cache is never edited in place.
+#
+# See docs/DEPENDENCIES.md.
+
+set -uo pipefail
+
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/lock-screen"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell"
+
+die() { printf 'lock-image: %s\n' "$*" >&2; exit 1; }
+
+command -v magick  >/dev/null || die "ImageMagick (magick) not found"
+command -v xrandr  >/dev/null || die "xrandr not found"
+
+# ── Settings ────────────────────────────────────────────────────────────────
+# Read from quickshell's settings.json when it exists, so the Settings app is
+# the single source of truth. Every key falls back to the value that
+# reproduces betterlockscreen's stock appearance, which means this script
+# behaves identically to what it replaces before anything is configured.
+#
+# The shell-id directory is hashed from the config path, so glob for it rather
+# than hardcoding: there is normally exactly one.
+setting() {
+    local key="$1" def="$2" val=""
+    local f
+    for f in "$STATE"/by-shell/*/settings.json; do
+        [ -f "$f" ] || continue
+        val=$(jq -r --arg k "$key" '.[$k] // empty' "$f" 2>/dev/null) && break
+    done
+    [ -n "$val" ] && printf '%s' "$val" || printf '%s' "$def"
+}
+
+if command -v jq >/dev/null; then
+    DIM=$(setting lockDim 40)
+    BLUR=$(setting lockBlur 1)
+    PANEL_W=$(setting lockPanelWidth 340)
+    PANEL_H=$(setting lockPanelHeight 100)
+    PANEL_COLOR=$(setting lockPanelColor 232627cc)
+    # 25/130, not the 15/140 betterlockscreen's source appears to say: it
+    # composites the rectangle into a shadow-padded canvas at +10+10, so the
+    # VISIBLE rect lands 10px further in on both axes. Measured off the real
+    # cache (panels at +1105+950, +3025+950, +25+1790) rather than trusted
+    # from the formula. The shadow itself is invisible here — loginshadow is
+    # fully transparent — so only the offset survives.
+    PANEL_X=$(setting lockPanelX 25)
+    PANEL_Y=$(setting lockPanelY 130)
+    WALL=$(setting wallpaperPath "")
+else
+    # jq is listed in DEPENDENCIES.md, but a lock screen that fails to build
+    # because a JSON parser is missing is worse than one built from defaults.
+    DIM=40 BLUR=1 PANEL_W=340 PANEL_H=100
+    PANEL_COLOR=232627cc PANEL_X=25 PANEL_Y=130 WALL=""
+fi
+
+# Argument wins over the setting, so the script stays usable by hand.
+[ $# -gt 0 ] && WALL="$1"
+WALL="${WALL/#\~\//$HOME/}"
+
+[ -n "$WALL" ]  || die "no wallpaper set (pass one as an argument)"
+[ -f "$WALL" ]  || die "wallpaper not found: $WALL"
+
+# ── Outputs ─────────────────────────────────────────────────────────────────
+# xrandr reports the EFFECTIVE geometry, so a rotated monitor already reads as
+# 1080x1920 rather than 1920x1080 — which is what we want, since that is how
+# many pixels the locker has to fill on it.
+mapfile -t OUTPUTS < <(
+    xrandr --query \
+    | grep -oP '^(\S+) connected (primary )?\K\d+x\d+\+\d+\+\d+' \
+    | paste -d' ' <(xrandr --query | grep -oP '^\S+(?= connected)') -
+)
+[ "${#OUTPUTS[@]}" -gt 0 ] || die "no connected outputs"
+
+# ── Cache freshness ─────────────────────────────────────────────────────────
+# Wallpaper.qml re-runs this on every geometry change, and a layout change
+# emits several. Skip the work when nothing that affects the output differs
+# from last time.
+STAMP_NOW="$WALL|$(stat -c %Y "$WALL" 2>/dev/null)|${OUTPUTS[*]}|\
+$DIM|$BLUR|$PANEL_W|$PANEL_H|$PANEL_COLOR|$PANEL_X|$PANEL_Y"
+
+if [ "${LOCK_IMAGE_FORCE:-0}" != "1" ] \
+   && [ -f "$CACHE/.stamp" ] && [ -f "$CACHE/lock.png" ] \
+   && [ "$(cat "$CACHE/.stamp")" = "$STAMP_NOW" ]; then
+    exit 0
+fi
+
+TMP=$(mktemp -d) || die "mktemp failed"
+trap 'rm -rf "$TMP"' EXIT
+
+# ── Per-output dim + blur ───────────────────────────────────────────────────
+# Same recipe betterlockscreen uses, so the result is visually identical:
+# darken, then blur by shrinking hard with a Gaussian filter and scaling back
+# up. That is far cheaper than a real large-radius blur and, at these sizes,
+# indistinguishable from one.
+BLUR_SHRINK=$(awk -v b="$BLUR" 'BEGIN { printf "%.2f", 20 / b }')
+BLUR_SIGMA=$(awk  -v b="$BLUR" 'BEGIN { printf "%.2f", 0.6 * b }')
+
+# feh --bg-fill scales to cover and centre-crops; matching it here is what
+# keeps the lock screen aligned with the desktop behind it.
+for entry in "${OUTPUTS[@]}"; do
+    read -r name geom <<< "$entry"
+    size=${geom%%+*}
+
+    magick "$WALL" \
+        -fill black -colorize "$DIM%" \
+        -filter Gaussian \
+        -resize "$BLUR_SHRINK%" \
+        -define "filter:sigma=$BLUR_SIGMA" \
+        -resize "${size}^" -gravity center -extent "$size" \
+        "$TMP/$name.png" || die "render failed for $name"
+done
+
+# ── Login panel ─────────────────────────────────────────────────────────────
+# i3lock has no concept of a box behind its text — no --box, --rect or --pad
+# option exists. The panel is part of the IMAGE, which is why it lives here
+# and not in lock-screen, and why changing its size or colour means
+# regenerating the cache rather than just re-locking.
+magick -size "${PANEL_W}x${PANEL_H}" "xc:#$PANEL_COLOR" "$TMP/panel.png" \
+    || die "panel render failed"
+
+# ── Full-screen composite ───────────────────────────────────────────────────
+# Canvas spans the bounding box of every output, so it matches the X screen
+# i3lock will draw onto.
+SCREEN_W=0; SCREEN_H=0
+for entry in "${OUTPUTS[@]}"; do
+    read -r _ geom <<< "$entry"
+    wh=${geom%%+*}; off=${geom#*+}
+    w=${wh%x*}; h=${wh#*x}
+    x=${off%+*}; y=${off#*+}
+    (( x + w > SCREEN_W )) && SCREEN_W=$(( x + w ))
+    (( y + h > SCREEN_H )) && SCREEN_H=$(( y + h ))
+done
+
+args=( -size "${SCREEN_W}x${SCREEN_H}" xc:black )
+for entry in "${OUTPUTS[@]}"; do
+    read -r name geom <<< "$entry"
+    off=${geom#*+}
+    x=${off%+*}; y=${off#*+}
+    args+=( "$TMP/$name.png" -geometry "+${x}+${y}" -composite )
+done
+
+# One panel per monitor, placed relative to that monitor's own bottom-left so
+# it lands in the same spot on each regardless of resolution or rotation.
+for entry in "${OUTPUTS[@]}"; do
+    read -r _ geom <<< "$entry"
+    wh=${geom%%+*}; off=${geom#*+}
+    h=${wh#*x}
+    x=${off%+*}; y=${off#*+}
+    args+=( "$TMP/panel.png"
+            -geometry "+$(( x + PANEL_X ))+$(( y + h - PANEL_Y ))" -composite )
+done
+
+magick "${args[@]}" "$TMP/lock.png" || die "composite failed"
+
+# ── Publish ─────────────────────────────────────────────────────────────────
+mkdir -p "$CACHE" || die "cannot create $CACHE"
+rm -f "$TMP/panel.png"
+for f in "$TMP"/*.png; do
+    mv -f "$f" "$CACHE/$(basename "$f")" || die "could not publish $(basename "$f")"
+done
+printf '%s' "$STAMP_NOW" > "$CACHE/.stamp"

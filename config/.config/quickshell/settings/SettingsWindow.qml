@@ -29,6 +29,7 @@ FloatingWindow {
         { id: "network",       title: "Network",       source: "pages/NetworkPage.qml" },
         { id: "bluetooth",     title: "Bluetooth",     source: "pages/BluetoothPage.qml" },
         { id: "power",         title: "Power",         source: "pages/PowerPage.qml" },
+        { id: "lock",          title: "Lock Screen",   source: "pages/LockPage.qml" },
         { id: "keyboard",      title: "Keyboard",      source: "pages/KeyboardPage.qml" },
         { id: "mouse",         title: "Mouse",         source: "pages/MousePage.qml" },
         { id: "autostart",     title: "Autostart",     source: "pages/AutostartPage.qml" },

@@ -85,6 +85,28 @@ Singleton {
     property alias batteryWarnPct: adapter.batteryWarnPct
     property alias batteryCriticalPct: adapter.batteryCriticalPct
 
+    // Lock screen. Read by bin/.local/bin/lock-screen (text, fonts, ring)
+    // and bin/.local/bin/lock-image (panel, background) rather than by any
+    // QML — the lock screen is i3lock-color, not a quickshell surface. The
+    // scripts fall back to these same defaults when a key is absent, so an
+    // unset value and the default below are the same thing.
+    property alias lockText: adapter.lockText
+    property alias lockFont: adapter.lockFont
+    property alias lockTimeFormat: adapter.lockTimeFormat
+    property alias lockClockSize: adapter.lockClockSize
+    property alias lockTextSize: adapter.lockTextSize
+    property alias lockSmallSize: adapter.lockSmallSize
+    property alias lockRingRadius: adapter.lockRingRadius
+    property alias lockRingWidth: adapter.lockRingWidth
+    // These change the cached image, so they need lock-image to re-run
+    property alias lockDim: adapter.lockDim
+    property alias lockBlur: adapter.lockBlur
+    property alias lockPanelWidth: adapter.lockPanelWidth
+    property alias lockPanelHeight: adapter.lockPanelHeight
+    property alias lockPanelColor: adapter.lockPanelColor
+    property alias lockPanelX: adapter.lockPanelX
+    property alias lockPanelY: adapter.lockPanelY
+
     // Autostart: [{ command: string, enabled: bool }]
     property alias autostartExtra: adapter.autostartExtra
 
@@ -197,6 +219,23 @@ Singleton {
             property int dpmsMinutes: 15
             property int batteryWarnPct: 15
             property int batteryCriticalPct: 5
+
+            // Lock screen — see the aliases above for who reads these.
+            property string lockText: "Enter Password"
+            property string lockFont: "Hack"
+            property string lockTimeFormat: "%I:%M %p"
+            property int lockClockSize: 32
+            property int lockTextSize: 16
+            property int lockSmallSize: 12
+            property int lockRingRadius: 25
+            property int lockRingWidth: 5
+            property int lockDim: 40
+            property int lockBlur: 1
+            property int lockPanelWidth: 340
+            property int lockPanelHeight: 100
+            property string lockPanelColor: "232627cc"
+            property int lockPanelX: 25
+            property int lockPanelY: 130
 
             property var autostartExtra: []
         }

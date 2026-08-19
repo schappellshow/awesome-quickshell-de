@@ -144,7 +144,7 @@ AwesomeWM ──── tags/layout state ────▶ $XDG_RUNTIME_DIR/awesom
 
 | Path | Stows to | Contents |
 |---|---|---|
-| `config/` | `~/.config` | awesome, quickshell, picom, rofi, betterlockscreen, portal routing, systemd user units |
+| `config/` | `~/.config` | awesome, quickshell, picom, rofi, portal routing, systemd user units |
 | `bin/` | `~/.local` | session scripts + the Settings `.desktop` entry |
 | `session/` | `~` | `.xprofile` (session environment) |
 
@@ -159,7 +159,7 @@ never dirty git:
 |---|---|
 | All preferences (wallpaper, bar, display layout, …) | `~/.local/state/quickshell/by-shell/*/settings.json` |
 | Qt theme config (rewritten on dark/light toggle) | `~/.config/qt6ct/qt6ct.conf` |
-| Lock screen image cache | `~/.cache/betterlockscreen/` |
+| Lock screen image cache (built by `lock-image`) | `~/.cache/lock-screen/` |
 | Your autostart apps | `~/.config/autostart/*.desktop` |
 
 ---
