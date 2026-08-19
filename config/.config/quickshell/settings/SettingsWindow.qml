@@ -69,68 +69,99 @@ FloatingWindow {
         height: parent.height
         color: Theme.surfaceAlt
 
-        Column {
-            x: 10
+        // Title sits outside the scrolling area: it is a heading for the
+        // list, not an item in it, and scrolling it away leaves the sidebar
+        // looking like a stray column of buttons.
+        Text {
+            id: sidebarTitle
+            x: 18
             y: 16
-            width: parent.width - 20
-            spacing: 2
+            text: "Settings"
+            font.family: Theme.fontFamily
+            font.bold: true
+            font.pointSize: 13
+            color: Theme.text
+        }
 
-            Text {
-                x: 8
-                text: "Settings"
-                font.family: Theme.fontFamily
-                font.bold: true
-                font.pointSize: 13
-                color: Theme.text
-            }
+        // The page list scrolls. It used to be a plain Column, which was fine
+        // until the list outgrew the window: with no clip and no scrolling,
+        // entries past the bottom edge were simply unreachable, and nothing
+        // on screen said they existed. At 16 pages it needed 546px in a 560px
+        // window, so "About" was already being clipped.
+        Flickable {
+            id: pageList
 
-            Item { width: 1; height: 10 }
+            x: 10
+            y: sidebarTitle.y + sidebarTitle.implicitHeight + 12
+            width: sidebar.width - 20
+            height: sidebar.height - y - 12
 
-            Repeater {
-                model: win.pages
+            contentHeight: pageCol.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            flickDeceleration: 6000
 
-                Rectangle {
-                    id: entry
+            Column {
+                id: pageCol
 
-                    required property var modelData
+                width: pageList.width
+                spacing: 2
 
-                    readonly property bool current: win.currentPage === modelData.id
+                Repeater {
+                    model: win.pages
 
-                    width: parent.width
-                    height: 30
-                    radius: 8
-                    color: current ? Theme.accent
-                         : entryHover.hovered ? Theme.surface : "transparent"
+                    Rectangle {
+                        id: entry
 
-                    Text {
-                        x: 10
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: entry.modelData.title
-                        font.family: Theme.fontFamily
-                        font.pointSize: 10
-                        color: entry.current ? Theme.text : Theme.subtext
-                    }
+                        required property var modelData
 
-                    HoverHandler { id: entryHover }
+                        readonly property bool current: win.currentPage === modelData.id
 
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: win.currentPage = entry.modelData.id
+                        width: parent.width
+                        height: 30
+                        radius: 8
+                        color: current ? Theme.accent
+                             : entryHover.hovered ? Theme.surface : "transparent"
+
+                        Text {
+                            x: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: entry.modelData.title
+                            font.family: Theme.fontFamily
+                            font.pointSize: 10
+                            color: entry.current ? Theme.text : Theme.subtext
+                        }
+
+                        HoverHandler { id: entryHover }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: win.currentPage = entry.modelData.id
+                        }
                     }
                 }
             }
         }
 
-        Text {
-            x: 18
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 12
-            width: parent.width - 36
-            text: Settings.path
-            wrapMode: Text.WrapAnywhere
-            font.family: Theme.fontFamily
-            font.pointSize: 6
+        // Scroll indicator. Hand-rolled because this codebase does not pull
+        // in QtQuick.Controls (see components/ComboRow.qml), and absent
+        // entirely while everything fits, so the sidebar looks unchanged
+        // until the list actually overflows.
+        Rectangle {
+            readonly property bool needed: pageList.contentHeight > pageList.height
+
+            visible: needed
+            width: 3
+            radius: 1.5
             color: Theme.muted
+            opacity: pageList.moving ? 0.9 : 0.35
+            x: sidebar.width - 6
+            y: pageList.y + (pageList.contentY / pageList.contentHeight) * pageList.height
+            height: needed
+                ? Math.max(24, (pageList.height / pageList.contentHeight) * pageList.height)
+                : 0
+
+            Behavior on opacity { NumberAnimation { duration: 150 } }
         }
     }
 
