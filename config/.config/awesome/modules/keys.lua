@@ -375,7 +375,10 @@ M.clientbuttons = gears.table.join(
 -- Desktop right-click menu (styled by theme.lua's menu_* settings)
 M.mainmenu = awful.menu({
     items = {
-        { "Apps",           function() awful.spawn("rofi -show drun") end },
+        -- Browsing, not typing: a scrollable list you can read through,
+        -- versus rofi's type-to-filter prompt. Rofi keeps its own keys
+        -- (Super+d drun, Super+r run) for when you know the name already.
+        { "Apps",           function() awful.spawn("qs ipc call launcher toggle") end },
         { "Terminal",       function() awful.spawn(terminal) end },
         { "Files",          function() awful.spawn(filemanager) end },
         { "Settings",       function() awful.spawn("qs ipc call settings open appearance") end },
@@ -388,6 +391,17 @@ M.mainmenu = awful.menu({
         { "Power",          power_menu_open },
     },
 })
+
+-- The bar's start button opens this same menu through awesome-client, so it
+-- needs a global entry point. Toggling (not showing) means a second click on
+-- the button dismisses it, matching how right-click on the desktop behaves.
+--
+-- :toggle() places the menu at the mouse by default, which is wrong for a
+-- button click: the pointer is over the bar, so coordinates come from the
+-- button's own corner instead. awesome clamps it on screen from there.
+_G.main_menu_toggle = function()
+    M.mainmenu:toggle({ coords = mouse.coords() })
+end
 
 -- Root (desktop) mouse buttons — right-click menu; scroll to switch tags.
 -- Scroll down (button 5) = next tag, matching the bar taglist direction.

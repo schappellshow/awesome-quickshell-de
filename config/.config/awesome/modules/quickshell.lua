@@ -51,6 +51,47 @@ local function hidden_json(s)
     return table.concat(out, ",")
 end
 
+-- Every client currently ON SCREEN, across all monitors, in the order you
+-- would read them: left to right.
+--
+-- Ordering is by ABSOLUTE geometry, which is the whole trick. awesome's
+-- screen indices are not spatial (here screen 3 is the left-most monitor),
+-- but client x/y are in global coordinates, so one sort by (x, y) orders
+-- both across monitors and within a tiled screen. No per-screen pass, and a
+-- window moved anywhere lands in the right place by construction.
+--
+-- Deliberately flat rather than per-screen: the bar shows one list for the
+-- whole desktop, and it lives on a single monitor.
+local function clients_json()
+    local vis = {}
+    for _, c in ipairs(client.get()) do
+        -- type ~= "normal" drops the bar itself, which awesome manages as a
+        -- "dock" client and would otherwise appear as a class-less icon.
+        -- isvisible() is already tag-aware; the minimized test is belt and
+        -- braces, since the hidden section owns those.
+        if c.type == "normal" and not c.minimized and c:isvisible() then
+            vis[#vis + 1] = c
+        end
+    end
+
+    table.sort(vis, function(a, b)
+        local ga, gb = a:geometry(), b:geometry()
+        if ga.x ~= gb.x then return ga.x < gb.x end
+        if ga.y ~= gb.y then return ga.y < gb.y end
+        return a.window < b.window
+    end)
+
+    local out = {}
+    for _, c in ipairs(vis) do
+        out[#out + 1] = string.format(
+            '{"id":%d,"class":"%s","instance":"%s","name":"%s","focused":%s}',
+            c.window, esc(c.class or ""), esc(c.instance or ""),
+            esc(c.name or ""), tostring(c == client.focus)
+        )
+    end
+    return table.concat(out, ",")
+end
+
 local function collect()
     local screens = {}
     for s in screen do
@@ -80,7 +121,8 @@ local function collect()
             hidden_json(s)
         )
     end
-    return '{"screens":[' .. table.concat(screens, ",") .. "]}"
+    return '{"screens":[' .. table.concat(screens, ",")
+        .. '],"clients":[' .. clients_json() .. "]}"
 end
 
 local function write_state()
@@ -179,6 +221,12 @@ function M.setup()
     client.connect_signal("property::minimized", schedule)
     client.connect_signal("manage",              schedule)
     client.connect_signal("unmanage",            schedule)
+    -- The window list is ordered by geometry and marks the focused entry, so
+    -- it has to follow both. Retiling fires a burst of geometry changes; the
+    -- 0.05s coalescing timer above collapses them into one write.
+    client.connect_signal("property::geometry",  schedule)
+    client.connect_signal("focus",               schedule)
+    client.connect_signal("unfocus",             schedule)
     screen.connect_signal("list",             schedule)
     screen.connect_signal("list",             M.apply_bar_padding)
     M.apply_bar_padding()

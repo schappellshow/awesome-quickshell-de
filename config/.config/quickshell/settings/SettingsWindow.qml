@@ -22,6 +22,7 @@ FloatingWindow {
         { id: "appearance",    title: "Appearance",    source: "pages/AppearancePage.qml" },
         { id: "wallpaper",     title: "Wallpaper",     source: "pages/WallpaperPage.qml" },
         { id: "bar",           title: "Bar",           source: "pages/BarPage.qml" },
+        { id: "apps",          title: "Apps",          source: "pages/AppsPage.qml" },
         { id: "nightlight",    title: "Night Light",   source: "pages/NightLightPage.qml" },
         { id: "notifications", title: "Notifications", source: "pages/NotificationsPage.qml" },
         { id: "display",       title: "Displays",      source: "pages/DisplayPage.qml" },

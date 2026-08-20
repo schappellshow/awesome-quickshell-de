@@ -23,3 +23,5 @@ singleton BarSections BarSections.qml
 singleton BarEdge BarEdge.qml
 singleton Fonts Fonts.qml
 singleton TrayItems TrayItems.qml
+singleton AppLookup AppLookup.qml
+singleton PinnedApps PinnedApps.qml

@@ -141,6 +141,12 @@ PanelWindow {
         id: pool
         visible: false
 
+        StartButton { id: startButton }
+
+        PinnedStrip { id: pinnedStrip }
+
+        WindowList { id: windowList }
+
         Grid {
             id: tagsGroup
             visible: Settings.showTags && bar.tagSections.length > 0
@@ -283,6 +289,9 @@ PanelWindow {
     }
 
     readonly property var sectionItems: ({
+        "start":         startButton,
+        "pinned":        pinnedStrip,
+        "windows":       windowList,
         "tags":          tagsGroup,
         "clock":         clockGroup,
         "media":         mediaButton,

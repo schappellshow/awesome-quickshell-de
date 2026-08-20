@@ -85,6 +85,17 @@ Singleton {
     property alias batteryWarnPct: adapter.batteryWarnPct
     property alias batteryCriticalPct: adapter.batteryCriticalPct
 
+    // Apps: start button, pinned launchers, open-window list. Three
+    // independent sections rather than one "app mode", so they place and
+    // order like every other section (see BarSections.qml).
+    property alias showStart: adapter.showStart
+    property alias showPinned: adapter.showPinned
+    property alias showWindowList: adapter.showWindowList
+    // Desktop entry ids, in strip order
+    property alias pinnedApps: adapter.pinnedApps
+    // Path or theme icon name; "" falls back to start-here, then a glyph
+    property alias startIcon: adapter.startIcon
+
     // Lock screen. Read by bin/.local/bin/lock-screen (text, fonts, ring)
     // and bin/.local/bin/lock-image (panel, background) rather than by any
     // QML — the lock screen is i3lock-color, not a quickshell surface. The
@@ -219,6 +230,15 @@ Singleton {
             property int dpmsMinutes: 15
             property int batteryWarnPct: 15
             property int batteryCriticalPct: 5
+
+            // Apps sections. Off by default: a tiling setup does not need
+            // a launcher strip, and an empty section that takes no space is
+            // still one more thing in the arrangement list.
+            property bool showStart: false
+            property bool showPinned: false
+            property bool showWindowList: false
+            property var pinnedApps: []
+            property string startIcon: ""
 
             // Lock screen — see the aliases above for who reads these.
             property string lockText: "Enter Password"

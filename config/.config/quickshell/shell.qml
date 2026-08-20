@@ -10,6 +10,7 @@ import "./bar"
 import "./notifications"
 import "./settings"
 import "./power"
+import "./launcher"
 import "./osd"
 
 ShellRoot {
@@ -62,6 +63,8 @@ ShellRoot {
     NotificationCenter {}
 
     SettingsWindow {}
+
+    AppLauncher {}
 
     // Session menu — `qs ipc call power toggle`, bound to Super+BackSpace
     PowerMenu {}

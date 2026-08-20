@@ -24,7 +24,13 @@ Singleton {
     // is also where a section that is new to a *saved* layout gets spliced
     // in, so adding one here doesn't strand existing users without it.
     readonly property var defaults: [
+        // Start / pinned / windows are ordinary sections, so a KDE- or
+        // GNOME-shaped bar is an arrangement rather than a mode: put the
+        // start button first, pins next, tags after — or any other order.
+        { id: "start",         label: "Start button",       slot: "start"  },
+        { id: "pinned",        label: "Pinned apps",        slot: "start"  },
         { id: "tags",          label: "Tags",               slot: "start"  },
+        { id: "windows",       label: "Open windows",       slot: "start"  },
         { id: "clock",         label: "Clock",              slot: "center" },
         { id: "media",         label: "Media button",       slot: "end"    },
         { id: "tray",          label: "System tray",        slot: "end"    },
@@ -44,6 +50,9 @@ Singleton {
     // read the same values but is far easier to get subtly wrong, and this
     // is the one place the mapping is needed.
     readonly property var shownById: ({
+        "start":         Settings.showStart,
+        "pinned":        Settings.showPinned,
+        "windows":       Settings.showWindowList,
         "tags":          Settings.showTags,
         "clock":         Settings.showClock,
         "media":         Settings.showMediaPill,
@@ -218,6 +227,9 @@ Singleton {
 
     function setShown(id, value) {
         switch (id) {
+        case "start":         Settings.showStart      = value; break;
+        case "pinned":        Settings.showPinned     = value; break;
+        case "windows":       Settings.showWindowList = value; break;
         case "tags":          Settings.showTags       = value; break;
         case "clock":         Settings.showClock      = value; break;
         case "media":         Settings.showMediaPill  = value; break;
@@ -237,6 +249,23 @@ Singleton {
     // Back to the shipped arrangement. Visibility is left alone — it's a
     // separate decision, and silently re-showing sections someone turned off
     // would be a surprise.
+    // Put `ids` first, in the order given, all in `slot`; everything else
+    // keeps its relative order after them. Used by the Apps page's preset,
+    // which is why it goes through persist() like every other edit rather
+    // than writing Settings.barSections directly — the preset must produce
+    // an arrangement the user can then adjust by hand, not a special state.
+    function arrange(ids, slot) {
+        const current = root.copyOf(root.arrangement);
+        const head = [];
+        for (const id of ids) {
+            const found = current.find(e => e.id === id);
+            if (found)
+                head.push({ id: id, slot: slot });
+        }
+        const tail = current.filter(e => !ids.includes(e.id));
+        root.persist(head.concat(tail));
+    }
+
     function reset() {
         Settings.barSections = [];
     }
