@@ -85,6 +85,16 @@ Singleton {
     property alias batteryWarnPct: adapter.batteryWarnPct
     property alias batteryCriticalPct: adapter.batteryCriticalPct
 
+    // Window mode. Resolution is three-tier, most specific first:
+    //   monitorLayouts[output]  ->  defaultLayout  ->  rc.lua's own choice
+    // An unset defaultLayout deliberately leaves awesome alone, which keeps
+    // rc.lua's orientation heuristic (portrait monitors get tile.bottom).
+    property alias windowMode: adapter.windowMode
+    property alias defaultLayout: adapter.defaultLayout
+    // Sparse: { "<output name>": "<layout name>" }. Only monitors you have
+    // explicitly set appear, so unplugging one loses nothing.
+    property alias monitorLayouts: adapter.monitorLayouts
+
     // Apps: start button, pinned launchers, open-window list. Three
     // independent sections rather than one "app mode", so they place and
     // order like every other section (see BarSections.qml).
@@ -230,6 +240,12 @@ Singleton {
             property int dpmsMinutes: 15
             property int batteryWarnPct: 15
             property int batteryCriticalPct: 5
+
+            // "tiling" | "floating". Floating applies awesome's floating
+            // layout everywhere and disables the per-monitor choices.
+            property string windowMode: "tiling"
+            property string defaultLayout: ""
+            property var monitorLayouts: ({})
 
             // Apps sections. Off by default: a tiling setup does not need
             // a launcher strip, and an empty section that takes no space is

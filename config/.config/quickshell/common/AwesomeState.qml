@@ -27,6 +27,11 @@ Singleton {
     // [{ id, class, instance, name, focused }]
     property var clients: []
 
+    // Constant for the life of the awesome process. A change means awesome
+    // restarted, which resets every tag to rc.lua's defaults — the signal
+    // WindowMode needs to re-impose the configured layouts.
+    property string epoch: ""
+
     readonly property string statePath:
         (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/awesomewm-state.json"
 
@@ -103,6 +108,24 @@ Singleton {
             + `end end`);
     }
 
+    // Set the layout of every tag on one screen, matched by output name so
+    // it follows the monitor rather than awesome's screen index (which is
+    // not stable across restarts or hotplug).
+    //
+    // Every tag, not just the selected one: the setting is a default for the
+    // monitor, and a tag you have not visited yet should already be right
+    // when you get there.
+    function setScreenLayout(outputName, layoutName) {
+        exec(`local awful = require("awful"); `
+            + `for s in screen do `
+            + `for name in pairs(s.outputs) do `
+            + `if name == "${outputName}" then `
+            + `for _, l in ipairs(awful.layout.layouts) do `
+            + `if l.name == "${layoutName}" then `
+            + `for _, t in ipairs(s.tags) do t.layout = l end `
+            + `end end end end end`);
+    }
+
     function cycleLayout(screenIndex, dir) {
         exec(`require("awful").layout.inc(${dir}, screen[${screenIndex}])`);
     }
@@ -121,6 +144,7 @@ Singleton {
             const st = JSON.parse(file.text());
             root.screens = st.screens || [];
             root.clients = st.clients || [];
+            root.epoch = st.epoch || "";
         } catch (e) {
             console.log("AwesomeState: failed to parse state file:", e);
         }

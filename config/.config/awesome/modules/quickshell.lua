@@ -51,6 +51,13 @@ local function hidden_json(s)
     return table.concat(out, ",")
 end
 
+-- Constant for the life of this awesome process, so quickshell can tell a
+-- restart from an ordinary state update. Layout settings are applied by
+-- quickshell (common/WindowMode.qml), and awesome resets every tag to
+-- rc.lua's defaults when it restarts — without this there is no signal that
+-- the settings need re-imposing.
+local epoch = string.format("%d-%d", os.time(), math.random(1, 1000000))
+
 -- Every client currently ON SCREEN, across all monitors, in the order you
 -- would read them: left to right.
 --
@@ -122,7 +129,8 @@ local function collect()
         )
     end
     return '{"screens":[' .. table.concat(screens, ",")
-        .. '],"clients":[' .. clients_json() .. "]}"
+        .. '],"clients":[' .. clients_json()
+        .. '],"epoch":"' .. epoch .. '"}'
 end
 
 local function write_state()
