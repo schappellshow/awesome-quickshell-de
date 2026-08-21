@@ -17,6 +17,8 @@ Singleton {
     property alias darkMode: adapter.darkMode
     property alias accentColor: adapter.accentColor
     property alias iconTheme: adapter.iconTheme
+    property alias colorScheme: adapter.colorScheme
+    property alias colors: adapter.colors
 
     // Wallpaper
     property alias wallpaperPath: adapter.wallpaperPath
@@ -92,6 +94,8 @@ Singleton {
     // An unset defaultLayout deliberately leaves awesome alone, which keeps
     // rc.lua's orientation heuristic (portrait monitors get tile.bottom).
     property alias windowMode: adapter.windowMode
+    property alias borderWidth: adapter.borderWidth
+    property alias borderRadius: adapter.borderRadius
     property alias defaultLayout: adapter.defaultLayout
     // Sparse: { "<output name>": "<layout name>" }. Only monitors you have
     // explicitly set appear, so unplugging one loses nothing.
@@ -152,6 +156,17 @@ Singleton {
             property string accentColor: "#2080bb"
             property string iconTheme: ""
 
+            // Name of the applied colour scheme, purely for display —
+            // Theme reads `colors`, not this. Editing any colour clears it
+            // to "" so the picker stops claiming an untouched scheme.
+            property string colorScheme: ""
+
+            // Per-key overrides of Theme.defaultColors, shaped
+            // { dark: {...}, light: {...}, palette: {...} }. Only keys that
+            // differ from the default are stored. Assign a NEW object to
+            // change it — JsonAdapter persists on reassignment, and
+            // mutating this one in place saves nothing.
+            property var colors: ({})
 
             // Empty on a fresh install: Wallpaper.qml then adopts a
             // distro-shipped wallpaper and writes the path back here.
@@ -256,6 +271,12 @@ Singleton {
             property string windowMode: "tiling"
             property string defaultLayout: ""
             property var monitorLayouts: ({})
+
+            // Window outline. Colours are not stored here — they follow the
+            // theme (see WindowBorders.qml). Defaults match theme.lua, so an
+            // untouched install looks exactly as it did.
+            property int borderWidth: 2
+            property int borderRadius: 10
 
             // Apps sections. Off by default: a tiling setup does not need
             // a launcher strip, and an empty section that takes no space is

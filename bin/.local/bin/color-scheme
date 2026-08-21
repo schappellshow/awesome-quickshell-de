@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""color-scheme — store and retrieve the shell's named colour schemes.
+
+    color-scheme dir
+    color-scheme list                 JSON array of every saved scheme
+    color-scheme save <name> <json>   write one, printing its path
+    color-scheme delete <name>
+
+A scheme is one self-contained JSON file, so sharing one is sending a file
+and dropping it in the directory `dir` prints. Settings -> Appearance drives
+all of this; it is a separate script only because listing a directory and
+writing files is clumsy from QML.
+
+    {
+      "name": "Gruvbox",
+      "accent":  "#458588",
+      "dark":    { "base": "#282828", ... },
+      "light":   { "base": "#fbf1c7", ... },
+      "palette": { "red": "#cc241d", ... }
+    }
+
+Every colour is validated against #rrggbb on the way in and on the way out.
+A downloaded scheme is a file from a stranger, and these values end up as
+live QML colour bindings across the whole shell — one junk string would
+otherwise leave part of the bar drawing transparent with no clue why.
+"""
+
+import json
+import os
+import re
+import sys
+
+HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+# Must match Theme.qml's surfaceKeys/paletteKeys. Anything else is dropped,
+# so an unknown key in a shared file can't accumulate in settings.json.
+SURFACE = ("base", "surface", "surfaceAlt", "text", "subtext", "muted")
+PALETTE = ("red", "green", "orange", "blue", "purple", "teal", "gold",
+           "brightBlue")
+GROUPS = {"dark": SURFACE, "light": SURFACE, "palette": PALETTE}
+
+DIR = os.path.join(
+    os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"),
+    "quickshell", "color-schemes")
+
+
+def slug(name):
+    """Filename for a display name. Never empty, never escapes DIR."""
+    s = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-.")
+    return s[:64] or "scheme"
+
+
+def clean(obj):
+    """Keep only known keys, in known groups, whose values are #rrggbb."""
+    out = {}
+    for group, keys in GROUPS.items():
+        src = obj.get(group)
+        if not isinstance(src, dict):
+            continue
+        kept = {k: v for k, v in src.items()
+                if k in keys and isinstance(v, str) and HEX.match(v)}
+        if kept:
+            out[group] = kept
+    accent = obj.get("accent")
+    if isinstance(accent, str) and HEX.match(accent):
+        out["accent"] = accent
+    return out
+
+
+def load(path):
+    with open(path, errors="replace") as fh:
+        raw = json.load(fh)
+    if not isinstance(raw, dict):
+        raise ValueError("not an object")
+    scheme = clean(raw)
+    name = raw.get("name")
+    if not isinstance(name, str) or not name.strip():
+        name = os.path.splitext(os.path.basename(path))[0]
+    scheme["name"] = name.strip()[:64]
+    scheme["path"] = path
+    return scheme
+
+
+def cmd_list():
+    found = []
+    if os.path.isdir(DIR):
+        for entry in sorted(os.listdir(DIR)):
+            if not entry.endswith(".json"):
+                continue
+            try:
+                found.append(load(os.path.join(DIR, entry)))
+            except (OSError, ValueError, json.JSONDecodeError):
+                continue          # a malformed file is skipped, not fatal
+    json.dump(found, sys.stdout)
+    sys.stdout.write("\n")
+
+
+def cmd_save(name, blob):
+    scheme = clean(json.loads(blob))
+    scheme["name"] = name.strip()[:64] or "scheme"
+    os.makedirs(DIR, exist_ok=True)
+    path = os.path.join(DIR, slug(scheme["name"]) + ".json")
+    tmp = path + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(scheme, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+    os.replace(tmp, path)
+    print(path)
+
+
+def cmd_delete(name):
+    path = os.path.join(DIR, slug(name) + ".json")
+    # Refuse anything that resolved outside the scheme directory.
+    if os.path.dirname(os.path.abspath(path)) != os.path.abspath(DIR):
+        sys.exit("color-scheme: refusing to delete %s" % path)
+    if os.path.exists(path):
+        os.remove(path)
+
+
+def main():
+    args = sys.argv[1:]
+    if not args:
+        sys.exit(__doc__)
+    cmd = args[0]
+    try:
+        if cmd == "dir":
+            print(DIR)
+        elif cmd == "list":
+            cmd_list()
+        elif cmd == "save" and len(args) == 3:
+            cmd_save(args[1], args[2])
+        elif cmd == "delete" and len(args) == 2:
+            cmd_delete(args[1])
+        else:
+            sys.exit(__doc__)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        sys.exit("color-scheme: %s" % exc)
+
+
+if __name__ == "__main__":
+    main()

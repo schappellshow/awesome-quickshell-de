@@ -114,6 +114,42 @@ SettingsPage {
         onClicked: WindowMode.clearOverrides()
     }
 
+    SectionLabel { text: "WINDOW OUTLINE" }
+
+    SliderRow {
+        label: "Border width"
+        from: 0
+        to: 8
+        step: 1
+        value: Settings.borderWidth
+        suffix: "px"
+        onMoved: value => Settings.borderWidth = Math.round(value)
+    }
+
+    SliderRow {
+        label: "Corner radius"
+        from: 0
+        to: 24
+        step: 1
+        value: Settings.borderRadius
+        suffix: "px"
+        onMoved: value => Settings.borderRadius = Math.round(value)
+    }
+
+    Text {
+        width: parent.width
+        text: "Border colors follow the palette rather than being set here: "
+            + "focused windows use the accent's bright variant, unfocused "
+            + "ones the surface color, so a color scheme themes the outline "
+            + "too. Change them in Settings → Appearance.\n\n"
+            + "The bar, rofi, conky and screenshot overlays are deliberately "
+            + "unbordered and stay that way at any width."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
     SectionLabel { text: "NOTE" }
 
     Text {

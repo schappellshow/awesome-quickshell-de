@@ -241,4 +241,43 @@ function M.setup()
     write_state()
 end
 
+-- Window borders, driven by Settings -> Appearance / Windows. The colours are
+-- not stored separately: quickshell sends Theme.surface and Theme.accentBright,
+-- which is exactly what theme.lua's border_normal/border_focus already were,
+-- so any colour scheme themes the borders without carrying extra keys.
+--
+-- Which clients get a border is NOT re-derived here. rules.lua deliberately
+-- leaves the bar, rofi, conky, spectacle and zoom's toolbar unbordered, and
+-- duplicating that list would rot the moment a rule changed -- so ask the
+-- rules themselves. A client matched by any rule setting border_width = 0 is
+-- left alone, which also means a width of 0 doesn't erase the distinction.
+function M.set_border(normal, focus, width, radius)
+    local beautiful = require("beautiful")
+    local theme = beautiful.get()
+
+    theme.border_normal = normal
+    theme.border_focus  = focus
+    theme.border_width  = width
+    theme.border_radius = radius
+
+    local focused = client.focus
+    for _, c in ipairs(client.get()) do
+        local exempt = false
+        for _, r in ipairs(awful.rules.matching_rules(c, awful.rules.rules)) do
+            if r.properties and r.properties.border_width == 0 then
+                exempt = true
+            end
+        end
+        if not exempt then
+            c.border_width = width
+            c.border_color = (c == focused) and focus or normal
+            -- Reassigning the closure is what re-shapes an existing client;
+            -- the radius is read when the shape is drawn, not when it is set.
+            c.shape = function(cr, w, h)
+                gears.shape.rounded_rect(cr, w, h, radius)
+            end
+        end
+    end
+end
+
 return M

@@ -26,3 +26,5 @@ singleton TrayItems TrayItems.qml
 singleton AppLookup AppLookup.qml
 singleton PinnedApps PinnedApps.qml
 singleton WindowMode WindowMode.qml
+singleton ColorScheme ColorScheme.qml
+singleton WindowBorders WindowBorders.qml
