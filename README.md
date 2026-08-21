@@ -23,17 +23,18 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
   system tray, volume, network, bluetooth, CPU/RAM, screen-lock state,
   battery, layout indicator — every element toggleable
 - Notification daemon with popups, history center, and do-not-disturb
-- **Settings app** (`Super+Shift+S`) — 15 pages: appearance, wallpaper,
-  bar, night light, notifications, displays, audio, network (incl. Wi-Fi
-  scan/connect), bluetooth, power, keyboard, mouse, autostart, default
-  apps, about
+- **Settings app** (`Super+Shift+S`) — 18 pages: appearance, wallpaper,
+  bar, apps, windows, night light, notifications, displays, audio, network
+  (incl. Wi-Fi scan/connect), bluetooth, power, lock screen, keyboard,
+  mouse (incl. cursor theme), autostart, default apps, about
 - Power menu, volume/brightness OSD, night light with optional schedule
 
 **Session**
 - Screen locking (xsecurelock, falling back to i3lock-color) wired to idle,
   `loginctl lock-session`, and lock-before-suspend
 - Polkit agent, Secret Service, XDG autostart, automounting
-- System-wide dark/light theming across GTK, Qt and portal-consuming apps
+- System-wide dark/light theming across GTK, Qt and portal-consuming apps,
+  plus icon and mouse cursor themes
 - Monitor hotplug: restores your saved layout *and* returns windows to the
   screen and tag they came from
 
@@ -130,6 +131,7 @@ AwesomeWM ──── tags/layout state ────▶ $XDG_RUNTIME_DIR/awesom
         apply singletons                                    session glue
    xrandr · feh · xset · setxkbmap · xinput            systemd user units
    system-theme-apply · icon-theme-apply               autostart · secrets
+   cursor-theme-apply
 ```
 
 - **AwesomeWM** owns windows and publishes tag/layout state to a JSON file.
@@ -159,6 +161,8 @@ never dirty git:
 |---|---|
 | All preferences (wallpaper, bar, display layout, …) | `~/.local/state/quickshell/by-shell/*/settings.json` |
 | Qt theme config (rewritten on dark/light toggle) | `~/.config/qt6ct/qt6ct.conf` |
+| Chosen cursor theme (what X falls back on) | `~/.icons/default/index.theme` |
+| Cursor theme previews (built by `cursor-preview`) | `~/.cache/cursor-previews/` |
 | Lock screen image cache (built by `lock-image`) | `~/.cache/lock-screen/` |
 | Your autostart apps | `~/.config/autostart/*.desktop` |
 

@@ -2,7 +2,9 @@ import QtQuick
 import "../../common"
 
 // Label + expandable option list (inline dropdown, no QtQuick.Controls).
-// options: array of { label, value } or plain strings.
+// options: array of { label, value } or plain strings. An option may also
+// carry { icon: "/absolute/path.png" }, drawn before its label — used by the
+// Mouse page to show each cursor theme's own pointer.
 Column {
     id: root
 
@@ -21,6 +23,17 @@ Column {
 
     function optValue(o) {
         return typeof o === "object" ? o.value : o;
+    }
+
+    function optIcon(o) {
+        return typeof o === "object" && o.icon !== undefined ? o.icon : "";
+    }
+
+    readonly property string currentIcon: {
+        for (const o of options)
+            if (optValue(o) === current)
+                return optIcon(o);
+        return "";
     }
 
     readonly property string currentLabel: {
@@ -45,18 +58,29 @@ Column {
         Rectangle {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            width: chip.implicitWidth + 20
+            width: chipRow.implicitWidth + 20
             height: 24
             radius: 12
             color: headHover.hovered || root.expanded ? Theme.surfaceAlt : Theme.surface
 
-            Text {
-                id: chip
+            Row {
+                id: chipRow
                 anchors.centerIn: parent
-                text: root.currentLabel + (root.expanded ? "  ▴" : "  ▾")
-                font.family: Theme.fontFamily
-                font.pointSize: 9
-                color: Theme.accentBright
+                spacing: root.currentIcon !== "" ? 6 : 0
+
+                OptionIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    path: root.currentIcon
+                }
+
+                Text {
+                    id: chip
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.currentLabel + (root.expanded ? "  ▴" : "  ▾")
+                    font.family: Theme.fontFamily
+                    font.pointSize: 9
+                    color: Theme.accentBright
+                }
             }
 
             HoverHandler { id: headHover }
@@ -94,10 +118,17 @@ Column {
                     radius: 6
                     color: optHover.hovered ? Theme.surface : "transparent"
 
-                    Text {
+                    OptionIcon {
+                        id: optIcon
                         x: 8
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 16
+                        path: root.optIcon(optRow.modelData)
+                    }
+
+                    Text {
+                        x: optIcon.width > 0 ? optIcon.x + optIcon.width + 6 : 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - x - 8
                         text: root.optLabel(optRow.modelData)
                         elide: Text.ElideRight
                         font.family: Theme.fontFamily

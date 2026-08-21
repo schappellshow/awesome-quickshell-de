@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""cursor-preview [outdir] — render each installed cursor theme's arrow to a PNG.
+
+Prints "<theme>\t<png path>" per line; Settings -> Mouse uses it to show what
+each theme looks like next to its name.
+
+Nothing on a normal system can decode an Xcursor file: ImageMagick has no
+delegate for it, and xcur2png is packaged almost nowhere. The format is
+simple and stable enough to read directly, so this does that and writes a PNG
+with nothing but the standard library.
+
+Xcursor layout (all little-endian u32):
+    header  "Xcur", header size, version, table entry count
+    table   entry count x (type, subtype, byte offset)
+            type 0xfffd0002 = image, and its subtype is the nominal size
+    image   header size, type, subtype, version, width, height,
+            xhot, yhot, delay, then width*height premultiplied ARGB pixels
+"""
+
+import os
+import struct
+import sys
+import zlib
+
+IMAGE_TYPE = 0xFFFD0002
+# Rendered at 24px in the dropdown; 48 gives it a 2x source to downscale from.
+TARGET = 48
+
+ICON_DIRS = [
+    os.path.expanduser("~/.local/share/icons"),
+    os.path.expanduser("~/.icons"),
+    "/usr/local/share/icons",
+    "/usr/share/icons",
+]
+
+
+def cursor_file(theme, seen=None):
+    """Path to a theme's arrow, following Inherits= if it has none itself."""
+    seen = seen or set()
+    if theme in seen:
+        return None
+    seen.add(theme)
+    for d in ICON_DIRS:
+        base = os.path.join(d, theme)
+        for name in ("left_ptr", "default"):
+            p = os.path.join(base, "cursors", name)
+            if os.path.exists(p):
+                return p
+        index = os.path.join(base, "index.theme")
+        if os.path.isfile(index):
+            with open(index, errors="replace") as fh:
+                for line in fh:
+                    if line.strip().startswith("Inherits"):
+                        for parent in line.split("=", 1)[1].split(","):
+                            found = cursor_file(parent.strip(), seen)
+                            if found:
+                                return found
+    return None
+
+
+def best_image(data):
+    """The frame closest to TARGET without going under it, else the largest."""
+    magic, _hdr, _ver, ntoc = struct.unpack_from("<4sIII", data, 0)
+    if magic != b"Xcur":
+        return None
+    sizes = {}
+    for i in range(ntoc):
+        kind, subtype, pos = struct.unpack_from("<III", data, 16 + 12 * i)
+        # An animated cursor repeats a nominal size once per frame; the first
+        # is the one to show.
+        if kind == IMAGE_TYPE and subtype not in sizes:
+            sizes[subtype] = pos
+    if not sizes:
+        return None
+    at_least = [s for s in sizes if s >= TARGET]
+    pick = min(at_least) if at_least else max(sizes)
+    pos = sizes[pick]
+    w, h = struct.unpack_from("<II", data, pos + 16)
+    px = struct.unpack_from("<%dI" % (w * h), data, pos + 36)
+    return w, h, px
+
+
+def to_rgba(px):
+    """Premultiplied ARGB -> straight RGBA, or dark fringes on every edge."""
+    out = bytearray(len(px) * 4)
+    for i, p in enumerate(px):
+        a = p >> 24
+        if a == 0:
+            continue
+        r, g, b = (p >> 16) & 0xFF, (p >> 8) & 0xFF, p & 0xFF
+        if a < 255:
+            r, g, b = min(255, r * 255 // a), min(255, g * 255 // a), min(255, b * 255 // a)
+        out[i * 4:i * 4 + 4] = bytes((r, g, b, a))
+    return bytes(out)
+
+
+def png(w, h, rgba):
+    def chunk(tag, payload):
+        body = tag + payload
+        return (struct.pack(">I", len(payload)) + body
+                + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF))
+
+    # Filter type 0 (none) in front of every scanline
+    raw = b"".join(b"\x00" + rgba[y * w * 4:(y + 1) * w * 4] for y in range(h))
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9))
+            + chunk(b"IEND", b""))
+
+
+def themes():
+    found = set()
+    for d in ICON_DIRS:
+        if not os.path.isdir(d):
+            continue
+        for name in os.listdir(d):
+            if os.path.isdir(os.path.join(d, name, "cursors")):
+                found.add(name)
+    return sorted(found)
+
+
+def main():
+    outdir = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser(
+        os.environ.get("XDG_CACHE_HOME", "~/.cache") + "/cursor-previews")
+    outdir = os.path.expanduser(outdir)
+    os.makedirs(outdir, exist_ok=True)
+
+    for theme in themes():
+        src = cursor_file(theme)
+        if not src:
+            continue
+        # "/" can't appear in a theme name (cursor-theme-apply rejects it), so
+        # the name is safe to use as a filename as-is.
+        dst = os.path.join(outdir, theme + ".png")
+        try:
+            if not (os.path.exists(dst)
+                    and os.path.getmtime(dst) >= os.path.getmtime(src)):
+                img = best_image(open(src, "rb").read())
+                if not img:
+                    continue
+                w, h, px = img
+                tmp = dst + ".tmp"
+                with open(tmp, "wb") as fh:
+                    fh.write(png(w, h, to_rgba(px)))
+                os.replace(tmp, dst)
+        except (OSError, struct.error, ValueError):
+            continue
+        print("%s\t%s" % (theme, dst))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# cursor-theme-apply [<ThemeName>] [<size>] — push a mouse cursor theme to
+# every channel, mirroring icon-theme-apply. Invoked by quickshell
+# (common/SystemTheme.qml) when Settings.cursorTheme/cursorSize change and
+# at shell startup. An empty name reverts to the distribution's default,
+# but only if this script set one in the first place — see below.
+#
+# Unlike icon themes, the load-bearing channel here is a FILE, not a
+# setting: libXcursor resolves a cursor by asking, in order,
+#   $XCURSOR_THEME  →  the "Xcursor.theme" X resource  →  theme "default",
+# where "default" means <icon dir>/default/index.theme's Inherits= line.
+# Writing ~/.icons/default/index.theme therefore covers every X client that
+# doesn't carry its own preference — including awesome — and it persists
+# across logins, so nothing has to re-apply it at session start.
+#
+# The X resource is set too, because it OUTRANKS that file. A machine that
+# ever ran Plasma has "Xcursor.theme" sitting in its resource database, and
+# leaving it there would silently beat everything else we write.
+set -u
+
+case "${1:-}" in
+    -h|--help)
+        sed -n '2,4p' "$0"
+        echo "usage: cursor-theme-apply [<ThemeName>] [<size>]"
+        exit 0 ;;
+esac
+
+name="${1:-}"
+size="${2:-24}"
+
+case "$size" in ''|*[!0-9]*) size=24 ;; esac
+
+# A theme name is a directory name under an icon path, nothing more. Reject
+# anything else outright rather than writing it into six config files: a
+# leading dash would be parsed as an option by the tools below, and a slash
+# or newline would let a name break out of the values it is written into.
+case "$name" in
+    -*|*/*|*[!A-Za-z0-9._+-]*)
+        echo "cursor-theme-apply: invalid theme name: $name" >&2
+        exit 2 ;;
+esac
+
+ICON_DIRS=(
+    "$HOME/.local/share/icons"
+    "$HOME/.icons"
+    /usr/local/share/icons
+    /usr/share/icons
+)
+
+# The distribution's own default, for the "System default" case: the theme
+# that /usr/share/icons/default inherits when we take our override away.
+system_default() {
+    local f=/usr/share/icons/default/index.theme
+    [ -f "$f" ] && sed -n 's/^[[:space:]]*Inherits[[:space:]]*=[[:space:]]*//p' "$f" | head -1
+}
+
+# Marker so the revert only ever removes a file this script wrote. A
+# hand-written ~/.icons/default is a deliberate choice and stays put.
+MARK="# managed by cursor-theme-apply"
+default_theme="$HOME/.icons/default/index.theme"
+
+managed=false
+[ -f "$default_theme" ] && head -1 "$default_theme" | grep -qxF "$MARK" && managed=true
+
+if [ -n "$name" ]; then
+    mkdir -p "${default_theme%/*}"
+    printf '%s\n[Icon Theme]\nName=default\nComment=Default cursor theme\nInherits=%s\n' \
+        "$MARK" "$name" >"$default_theme"
+elif [ "$managed" = true ]; then
+    # Undoing a previous choice: drop our file and push the distribution's
+    # own default through the channels below, since they still hold ours.
+    rm -f "$default_theme"
+else
+    # Never managed here. "System default" is the value a fresh install
+    # starts with and it runs at every shell start, so it must be a genuine
+    # no-op — a machine that has ever run Plasma carries a perfectly good
+    # cursor in its GTK/xsettingsd/xrdb config, and forcing the distribution
+    # default over it would change the pointer for someone who never asked.
+    exit 0
+fi
+
+# Everything below wants a concrete name; the revert path falls back to the
+# distribution's.
+apply="$name"
+[ -n "$apply" ] || apply=$(system_default)
+[ -n "$apply" ] || exit 0
+
+# X resource database (libXcursor, and the stale Plasma value noted above)
+command -v xrdb >/dev/null 2>&1 && xrdb -merge <<EOF
+Xcursor.theme: $apply
+Xcursor.size: $size
+EOF
+
+# GSettings (GTK4/libadwaita, and the GTK portal backend → Electron apps)
+command -v gsettings >/dev/null 2>&1 && {
+    gsettings set org.gnome.desktop.interface cursor-theme "$apply" 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface cursor-size "$size" 2>/dev/null || true
+}
+
+# KDE apps read kcminputrc, not kdeglobals, for the cursor
+command -v kwriteconfig6 >/dev/null 2>&1 && {
+    kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "$apply" || true
+    kwriteconfig6 --file kcminputrc --group Mouse --key cursorSize "$size" || true
+}
+
+# xsettingsd (live GTK apps — the only channel that applies without a restart)
+f="$HOME/.config/xsettingsd/xsettingsd.conf"
+if [ -f "$f" ]; then
+    if grep -q 'Gtk/CursorThemeName' "$f"; then
+        sed -i "s|Gtk/CursorThemeName.*|Gtk/CursorThemeName \"$apply\"|" "$f"
+    else
+        echo "Gtk/CursorThemeName \"$apply\"" >>"$f"
+    fi
+    if grep -q 'Gtk/CursorThemeSize' "$f"; then
+        sed -i "s|Gtk/CursorThemeSize.*|Gtk/CursorThemeSize $size|" "$f"
+    else
+        echo "Gtk/CursorThemeSize $size" >>"$f"
+    fi
+    pkill -HUP -x xsettingsd 2>/dev/null || true
+fi
+
+# GTK ini files (apps started later / without xsettingsd)
+for v in gtk-3.0 gtk-4.0; do
+    ini="$HOME/.config/$v/settings.ini"
+    [ -f "$ini" ] || continue
+    for pair in "gtk-cursor-theme-name=$apply" "gtk-cursor-theme-size=$size"; do
+        key=${pair%%=*}
+        if grep -q "^$key=" "$ini"; then
+            sed -i "s|^$key=.*|$pair|" "$ini"
+        else
+            sed -i "/\[Settings\]/a $pair" "$ini"
+        fi
+    done
+done
+
+# Apps launched by systemd or D-Bus activation don't inherit the session's
+# environment retroactively; hand them the new value for next start.
+command -v systemctl >/dev/null 2>&1 &&
+    systemctl --user set-environment "XCURSOR_THEME=$apply" "XCURSOR_SIZE=$size" 2>/dev/null || true
+command -v dbus-update-activation-environment >/dev/null 2>&1 &&
+    dbus-update-activation-environment --systemd XCURSOR_THEME XCURSOR_SIZE 2>/dev/null || true
+
+# The root window keeps whatever cursor awesome created at startup, so every
+# gap between windows would still show the old pointer until the next login.
+# xsetroot -xcf takes an explicit file, which sidesteps the lookup chain
+# entirely. Themes name the arrow either left_ptr or default, and one is
+# usually a symlink to the other — try both.
+if command -v xsetroot >/dev/null 2>&1; then
+    for d in "${ICON_DIRS[@]}"; do
+        for n in left_ptr default; do
+            [ -e "$d/$apply/cursors/$n" ] || continue
+            xsetroot -xcf "$d/$apply/cursors/$n" "$size" 2>/dev/null && exit 0
+        done
+    done
+fi
+
+exit 0

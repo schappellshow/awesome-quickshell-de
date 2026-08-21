@@ -77,6 +77,8 @@ Singleton {
     property alias mouseAccel: adapter.mouseAccel
     property alias naturalScroll: adapter.naturalScroll
     property alias tapToClick: adapter.tapToClick
+    property alias cursorTheme: adapter.cursorTheme
+    property alias cursorSize: adapter.cursorSize
 
     // Power (0 = never)
     property alias keepAwake: adapter.keepAwake
@@ -149,6 +151,7 @@ Singleton {
             property bool darkMode: true
             property string accentColor: "#2080bb"
             property string iconTheme: ""
+
 
             // Empty on a fresh install: Wallpaper.qml then adopts a
             // distro-shipped wallpaper and writes the path back here.
@@ -229,6 +232,13 @@ Singleton {
             property real mouseAccel: 0
             property bool naturalScroll: false
             property bool tapToClick: true
+
+            // Empty = leave the distribution's default alone. Unlike the
+            // other settings here this one is backed by a file
+            // (~/.icons/default), so it survives a logout on its own —
+            // see bin/cursor-theme-apply.
+            property string cursorTheme: ""
+            property int cursorSize: 24
 
             // Manual keep-awake hold (Super+Z / the SCN pill). Persisted so
             // it survives a shell reload the same way night light does: a
