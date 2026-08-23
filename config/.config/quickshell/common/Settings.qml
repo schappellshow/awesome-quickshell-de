@@ -143,6 +143,17 @@ Singleton {
     // Autostart: [{ command: string, enabled: bool }]
     property alias autostartExtra: adapter.autostartExtra
 
+    // Rebound keyboard shortcuts: { "<shortcut id>": "Mod4+Shift+s" }.
+    // Sparse — only what differs from awesome's defaults, so a changed
+    // default still reaches anyone who never rebound it. The ids and the
+    // defaults live in awesome's modules/keys.lua; see common/Shortcuts.qml.
+    property alias shortcuts: adapter.shortcuts
+
+    // Shortcuts the user invented: [{ id, command, chord }]. Unlike the
+    // rebindings above these are content, not overrides — nothing generates
+    // them, so the whole record is stored.
+    property alias customShortcuts: adapter.customShortcuts
+
     readonly property string path: Quickshell.statePath("settings.json")
 
     FileView {
@@ -313,6 +324,8 @@ Singleton {
             property int lockPanelY: 130
 
             property var autostartExtra: []
+            property var shortcuts: ({})
+            property var customShortcuts: []
         }
     }
 }

@@ -29,8 +29,12 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
   beside the button, whichever you prefer
 - **Settings app** (`Super+Shift+S`) — 18 pages: appearance, wallpaper,
   bar, apps, windows, night light, notifications, displays, audio, network
-  (incl. Wi-Fi scan/connect), bluetooth, power, lock screen, keyboard,
-  mouse (incl. cursor theme), autostart, default apps, about
+  (incl. Wi-Fi scan/connect), bluetooth, power, lock screen,
+  keyboard (incl. shortcuts), mouse (incl. cursor theme), autostart,
+  default apps, about
+- Every keybinding is rebindable from Settings → Keyboard: click one, press
+  the combination, done — no reload, no config file. You can add your own
+  too: any command on any chord, so a second terminal gets its own key
 - Power menu, volume/brightness OSD, night light with optional schedule
 
 **Session**
@@ -100,7 +104,8 @@ source builds).
 
 ## Keybindings
 
-`Super+S` (or `Super+F1`) shows this list live.
+`Super+S` (or `Super+F1`) shows this list live, and Settings → Keyboard
+rebinds any of it — the table below is the defaults.
 
 | Keys | Action |
 |---|---|
@@ -133,8 +138,9 @@ source builds).
 ## How it fits together
 
 ```
-AwesomeWM ──── tags/layout state ────▶ $XDG_RUNTIME_DIR/awesomewm-state.json
-   ▲                                              │
+AwesomeWM ──┬─ tags/layout state ────▶ $XDG_RUNTIME_DIR/awesomewm-state.json
+   ▲        └─ shortcut registry ────▶ $XDG_RUNTIME_DIR/awesomewm-shortcuts.json
+   │                                              │
    └──────── awesome-client commands ──────── Quickshell (bar, settings, …)
                                                   │
                                     settings.json (state, outside the repo)

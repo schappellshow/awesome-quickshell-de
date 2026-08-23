@@ -28,5 +28,6 @@ singleton PinnedApps PinnedApps.qml
 singleton WindowMode WindowMode.qml
 singleton ColorScheme ColorScheme.qml
 singleton WindowBorders WindowBorders.qml
+singleton Shortcuts Shortcuts.qml
 singleton StartMenu StartMenu.qml
 singleton SuperTap SuperTap.qml

@@ -32,6 +32,7 @@ ShellRoot {
         WindowMode.init();
         WindowBorders.init();
         SuperTap.init();
+        Shortcuts.init();
     }
 
     // One bar on Settings.barScreen; if it's unset or that output isn't
@@ -92,6 +93,22 @@ ShellRoot {
         function muteToggle(): void {
             Audio.toggleMute();
             osd.showVolume();
+        }
+    }
+
+    // `qs ipc call shortcuts captured <id> <chord>` — awesome grabs the
+    // keyboard to record a chord (Settings -> Keyboard) and hands the
+    // result back here. See modules/keys.lua's capture block for why the
+    // recording cannot happen in the settings window itself.
+    IpcHandler {
+        target: "shortcuts"
+
+        function captured(id: string, chord: string): void {
+            Shortcuts.captured(id, chord);
+        }
+
+        function cancel(): void {
+            Shortcuts.stopCapture();
         }
     }
 

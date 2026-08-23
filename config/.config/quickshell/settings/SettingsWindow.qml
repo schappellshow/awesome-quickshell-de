@@ -18,6 +18,11 @@ FloatingWindow {
 
     property string currentPage: "appearance"
 
+    // A shortcut capture has awesome holding the keyboard on this window's
+    // behalf. Closing the window without saying so would strand that grab,
+    // so the window is what ends it.
+    onVisibleChanged: if (!visible) Shortcuts.stopCapture()
+
     readonly property var pages: [
         { id: "appearance",    title: "Appearance",    source: "pages/AppearancePage.qml" },
         { id: "wallpaper",     title: "Wallpaper",     source: "pages/WallpaperPage.qml" },
