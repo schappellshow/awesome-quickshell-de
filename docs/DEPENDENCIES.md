@@ -23,6 +23,7 @@ everything else costs you one feature.
 | `feh` | Sets the wallpaper | No wallpaper |
 | `xsettingsd` | Pushes GTK theme/icon/cursor changes to running apps | Theme changes need an app restart |
 | `xrdb` + `xsetroot` *(xorg utils)* | Settings → Mouse applies the cursor theme to the root window immediately, and clears a stale `Xcursor.theme` left behind by Plasma | Cursor still changes for newly started apps via `~/.icons/default`, but the desktop background keeps the old pointer until you log out — and a leftover `Xcursor.theme` would override the choice entirely |
+| `python-xlib` + X `RECORD` extension | `super-tap`, the watcher behind Settings → Apps → "Super key opens the menu". It reads the raw event stream because awesome only sees the keys it has grabbed, and so cannot tell a tap from `Super+`<key an application handled> | The switch is there but the tap never fires; every other shortcut is unaffected |
 | `qt6ct` + a Qt platform theme | Qt apps follow dark/light and find icons | Qt apps and tray menus render light |
 | Breeze icons | Icon theme used by the power menu and Qt apps | Missing icons in menus |
 | Hack (or any mono font) | Bar and UI text | Falls back to a default font |

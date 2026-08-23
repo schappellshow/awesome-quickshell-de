@@ -13,6 +13,9 @@ Item {
     id: root
 
     property bool vertical: BarEdge.vertical
+    // Passed by Bar.qml. StartMenu needs it to turn the button's position
+    // inside the bar into a position on the screen.
+    property var barWindow: null
 
     visible: Settings.showStart
     implicitWidth: 26
@@ -90,6 +93,12 @@ Item {
 
     MouseArea {
         anchors.fill: parent
-        onClicked: AwesomeState.exec("main_menu_toggle()")
+        // Through StartMenu rather than straight to awesome, so the click and
+        // the Super tap open the menu the same way. With pointer placement
+        // the two agree anyway — clicking puts the pointer on the button.
+        onClicked: StartMenu.toggle()
     }
+
+    Component.onCompleted: StartMenu.register(root, root.barWindow)
+    Component.onDestruction: StartMenu.unregister(root)
 }

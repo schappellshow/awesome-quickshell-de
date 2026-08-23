@@ -141,7 +141,10 @@ PanelWindow {
         id: pool
         visible: false
 
-        StartButton { id: startButton }
+        StartButton {
+            id: startButton
+            barWindow: bar
+        }
 
         PinnedStrip { id: pinnedStrip }
 

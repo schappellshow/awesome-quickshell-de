@@ -403,6 +403,69 @@ _G.main_menu_toggle = function()
     M.mainmenu:toggle({ coords = mouse.coords() })
 end
 
+-- The same menu, placed beside the bar's start button instead of at the
+-- pointer. Settings -> Apps offers the choice, because the Super tap has no
+-- pointer to speak of.
+--
+-- Coordinates arrive relative to a screen origin: the shell cannot know which
+-- monitor you are working on and awesome can. `inner` is the bar's inner edge,
+-- gap included; `along` is how far down (or across) the bar the button sits;
+-- `output` names the monitor the bar is on, or "" when every monitor has one.
+-- A tap on a monitor with no bar has no button to point at, so it falls back
+-- to the pointer rather than to a spot where nothing is.
+--
+-- The menu is placed after the show rather than through show's own coords,
+-- because its size is only settled once it has been laid out and the right
+-- and bottom edges need that size to grow back towards the screen. Leaving it
+-- to awful.menu's clamping would not do: that clamps to the workarea, which
+-- does not account for the padding this config reserves for the bar.
+_G.main_menu_toggle_at = function(inner, along, edge, output)
+    local menu = M.mainmenu
+    if menu.wibox.visible then
+        menu:hide()
+        return
+    end
+
+    local s = awful.screen.focused()
+    local here = s ~= nil and output == ""
+    if s and output ~= "" then
+        for name in pairs(s.outputs) do
+            if name == output then here = true end
+        end
+    end
+    if not here then
+        menu:show({ coords = mouse.coords() })
+        return
+    end
+
+    local g = s.geometry
+    menu:show({ coords = { x = g.x, y = g.y } })
+
+    local w, h = menu.wibox.width, menu.wibox.height
+    local x, y
+    if edge == "left" then
+        x, y = inner, along
+    elseif edge == "right" then
+        x, y = inner - w, along
+    elseif edge == "top" then
+        x, y = along, inner
+    else
+        x, y = along, inner - h
+    end
+
+    -- Keep it on the monitor: a button near the far end of a long bar would
+    -- otherwise hang the menu over the edge.
+    if edge == "left" or edge == "right" then
+        y = math.max(0, math.min(y, g.height - h))
+    else
+        x = math.max(0, math.min(x, g.width - w))
+    end
+
+    menu.wibox.x = g.x + x
+    menu.wibox.y = g.y + y
+end
+
+
 -- Root (desktop) mouse buttons — right-click menu; scroll to switch tags.
 -- Scroll down (button 5) = next tag, matching the bar taglist direction.
 M.rootbuttons = gears.table.join(

@@ -31,6 +31,7 @@ ShellRoot {
         BarSpace.init();
         WindowMode.init();
         WindowBorders.init();
+        SuperTap.init();
     }
 
     // One bar on Settings.barScreen; if it's unset or that output isn't
@@ -91,6 +92,17 @@ ShellRoot {
         function muteToggle(): void {
             Audio.toggleMute();
             osd.showVolume();
+        }
+    }
+
+    // `qs ipc call startmenu toggle` — the Super tap (bin/super-tap) comes
+    // through here rather than calling awesome directly, because the menu's
+    // placement setting needs the bar's view of where the button is.
+    IpcHandler {
+        target: "startmenu"
+
+        function toggle(): void {
+            StartMenu.toggle();
         }
     }
 

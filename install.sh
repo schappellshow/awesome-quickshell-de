@@ -121,6 +121,11 @@ pkg_for() {
         # --- lock-screen and lock-image read settings.json with jq ---
         *:jq)              echo jq ;;
 
+        # --- super-tap reads the X RECORD stream through python-xlib ---
+        apt:pyxlib)        echo python3-xlib ;;
+        zypper:pyxlib)     echo python3-python-xlib ;;
+        *:pyxlib)          echo python-xlib ;;
+
         # --- icons ---
         dnf:icons)         echo kf6-breeze-icons ;;
         apt:icons)         echo breeze-icon-theme ;;
@@ -167,7 +172,7 @@ if [ "$PM" != none ] && [ "${SKIP_PACKAGES:-0}" != 1 ]; then
                nomacs \
                brightnessctl blueman thunar qt6ct stow git curl portal polkit \
                kwallet i3lock mixer printer udiskie icons font-mono font-nerd \
-               imagemagick jq build; do
+               imagemagick jq pyxlib build; do
         names="$(pkg_for "$key")"
         if [ -z "$names" ]; then
             MISSING+=("$key (not packaged for $PM)")

@@ -111,6 +111,12 @@ Singleton {
     property alias pinnedApps: adapter.pinnedApps
     // Path or theme icon name; "" falls back to start-here, then a glyph
     property alias startIcon: adapter.startIcon
+    // Tap Super on its own to open the same menu. Only acts while the start
+    // button is on — see SuperTap.qml.
+    property alias startSuperKey: adapter.startSuperKey
+    // Where that menu appears: "mouse" (where awesome puts it on a desktop
+    // right-click) or "button" (beside the bar's start button).
+    property alias startMenuPlacement: adapter.startMenuPlacement
 
     // Lock screen. Read by bin/.local/bin/lock-screen (text, fonts, ring)
     // and bin/.local/bin/lock-image (panel, background) rather than by any
@@ -286,6 +292,8 @@ Singleton {
             property bool showWindowList: false
             property var pinnedApps: []
             property string startIcon: ""
+            property bool startSuperKey: false
+            property string startMenuPlacement: "mouse"
 
             // Lock screen — see the aliases above for who reads these.
             property string lockText: "Enter Password"

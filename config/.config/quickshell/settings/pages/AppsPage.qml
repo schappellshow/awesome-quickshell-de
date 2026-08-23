@@ -59,6 +59,49 @@ SettingsPage {
         color: Theme.muted
     }
 
+    ToggleRow {
+        label: "Super key opens the menu"
+        checked: Settings.startSuperKey
+        onToggled: value => Settings.startSuperKey = value
+    }
+
+    Text {
+        width: parent.width
+        text: "Tap Super on its own — the way a floating desktop opens its "
+            + "start menu. Holding it, or using it in a shortcut like "
+            + "Super+Space, is untouched: only a press and release with "
+            + "nothing in between counts."
+            + (Settings.showStart
+                ? ""
+                : " Inactive right now, because the start button is off.")
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
+    ComboRow {
+        visible: Settings.startSuperKey
+        label: "Menu opens"
+        options: [
+            { label: "At the mouse", value: "mouse" },
+            { label: "Next to the start button", value: "button" }
+        ]
+        current: Settings.startMenuPlacement
+        onSelected: value => Settings.startMenuPlacement = value
+    }
+
+    Text {
+        visible: Settings.startSuperKey
+        width: parent.width
+        text: "Only affects the keyboard shortcut. Clicking the button puts "
+            + "the pointer on it, so both choices land in the same place."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
     SectionLabel { text: "PINNED APPS" }
 
     Text {

@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""super-tap — run a command when Super is tapped on its own.
+
+Floating desktops put a start menu behind a bare Super tap. Awesome cannot
+do that itself: it only ever sees the keys it has grabbed, so Super+w typed
+into an application, or Super+drag to move a window, look identical to a tap
+from where awesome is standing. Binding Super_L on release therefore opens
+the menu at all the wrong moments.
+
+The X RECORD extension sees every key and button, grabbed or not, so a tap
+can be told apart from a chord for real. This watches that stream and fires
+only when Super went down and came back up with nothing else in between,
+within the timeout. It reads input; it never synthesises any — the command
+runs directly rather than through a fake keystroke (which is how xcape does
+the same job, and why it needs a chord bound on the other side).
+
+Usage:
+    super-tap [--timeout MS] [--print] [--] [command ...]
+
+With no command it toggles awesome's menu — the same one the bar's start
+button opens. --print reports taps on stdout instead of running anything,
+which is how to check it is seeing your keyboard.
+"""
+
+import os
+import signal
+import subprocess
+import sys
+import time
+
+from Xlib import X, XK, display
+from Xlib.ext import record
+from Xlib.protocol import rq
+
+DEFAULT_COMMAND = ["awesome-client", "main_menu_toggle()"]
+
+# A tap is a deliberate press-and-let-go. Holding Super — waiting to decide
+# which chord to type, or dragging a window — must not count, and 350ms is
+# comfortably above a tap and below a hold.
+DEFAULT_TIMEOUT = 350
+
+
+class TapDetector:
+    """The tap rule, kept apart from X so it can be reasoned about alone.
+
+    Armed on a Super press, disarmed by anything else — another key, a mouse
+    button, or a modifier that was already down when Super arrived. Feeding
+    it monotonic milliseconds keeps it free of the clock.
+    """
+
+    def __init__(self, super_codes, timeout=DEFAULT_TIMEOUT):
+        self.super_codes = set(super_codes)
+        self.timeout = timeout
+        self.armed = False
+        self.pressed_at = 0
+        self.supers_held = set()
+        self.keys_held = set()
+        self.buttons_held = set()
+
+    def key_press(self, code, now):
+        if code in self.super_codes:
+            # Autorepeat, or a second Super while the first is down: neither
+            # starts a new tap, and neither should cancel the one in flight.
+            if code not in self.supers_held:
+                self.armed = not (self.keys_held or self.buttons_held
+                                  or self.supers_held)
+                self.pressed_at = now
+            self.supers_held.add(code)
+        else:
+            self.keys_held.add(code)
+            self.armed = False
+        return False
+
+    def key_release(self, code, now):
+        if code not in self.super_codes:
+            self.keys_held.discard(code)
+            return False
+        self.supers_held.discard(code)
+        # Both Supers held at once is a two-key chord, not a tap: the second
+        # press disarmed, and nothing here re-arms. Waiting for the last one
+        # up keeps that from firing on the first release either.
+        if not self.armed or self.supers_held:
+            return False
+        self.armed = False
+        return now - self.pressed_at <= self.timeout
+
+    def button_press(self, button, now):
+        self.buttons_held.add(button)
+        self.armed = False
+        return False
+
+    def button_release(self, button, now):
+        self.buttons_held.discard(button)
+        return False
+
+
+def super_keycodes(dpy):
+    """Every keycode that produces Super, by keysym rather than by modmap.
+
+    The modmap would also sweep in whatever else the user has bound to Mod4
+    (Hyper on some layouts), and those are not the key this feature is
+    about.
+    """
+    codes = set()
+    for name in ("Super_L", "Super_R"):
+        keysym = XK.string_to_keysym(name)
+        if not keysym:
+            continue
+        for code, index in dpy.keysym_to_keycodes(keysym):
+            if index == 0:
+                codes.add(code)
+    return codes
+
+
+def parse_args(argv):
+    timeout = DEFAULT_TIMEOUT
+    show = False
+    rest = list(argv)
+    while rest:
+        arg = rest[0]
+        if arg == "--":
+            rest.pop(0)
+            break
+        if arg in ("-h", "--help"):
+            sys.stdout.write(__doc__)
+            sys.exit(0)
+        if arg == "--print":
+            show = True
+            rest.pop(0)
+            continue
+        if arg == "--timeout":
+            if len(rest) < 2:
+                sys.exit("super-tap: --timeout needs a value in milliseconds")
+            try:
+                timeout = int(rest[1])
+            except ValueError:
+                sys.exit("super-tap: --timeout takes milliseconds, got %r" % rest[1])
+            if timeout <= 0:
+                sys.exit("super-tap: --timeout must be positive")
+            del rest[:2]
+            continue
+        if arg.startswith("-"):
+            sys.exit("super-tap: unknown option %s" % arg)
+        break
+    return timeout, show, rest
+
+
+def main(argv):
+    timeout, show, command = parse_args(argv)
+    if not command:
+        command = DEFAULT_COMMAND
+
+    # Reap the children we spawn without waiting on any of them; the menu
+    # outlives this process's interest in it.
+    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+
+    # Two connections, as RECORD requires: one is blocked for the lifetime of
+    # the recording, so control calls need their own.
+    ctrl = display.Display()
+    rec = display.Display()
+    if not rec.has_extension("RECORD"):
+        sys.exit("super-tap: this X server has no RECORD extension")
+
+    codes = super_keycodes(ctrl)
+    if not codes:
+        sys.exit("super-tap: no Super key on this keyboard layout")
+
+    detector = TapDetector(codes, timeout)
+
+    def fire():
+        if show:
+            print("tap", flush=True)
+            return
+        try:
+            subprocess.Popen(command,
+                             stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+        except OSError as exc:
+            print("super-tap: %s: %s" % (command[0], exc), file=sys.stderr)
+
+    def handler(reply):
+        if reply.category != record.FromServer or reply.client_swapped:
+            return
+        if not reply.data or reply.data[0] < 2:   # server-internal bookkeeping
+            return
+        data = reply.data
+        while data:
+            event, data = rq.EventField(None).parse_binary_value(
+                data, rec.display, None, None)
+            now = time.monotonic_ns() // 1_000_000
+            if event.type == X.KeyPress:
+                hit = detector.key_press(event.detail, now)
+            elif event.type == X.KeyRelease:
+                hit = detector.key_release(event.detail, now)
+            elif event.type == X.ButtonPress:
+                hit = detector.button_press(event.detail, now)
+            elif event.type == X.ButtonRelease:
+                hit = detector.button_release(event.detail, now)
+            else:
+                continue
+            if hit:
+                fire()
+
+    ctx = rec.record_create_context(
+        0,
+        [record.AllClients],
+        [{
+            "core_requests": (0, 0),
+            "core_replies": (0, 0),
+            "ext_requests": (0, 0, 0, 0),
+            "ext_replies": (0, 0, 0, 0),
+            "delivered_events": (0, 0),
+            "device_events": (X.KeyPress, X.ButtonRelease),
+            "errors": (0, 0),
+            "client_started": False,
+            "client_died": False,
+        }])
+
+    def stop(_signum=None, _frame=None):
+        ctrl.record_disable_context(ctx)
+        ctrl.flush()
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+
+    try:
+        rec.record_enable_context(ctx, handler)
+    finally:
+        ctrl.record_free_context(ctx)
+
+
+if __name__ == "__main__":
+    try:
+        main(sys.argv[1:])
+    except KeyboardInterrupt:
+        pass

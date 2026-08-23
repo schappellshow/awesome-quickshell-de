@@ -23,6 +23,10 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
   system tray, volume, network, bluetooth, CPU/RAM, screen-lock state,
   battery, layout indicator — every element toggleable
 - Notification daemon with popups, history center, and do-not-disturb
+- Optional desktop-style bar: start button, pinned apps, open-window list —
+  and a bare `Super` tap can open the start menu, the way a floating desktop
+  does, without disturbing any `Super+` shortcut. It opens at the pointer or
+  beside the button, whichever you prefer
 - **Settings app** (`Super+Shift+S`) — 18 pages: appearance, wallpaper,
   bar, apps, windows, night light, notifications, displays, audio, network
   (incl. Wi-Fi scan/connect), bluetooth, power, lock screen, keyboard,
@@ -122,6 +126,7 @@ source builds).
 | `Super+BackSpace` · `Ctrl+Alt+L` | Power menu · lock now |
 | `Print` · `Shift+Print` | Screenshot region · full |
 | `Super+Ctrl+R` · `Super+Ctrl+Q` | Reload awesome · quit |
+| `Super` (tap alone) | Start menu — off by default, Settings → Apps |
 
 ---
 
@@ -138,7 +143,7 @@ AwesomeWM ──── tags/layout state ────▶ $XDG_RUNTIME_DIR/awesom
         apply singletons                                    session glue
    xrandr · feh · xset · setxkbmap · xinput            systemd user units
    system-theme-apply · icon-theme-apply               autostart · secrets
-   cursor-theme-apply · color-scheme
+   cursor-theme-apply · color-scheme · super-tap
 ```
 
 - **AwesomeWM** owns windows and publishes tag/layout state to a JSON file.
