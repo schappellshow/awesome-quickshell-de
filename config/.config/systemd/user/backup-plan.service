@@ -1,0 +1,11 @@
+[Unit]
+Description=Desktop backup job (Settings -> Backups)
+Documentation=man:borg(1)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/backup-plan run
+# A backup competes with whatever you are actually doing, and it is never the
+# urgent job — it can take the whole night if it needs to.
+Nice=19
+IOSchedulingClass=idle

@@ -154,6 +154,18 @@ Singleton {
     // them, so the whole record is stored.
     property alias customShortcuts: adapter.customShortcuts
 
+    // Backups. Whether the job is ON is deliberately not stored here —
+    // systemd owns that, and asking it avoids a second copy of the answer
+    // that can disagree with the timer. See common/Backup.qml and
+    // bin/.local/bin/backup-plan.
+    property alias backupDest: adapter.backupDest
+    property alias backupTime: adapter.backupTime
+    property alias backupKeepDaily: adapter.backupKeepDaily
+    property alias backupKeepWeekly: adapter.backupKeepWeekly
+    property alias backupKeepMonthly: adapter.backupKeepMonthly
+    property alias backupExclude: adapter.backupExclude
+    property alias backupNotify: adapter.backupNotify
+
     readonly property string path: Quickshell.statePath("settings.json")
 
     FileView {
@@ -326,6 +338,24 @@ Singleton {
             property var autostartExtra: []
             property var shortcuts: ({})
             property var customShortcuts: []
+
+            // Backups. An empty destination is the shipped state and means
+            // the job has nowhere to write, so it exits having done nothing
+            // — which is what makes "off by default" true even if something
+            // starts the timer.
+            property string backupDest: ""
+            property string backupTime: "20:00"
+            property int backupKeepDaily: 7
+            property int backupKeepWeekly: 4
+            property int backupKeepMonthly: 6
+            // Relative entries resolve against $HOME. Seeded with real
+            // values rather than left empty, because [] is a legitimate
+            // "exclude nothing" — the defaults have to be entries you can
+            // see and delete, not an absence the script quietly fills in.
+            property var backupExclude: [".cache", ".local/share/Trash",
+                                         ".thumbnails"]
+            // Success is silent unless asked for; a failure always speaks.
+            property bool backupNotify: false
         }
     }
 }

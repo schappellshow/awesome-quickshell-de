@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+# backup-plan — the desktop's optional backup job, driven by Settings →
+# Backups. Off until you turn it on: nothing here runs and nothing is written
+# until that page enables the timer.
+#
+# It is deliberately one small borg job rather than a backup framework. Borg
+# does the part that is genuinely hard — deduplicated, compressed, versioned
+# snapshots you can mount and browse — and this is the thin layer that reads
+# settings.json, builds the argument list and records what happened. If you
+# already have a backup tool you trust, leave this off and schedule yours
+# however you like; nothing else in the desktop depends on it.
+#
+#   backup-plan status      JSON: enabled, destination, last run, repo size
+#   backup-plan init        create the borg repository (explicit, once)
+#   backup-plan run         snapshot now, then prune
+#   backup-plan enable      start the daily timer
+#   backup-plan disable     stop it
+#   backup-plan sync        rewrite the timer's run time from settings.json
+#   backup-plan archives    JSON array of snapshots, newest first
+#
+# WHY THE REPOSITORY IS NEVER CREATED IMPLICITLY. The interesting failure is a
+# destination that is a mount point with nothing mounted on it: the directory
+# exists and is frequently writable, so a job that runs `borg init` on demand
+# quietly fills the root filesystem with what you believed was going to the
+# backup disk. Requiring one explicit init makes a missing repository
+# unambiguous — the disk is not there — so `run` can say so and stop rather
+# than guess.
+#
+# WHY IT DOES NOT NAG. A backup that cannot run is worth recording, not worth
+# a modal at every login: a laptop away from its backup disk would produce one
+# every single time. A skipped run updates the status this script writes and
+# nothing else; the Backups page shows it. Only a genuine failure — borg ran
+# and returned an error — notifies, and then at normal urgency.
+#
+# See docs/DEPENDENCIES.md.
+
+set -uo pipefail
+
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}"
+QS_STATE="$STATE/quickshell"
+MINE="$STATE/backup-plan"
+STATUS="$MINE/status.json"
+LOG="$MINE/last.log"
+LOCK="$MINE/lock"
+TIMER=backup-plan.timer
+UNITDIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+UNIT="$UNITDIR/$TIMER"
+WANTS="$UNITDIR/timers.target.wants/$TIMER"
+DROPIN="$UNITDIR/$TIMER.d"
+
+mkdir -p "$MINE"
+
+# ── settings.json ───────────────────────────────────────────────────────────
+# The Settings app is the single source of truth for everything except whether
+# the job is on, which is systemd's to answer (see `enabled` below). The
+# shell-id directory is hashed from the config path, so glob for it rather
+# than hardcoding — same as lock-screen.
+setting() {
+    local key="$1" def="$2" val="" f
+    for f in "$QS_STATE"/by-shell/*/settings.json; do
+        [ -f "$f" ] || continue
+        val=$(jq -r --arg k "$key" '.[$k] // empty' "$f" 2>/dev/null) && break
+    done
+    [ -n "$val" ] && printf '%s' "$val" || printf '%s' "$def"
+}
+
+# Array-valued settings, one element per line. Returns non-zero when the key
+# is ABSENT, which is not the same as an empty list: settings.json is written
+# lazily, so a machine where nobody has touched the Backups page has no key at
+# all, while [] is a deliberate "exclude nothing". Only the absent case falls
+# back to the defaults below.
+setting_list() {
+    local key="$1" f
+    for f in "$QS_STATE"/by-shell/*/settings.json; do
+        [ -f "$f" ] || continue
+        jq -e --arg k "$key" '.[$k] != null' "$f" >/dev/null 2>&1 || return 1
+        jq -r --arg k "$key" '.[$k][]' "$f" 2>/dev/null
+        return 0
+    done
+    return 1
+}
+
+# Every default here has to match the one in
+# quickshell/common/Settings.qml, so an unwritten key and the value the page
+# displays are the same thing.
+DEFAULT_EXCLUDE=$'.cache\n.local/share/Trash\n.thumbnails'
+
+DEST=$(setting backupDest "")
+KEEP_D=$(setting backupKeepDaily 7)
+KEEP_W=$(setting backupKeepWeekly 4)
+KEEP_M=$(setting backupKeepMonthly 6)
+NOTIFY_OK=$(setting backupNotify false)
+
+# One repository per machine, so several can share one disk without colliding.
+HOST=$(uname -n)
+REPO=""
+[ -n "$DEST" ] && REPO="$DEST/$HOST-home.borg"
+export BORG_REPO="$REPO"
+
+# Borg has two interactive safety prompts, and a prompt with no terminal is a
+# job that hangs until systemd times it out. Both are answered up front:
+#
+#   RELOCATED — the repository is not at the path borg last saw it at. Normal
+#   for a removable disk that mounts at /run/media/... one day and /mnt the
+#   next. Same repository, different mount point.
+#
+#   UNKNOWN_UNENCRYPTED — an unencrypted repository this machine has not seen
+#   before. The prompt guards against someone substituting a repository you
+#   then trust; it earns its keep for an encrypted setup, where the swap is
+#   the only way in. Here the repository is unencrypted by design and the user
+#   typed its path into Settings, so anyone able to substitute it could
+#   equally well just read it. The prompt would only ever cost a backup.
+export BORG_RELOCATED_REPO_ACCESS_IS_OK=yes
+export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=yes
+
+note() {   # state message [archive]
+    jq -n --arg state "$1" --arg message "$2" --arg archive "${3:-}" \
+          --arg when "$(date '+%Y-%m-%d %H:%M')" \
+          '{state: $state, message: $message, archive: $archive, when: $when}' \
+        >"$STATUS.tmp" 2>/dev/null && mv "$STATUS.tmp" "$STATUS"
+}
+
+notify() {   # urgency summary body
+    command -v notify-send >/dev/null 2>&1 || return 0
+    notify-send -u "$1" "$2" "$3" 2>/dev/null || true
+}
+
+need_borg() {
+    command -v borg >/dev/null 2>&1 && return 0
+    note skipped "borg is not installed"
+    return 1
+}
+
+# ── Status ──────────────────────────────────────────────────────────────────
+cmd_status() {
+    local enabled=false active=false ready=false next="" size="" count=0
+    # Either answer counts: the symlink is what `enable` writes, and
+    # is-enabled also catches a timer someone turned on from a terminal.
+    { [ -L "$WANTS" ] || systemctl --user is-enabled --quiet "$TIMER" 2>/dev/null; } \
+        && enabled=true
+    systemctl --user is-active --quiet backup-plan.service 2>/dev/null && active=true
+    [ -n "$REPO" ] && [ -d "$REPO" ] && ready=true
+
+    if [ "$enabled" = true ]; then
+        next=$(systemctl --user show "$TIMER" -p NextElapseUSecRealtime \
+                 --value 2>/dev/null)
+        [ "$next" = 0 ] && next=""
+        [ -n "$next" ] && next=$(systemctl --user list-timers "$TIMER" \
+                                   --no-legend --no-pager 2>/dev/null \
+                                 | awk '{print $1, $2, $3}')
+    fi
+
+    if [ "$ready" = true ] && command -v borg >/dev/null 2>&1; then
+        # `borg info` on a repository mid-backup blocks on the lock; the
+        # status call has to stay instant, so it never waits for one.
+        local info
+        info=$(borg info --json --lock-wait 0 2>/dev/null)
+        if [ -n "$info" ]; then
+            size=$(printf '%s' "$info" | jq -r \
+                '.cache.stats.unique_csize // empty' 2>/dev/null)
+            count=$(borg list --short --lock-wait 0 2>/dev/null | wc -l | tr -d ' ')
+        fi
+    fi
+
+    jq -n \
+        --argjson enabled "$enabled" \
+        --argjson running "$active" \
+        --argjson repoReady "$ready" \
+        --arg dest "$DEST" \
+        --arg repo "$REPO" \
+        --arg next "$next" \
+        --arg size "$size" \
+        --argjson archives "${count:-0}" \
+        --argjson borg "$(command -v borg >/dev/null 2>&1 && echo true || echo false)" \
+        --argjson last "$(jq -c . "$STATUS" 2>/dev/null || echo null)" \
+        '{enabled: $enabled, running: $running, repoReady: $repoReady,
+          dest: $dest, repo: $repo, next: $next, sizeBytes: $size,
+          archives: $archives, borgInstalled: $borg, last: $last}'
+}
+
+# ── Repository ──────────────────────────────────────────────────────────────
+cmd_init() {
+    need_borg || { echo "borg is not installed" >&2; return 1; }
+    if [ -z "$DEST" ]; then
+        echo "no destination set" >&2
+        return 1
+    fi
+    if [ -d "$REPO" ]; then
+        echo "$REPO"
+        return 0
+    fi
+    if [ ! -d "$DEST" ]; then
+        echo "destination does not exist: $DEST" >&2
+        return 1
+    fi
+    # Unencrypted, and the page says so. A passphrase that lives on the
+    # machine being backed up protects against the disk walking away and
+    # nothing else, and storing one unattended well enough for a timer to use
+    # is a keyring problem this script has no business solving. Users who want
+    # encryption should run `borg init -e repokey-blake2` here themselves —
+    # this script will use whatever repository it finds.
+    borg init --encryption=none "$REPO" || return 1
+    echo "$REPO"
+}
+
+# ── Run ─────────────────────────────────────────────────────────────────────
+cmd_run() {
+    need_borg || return 0
+    if [ -z "$DEST" ]; then
+        note skipped "no destination set"
+        return 0
+    fi
+    if [ ! -d "$REPO" ]; then
+        # The common case, and not an error: the backup disk is elsewhere.
+        note skipped "no repository at $REPO"
+        return 0
+    fi
+
+    # One at a time. A timer catching up on missed runs at login can otherwise
+    # collide with a "Back up now" from the page, and borg would just fail on
+    # its own lock a minute into the job.
+    exec 9>"$LOCK"
+    if ! flock -n 9; then
+        note skipped "another backup is already running"
+        return 0
+    fi
+
+    local args=(--compression zstd,3 --exclude-caches)
+    local p
+    while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        # Relative entries are relative to home, which is what the page shows
+        # and what keeps a shared settings.json portable between machines.
+        case "$p" in
+            /*) args+=(--exclude "$p") ;;
+            ~/*) args+=(--exclude "$HOME/${p#\~/}") ;;
+            *)  args+=(--exclude "$HOME/$p") ;;
+        esac
+    done < <(setting_list backupExclude || printf '%s\n' "$DEFAULT_EXCLUDE")
+
+    note running "backup in progress"
+    # Seconds, not just minutes: archive names are unique keys in borg, and
+    # two runs inside one minute is not hypothetical — pressing "Back up now"
+    # twice does it, and so does a login catch-up meeting a manual run.
+    local name="home-$(date '+%Y-%m-%d_%H%M%S')"
+    # borg's exit codes are three-valued and the difference matters here:
+    # 0 success, 1 WARNING, 2+ error. A warning means the archive was written
+    # and something was odd about one file — almost always "file changed while
+    # we backed it up", which any live database, log or browser profile
+    # produces on a machine that is switched on. Treating 1 as failure would
+    # mark nearly every real backup failed, notify about it, and skip the
+    # prune, so the disk would fill while the page cried wolf.
+    borg create "${args[@]}" "::$name" "$HOME" >"$LOG" 2>&1
+    local rc=$?
+    if [ "$rc" -ge 2 ]; then
+        note failed "$(tail -n 3 "$LOG" | tr '\n' ' ')" "$name"
+        notify normal "Backup failed" "$(tail -n 1 "$LOG")"
+        return 1
+    fi
+
+    # Pruning is a separate concern from the snapshot: a failed prune leaves
+    # you with a good backup and a full disk later, which is the better half
+    # to lose, so it does not fail the run.
+    borg prune --keep-daily "$KEEP_D" --keep-weekly "$KEEP_W" \
+               --keep-monthly "$KEEP_M" >>"$LOG" 2>&1
+    [ $? -ge 2 ] || borg compact >>"$LOG" 2>&1
+
+    if [ "$rc" -eq 1 ]; then
+        # Recorded, shown on the page, and deliberately silent: this is the
+        # normal state of backing up a running system, not something to be
+        # told about daily.
+        note warned "$(grep -m1 . "$LOG" | tr -d '\n')" "$name"
+    else
+        note ok "backed up as $name" "$name"
+    fi
+    [ "$NOTIFY_OK" = true ] && notify low "Backup complete" "$name"
+    return 0
+}
+
+cmd_archives() {
+    need_borg >/dev/null || { echo '[]'; return 0; }
+    [ -d "$REPO" ] || { echo '[]'; return 0; }
+    borg list --json --lock-wait 0 2>/dev/null \
+        | jq '[.archives | reverse | .[] | {name: .name, time: .time}]' \
+        2>/dev/null || echo '[]'
+}
+
+# ── Timer ───────────────────────────────────────────────────────────────────
+# The run time is a setting, and the unit file is a symlink into the repo, so
+# the schedule goes in a drop-in beside it rather than into the shipped unit.
+# The empty OnCalendar= first is required: drop-ins append to list-valued
+# directives, so without the reset you get both times.
+cmd_sync() {
+    local at
+    at=$(setting backupTime "20:00")
+    [[ "$at" =~ ^[0-9]{1,2}:[0-9]{2}$ ]] || at="20:00"
+    mkdir -p "$DROPIN"
+    cat >"$DROPIN/schedule.conf" <<EOF
+# Written by backup-plan from Settings -> Backups. Edit that, not this.
+[Timer]
+OnCalendar=
+OnCalendar=*-*-* $at:00
+EOF
+    systemctl --user daemon-reload 2>/dev/null || true
+    systemctl --user is-enabled --quiet "$TIMER" 2>/dev/null &&
+        systemctl --user restart "$TIMER" 2>/dev/null
+    return 0
+}
+
+# WHY NOT `systemctl --user enable/disable`. The unit file here is a symlink
+# into the config repo, which systemd classifies as a *linked* unit — and
+# `disable` on a linked unit deletes the link as part of undoing it. So the
+# first time you turned backups off, the timer stopped existing and could not
+# be turned back on without re-running stow. Managing the one install symlink
+# by hand is exactly what enable/disable do for an ordinary unit, and it
+# leaves the repo's own link alone.
+cmd_enable() {
+    if [ ! -e "$UNIT" ]; then
+        echo "$TIMER is not installed — run stow from the repo" >&2
+        return 1
+    fi
+    cmd_sync
+    mkdir -p "$(dirname "$WANTS")"
+    ln -sfn "$UNIT" "$WANTS"
+    systemctl --user daemon-reload 2>/dev/null || true
+    systemctl --user start "$TIMER" 2>&1
+}
+
+cmd_disable() {
+    systemctl --user stop "$TIMER" 2>/dev/null
+    rm -f "$WANTS"
+    systemctl --user daemon-reload 2>/dev/null || true
+}
+
+case "${1:-status}" in
+    status)   cmd_status ;;
+    init)     cmd_init ;;
+    run)      cmd_run ;;
+    archives) cmd_archives ;;
+    sync)     cmd_sync ;;
+    enable)   cmd_enable ;;
+    disable)  cmd_disable ;;
+    *)        sed -n '4,22p' "$0" >&2; exit 2 ;;
+esac

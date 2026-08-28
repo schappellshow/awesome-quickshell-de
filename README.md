@@ -27,11 +27,11 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
   and a bare `Super` tap can open the start menu, the way a floating desktop
   does, without disturbing any `Super+` shortcut. It opens at the pointer or
   beside the button, whichever you prefer
-- **Settings app** (`Super+Shift+S`) — 18 pages: appearance, wallpaper,
+- **Settings app** (`Super+Shift+S`) — 19 pages: appearance, wallpaper,
   bar, apps, windows, night light, notifications, displays, audio, network
   (incl. Wi-Fi scan/connect), bluetooth, power, lock screen,
   keyboard (incl. shortcuts), mouse (incl. cursor theme), autostart,
-  default apps, about
+  default apps, backups, about
 - Every keybinding is rebindable from Settings → Keyboard: click one, press
   the combination, done — no reload, no config file. You can add your own
   too: any command on any chord, so a second terminal gets its own key
@@ -47,6 +47,8 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
   self-contained JSON file, so a theme is something you can send someone
 - Monitor hotplug: restores your saved layout *and* returns windows to the
   screen and tag they came from
+- Optional daily backups — **off until you turn them on** — with the
+  destination, schedule, retention and exclusions all in Settings → Backups
 
 **Window management (AwesomeWM)**
 - Tiling with per-orientation defaults (portrait monitors stack vertically),
@@ -135,6 +137,76 @@ rebinds any of it — the table below is the defaults.
 
 ---
 
+## Backups
+
+**Off by default, and off until you turn them on.** The timer ships disabled
+and the destination ships empty, so a fresh install has no schedule and
+nowhere to write. Nothing else in the desktop depends on this.
+
+### The recommended setup
+
+This is what the shipped job does, and it is the setup this desktop is
+developed against:
+
+| | |
+|---|---|
+| Tool | [borg](https://borgbackup.org) — deduplicated, compressed, versioned snapshots |
+| What | Your home directory, minus caches and Trash (editable) |
+| Where | One repository per machine, `<destination>/<hostname>-home.borg` |
+| When | Daily, at a time you pick; a run missed while the machine was off happens at the next login |
+| History | 7 daily, 4 weekly, 6 monthly by default, pruned after each run |
+
+To set it up: install `borg`, plug in (or mount) the disk you want to back up
+to, then open **Settings → Backups**, put the folder in *Backup folder*,
+press **Create repository**, and turn **Daily backup** on. *Back up now*
+proves it works without waiting for the timer.
+
+**Already have a borg repository?** Rename it to `<hostname>-home.borg`
+inside your chosen destination and the job adopts it — every existing
+archive, and dedup against them, intact. Nothing is re-uploaded. Check the
+exclusions afterwards: they now come from this page rather than from
+whatever script used to run the job.
+
+The repository is **unencrypted**. A passphrase stored on the machine being
+backed up protects against the disk walking off and nothing else, and keeping
+one somewhere an unattended timer can reach is a keyring problem this doesn't
+try to solve. If you want encryption, create the repository yourself with
+`borg init -e repokey-blake2 <path>` — the job uses whatever repository it
+finds at that path.
+
+### Restoring
+
+Borg is a standard format and none of this is needed to read a backup:
+
+```sh
+borg list   /mnt/backup/$(uname -n)-home.borg
+borg mount  /mnt/backup/$(uname -n)-home.borg::home-2026-08-28_2000 /mnt/point
+borg extract /mnt/backup/$(uname -n)-home.borg::home-2026-08-28_2000 home/you/Documents
+```
+
+### Using something else
+
+If you already have restic, Vorta, rsnapshot, Timeshift, a NAS or a
+filesystem doing snapshots, leave **Daily backup** off and schedule yours
+however you like. Nothing reads this page's settings but the job it drives,
+and no other part of the desktop asks whether backups exist.
+
+### It does not nag
+
+A run with the backup disk absent is recorded on the page and produces **no
+notification**. That is deliberate: a laptop away from its disk would
+otherwise pop a warning at every single login, which is how people learn to
+dismiss backup warnings without reading them. Only a backup that genuinely
+fails — borg ran and returned an error — says anything, and then at normal
+urgency.
+
+Warnings are treated the same way. Borg reports one when a file changed
+while it was being read, which any running database, log or browser profile
+does on a machine that is switched on. The snapshot is complete; the page
+says "succeeded, with warnings" and names the file, and nothing pops up.
+
+---
+
 ## How it fits together
 
 ```
@@ -183,6 +255,8 @@ never dirty git:
 | Cursor theme previews (built by `cursor-preview`) | `~/.cache/cursor-previews/` |
 | Saved colour schemes (drop a file here to install one) | `~/.local/share/quickshell/color-schemes/` |
 | Lock screen image cache (built by `lock-image`) | `~/.cache/lock-screen/` |
+| Backup result + last run log | `~/.local/state/backup-plan/` |
+| Backup run time (written from Settings) | `~/.config/systemd/user/backup-plan.timer.d/` |
 | Your autostart apps | `~/.config/autostart/*.desktop` |
 
 ---

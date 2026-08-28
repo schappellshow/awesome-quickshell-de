@@ -58,6 +58,7 @@ everything else costs you one feature.
 | `thunar` (or any file manager) | `Super+E` | Auto-detects pcmanfm/nemo/nautilus/dolphin instead |
 | `system-config-printer` | Printer GUI | CUPS web UI at `localhost:631` still works |
 | `conky` | `Super+Shift+M` system monitor popout | Toggle reports conky isn't installed |
+| `borg` | The backup job behind Settings → Backups (`backup-plan`). Optional twice over: nothing needs it unless you turn backups on, and backups are off by default | The Backups page says so and stays inert. Turn the page off and use your own backup tool — nothing else depends on it |
 
 ## Backends assumed present
 

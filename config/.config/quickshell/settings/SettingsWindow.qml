@@ -41,6 +41,7 @@ FloatingWindow {
         { id: "mouse",         title: "Mouse",         source: "pages/MousePage.qml" },
         { id: "autostart",     title: "Autostart",     source: "pages/AutostartPage.qml" },
         { id: "defaultapps",   title: "Default Apps",  source: "pages/DefaultAppsPage.qml" },
+        { id: "backups",       title: "Backups",       source: "pages/BackupsPage.qml" },
         { id: "about",         title: "About",         source: "pages/AboutPage.qml" }
     ]
 

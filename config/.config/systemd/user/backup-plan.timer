@@ -1,0 +1,18 @@
+[Unit]
+Description=Daily desktop backup
+
+[Timer]
+# The run time is a setting. Settings -> Backups writes it to a drop-in
+# (backup-plan.timer.d/schedule.conf) rather than here, because this file is a
+# symlink into the config repo and editing it would dirty git on every change.
+OnCalendar=*-*-* 20:00:00
+# Catch up on a run missed while the machine was off. This is why the job has
+# to be quiet about a destination it cannot reach: on a laptop the catch-up
+# fires at login, every login, until the backup disk is next connected.
+Persistent=true
+# Not on the minute. Nothing else here cares, but a machine that wakes several
+# timers at once has them all fighting for the same disk.
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target

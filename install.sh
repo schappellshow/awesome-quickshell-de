@@ -121,6 +121,12 @@ pkg_for() {
         # --- lock-screen and lock-image read settings.json with jq ---
         *:jq)              echo jq ;;
 
+        # --- optional: the backup job behind Settings -> Backups ---
+        # Nothing needs it unless you turn backups on, so an absence here is
+        # a line in the summary rather than a problem.
+        pacman:borg)       echo borg ;;
+        *:borg)            echo borgbackup ;;
+
         # --- super-tap reads the X RECORD stream through python-xlib ---
         apt:pyxlib)        echo python3-xlib ;;
         zypper:pyxlib)     echo python3-python-xlib ;;
@@ -172,7 +178,7 @@ if [ "$PM" != none ] && [ "${SKIP_PACKAGES:-0}" != 1 ]; then
                nomacs \
                brightnessctl blueman thunar qt6ct stow git curl portal polkit \
                kwallet i3lock mixer printer udiskie icons font-mono font-nerd \
-               imagemagick jq pyxlib build; do
+               imagemagick jq pyxlib borg build; do
         names="$(pkg_for "$key")"
         if [ -z "$names" ]; then
             MISSING+=("$key (not packaged for $PM)")
@@ -264,6 +270,13 @@ if ! command -v stow >/dev/null 2>&1; then
     exit 1
 fi
 mkdir -p "$HOME/.config" "$HOME/.local/bin" "$HOME/.local/share/applications"
+# systemd's user unit directory has to be a REAL directory, not a folded
+# symlink into this repo. stow folds any directory it is the sole occupant of,
+# and systemd writes into this one: the drop-in that carries the backup
+# schedule, the timers.target.wants symlink that turns backups on, and the
+# Plasma drop-ins further down all land here. Folded, every one of those would
+# be written inside the repo and show up as a dirty git tree.
+mkdir -p "$HOME/.config/systemd/user"
 if ! stow -t "$HOME" config bin session; then
     warn "stow reported conflicts — existing files are in the way."
     warn "Move or remove the listed files, then re-run. Nothing was overwritten."

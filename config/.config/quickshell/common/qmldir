@@ -31,3 +31,4 @@ singleton WindowBorders WindowBorders.qml
 singleton Shortcuts Shortcuts.qml
 singleton StartMenu StartMenu.qml
 singleton SuperTap SuperTap.qml
+singleton Backup Backup.qml
