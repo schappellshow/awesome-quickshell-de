@@ -51,7 +51,7 @@ _G.power_menu_release = power_menu_release
 
 local function power_menu_open()
     power_menu_release()
-    awful.spawn("qs ipc call power open")
+    awful.spawn("qs ipc call power open", false)
     power_grabber = awful.keygrabber.run(function(_, key, event)
         if event ~= "press" then
             return
@@ -61,7 +61,7 @@ local function power_menu_open()
         if key == "Escape" then
             power_menu_release()
         end
-        awful.spawn({ "qs", "ipc", "call", "power", "key", key })
+        awful.spawn({ "qs", "ipc", "call", "power", "key", key }, false)
     end)
 end
 
@@ -91,9 +91,23 @@ local function spawn(cmd)
     return function() awful.spawn(cmd) end
 end
 
+-- Startup notification is launch feedback: from the moment a spawn is
+-- initiated, awesome paints the root cursor as a spinner and only clears it
+-- when the new window claims the notification -- or when
+-- libstartup-notification gives up, thirty seconds later. A command that
+-- never maps a window can only ever hit that timeout, so every `qs ipc
+-- call`, playerctl and loginctl would leave a spinning pointer over the
+-- desktop for half a minute. `false` opts them out. Anything that does open
+-- a window keeps the feedback, which is the case it was written for.
+local function run(cmd)
+    return function() awful.spawn(cmd, false) end
+end
+
 local function ipc(...)
     local args = { ... }
-    return function() awful.spawn("qs ipc call " .. table.concat(args, " ")) end
+    return function()
+        awful.spawn("qs ipc call " .. table.concat(args, " "), false)
+    end
 end
 
 M.registry = {
@@ -113,7 +127,7 @@ M.registry = {
       mods = mods_super, key = "BackSpace", fn = power_menu_open },
     { id = "awesome.lock",      group = "awesome", label = "lock screen",
       mods = { "Control", "Mod1" }, key = "l",
-      fn = spawn("loginctl lock-session") },
+      fn = run("loginctl lock-session") },
 
     -- ── Launchers ────────────────────────────────────────────────────────
     { id = "launcher.terminal", group = "launcher", label = "open terminal",
@@ -267,11 +281,11 @@ fi]])
 
     -- ── Media controls ───────────────────────────────────────────────────
     { id = "media.playpause", group = "media", label = "play/pause",
-      mods = { "Control" }, key = "space", fn = spawn("playerctl play-pause") },
+      mods = { "Control" }, key = "space", fn = run("playerctl play-pause") },
     { id = "media.prev", group = "media", label = "previous track",
-      mods = { "Control" }, key = "Left", fn = spawn("playerctl previous") },
+      mods = { "Control" }, key = "Left", fn = run("playerctl previous") },
     { id = "media.next", group = "media", label = "next track",
-      mods = { "Control" }, key = "Right", fn = spawn("playerctl next") },
+      mods = { "Control" }, key = "Right", fn = run("playerctl next") },
     -- Volume goes through the shell (qs ipc) so the on-screen display fires
     { id = "media.volume.up", group = "media", label = "volume up",
       mods = { "Control" }, key = "Up", fn = ipc("audio", "raise") },
@@ -456,9 +470,9 @@ function M.build()
     for keysym, fn in pairs({
         XF86AudioRaiseVolume = ipc("audio", "raise"),
         XF86AudioLowerVolume = ipc("audio", "lower"),
-        XF86AudioPlay        = spawn("playerctl play-pause"),
-        XF86AudioPrev        = spawn("playerctl previous"),
-        XF86AudioNext        = spawn("playerctl next"),
+        XF86AudioPlay        = run("playerctl play-pause"),
+        XF86AudioPrev        = run("playerctl previous"),
+        XF86AudioNext        = run("playerctl next"),
     }) do
         globals[#globals + 1] = awful.key({}, keysym, fn)
     end
@@ -576,11 +590,11 @@ function M.capture(id)
         -- Escape cancels; there is no way to bind Escape itself from here,
         -- which is the trade every settings app makes for having a way out.
         if key == "Escape" then
-            awful.spawn({ "qs", "ipc", "call", "shortcuts", "cancel" })
+            awful.spawn({ "qs", "ipc", "call", "shortcuts", "cancel" }, false)
             return
         end
         awful.spawn({ "qs", "ipc", "call", "shortcuts", "captured",
-                      id, M.chord(mods, key) })
+                      id, M.chord(mods, key) }, false)
     end)
 end
 
@@ -611,11 +625,11 @@ M.mainmenu = awful.menu({
         -- Browsing, not typing: a scrollable list you can read through,
         -- versus rofi's type-to-filter prompt. Rofi keeps its own keys
         -- (Super+d drun, Super+r run) for when you know the name already.
-        { "Apps",           function() awful.spawn("qs ipc call launcher toggle") end },
+        { "Apps",           function() awful.spawn("qs ipc call launcher toggle", false) end },
         { "Terminal",       function() awful.spawn(terminal) end },
         { "Files",          function() awful.spawn(filemanager) end },
-        { "Settings",       function() awful.spawn("qs ipc call settings open appearance") end },
-        { "System Monitor", function() awful.spawn("qs ipc call sysmon toggle") end },
+        { "Settings",       function() awful.spawn("qs ipc call settings open appearance", false) end },
+        { "System Monitor", function() awful.spawn("qs ipc call sysmon toggle", false) end },
         { "Keybindings",    function() hotkeys_popup.show_help() end },
         { "Awesome", {
             { "Reload",  awesome.restart },
