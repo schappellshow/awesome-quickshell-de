@@ -17,8 +17,8 @@ everything else costs you one feature.
 | Package | Provides | If missing |
 |---|---|---|
 | `picom` | Compositing: transparency, blur, rounded corners | Bar/panels look flat and opaque |
-| `rofi` | App launcher, run dialog, window switcher, clipboard | `Super+Space` and friends do nothing |
-| `greenclip` *(binary)* | Clipboard history daemon behind `Super+/` | Clipboard picker opens empty and never records |
+| `rofi` | App launcher, run dialog, window switcher | `Super+Space` and friends do nothing |
+| `greenclip` *(binary)* | Clipboard history daemon behind `Super+/`; pinning uses its `static_history` | Clipboard panel opens empty and never records |
 | `rofimoji` *(pip)* | Emoji picker on `Super+.` | `Super+.` does nothing |
 | `feh` | Sets the wallpaper | No wallpaper |
 | `xsettingsd` | Pushes GTK theme/icon/cursor changes to running apps | Theme changes need an app restart |

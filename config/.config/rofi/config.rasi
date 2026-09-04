@@ -1,5 +1,5 @@
 configuration {
-    modi:                  "drun,run,window,clipboard:greenclip print";
+    modi:                  "drun,run,window";
     show-icons:            true;
     display-drun:          "Apps";
     display-run:           "Run";

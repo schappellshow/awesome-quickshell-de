@@ -11,6 +11,7 @@ import "./notifications"
 import "./settings"
 import "./power"
 import "./launcher"
+import "./clipboard"
 import "./osd"
 
 ShellRoot {
@@ -69,6 +70,9 @@ ShellRoot {
     SettingsWindow {}
 
     AppLauncher {}
+
+    // Clipboard history — `qs ipc call clipboard toggle`, bound to Super+/
+    ClipboardPanel {}
 
     // Session menu — `qs ipc call power toggle`, bound to Super+BackSpace
     PowerMenu {}

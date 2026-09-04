@@ -147,7 +147,7 @@ M.registry = {
       mods = mods_super, key = "Tab", fn = spawn("rofi -show window") },
     { id = "launcher.clipboard", group = "launcher", label = "clipboard history",
       mods = mods_super, key = "/",
-      fn = spawn("rofi -modi 'clipboard:greenclip print' -show clipboard") },
+      fn = spawn("qs ipc call clipboard toggle") },
     { id = "launcher.emoji",    group = "launcher", label = "emoji picker",
       mods = mods_super, key = ".", fn = spawn("rofimoji") },
 

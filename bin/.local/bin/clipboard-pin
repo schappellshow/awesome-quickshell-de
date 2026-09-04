@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""clipboard-pin — pin clipboard entries so greenclip never evicts them.
+
+greenclip keeps a rolling history bounded by max_history_length (50 by
+default) and a separate `static_history` array that is exempt from it. That
+array is the only pinning mechanism greenclip has: its CLI is just
+daemon/print/clear/help, with no pin command. So pinning means editing the
+TOML, which is what this does.
+
+Two properties of greenclip make this work as a live UI action rather than
+something needing a restart:
+
+  * `greenclip print` is a separate process that re-reads the config, so an
+    edit here shows up in the very next listing. The daemon is untouched.
+  * static entries are appended after the rolling history, so a pinned entry
+    keeps its normal position until it ages out of the 50, then stays at the
+    bottom indefinitely.
+
+Usage:
+    clipboard-pin list                 # one pinned entry per line
+    clipboard-pin add    <entry>
+    clipboard-pin remove <entry>
+    clipboard-pin toggle <entry>       # prints "pinned" or "unpinned"
+
+Entries are matched exactly, on the single-line form `greenclip print`
+displays — which is also the form `greenclip print <entry>` copies back.
+"""
+
+import json
+import os
+import re
+import sys
+import tempfile
+from pathlib import Path
+
+CONFIG = Path(
+    os.environ.get("GREENCLIP_CONFIG")
+    or Path.home() / ".config" / "greenclip.toml"
+)
+
+# static_history = [ ... ] — DOTALL so a wrapped array is still one match.
+ARRAY_RE = re.compile(r"(static_history\s*=\s*)(\[.*?\])", re.DOTALL)
+
+
+def read_pins(text):
+    """Current pins, or [] if the key is absent or unparseable.
+
+    TOML basic strings use JSON's escapes, so json handles the array. A
+    hand-edited file could use TOML literal strings ('...'), which json
+    rejects; treat that as empty rather than crashing and losing the pins.
+    """
+    m = ARRAY_RE.search(text)
+    if not m:
+        return []
+    try:
+        value = json.loads(m.group(2))
+    except ValueError:
+        return []
+    return [v for v in value if isinstance(v, str)]
+
+
+def write_pins(text, pins):
+    # ensure_ascii=False keeps emoji and accents literal; both TOML and
+    # greenclip are UTF-8, and escaping them would only hurt readability.
+    array = json.dumps(pins, ensure_ascii=False)
+    if ARRAY_RE.search(text):
+        return ARRAY_RE.sub(lambda m: m.group(1) + array, text, count=1)
+    # No key yet: add it under [greenclip], or append a section if even that
+    # is missing, so a fresh config still works.
+    if re.search(r"^\s*\[greenclip\]", text, re.MULTILINE):
+        return re.sub(
+            r"^(\s*\[greenclip\]\s*\n)",
+            lambda m: m.group(1) + "  static_history = " + array + "\n",
+            text,
+            count=1,
+            flags=re.MULTILINE,
+        )
+    sep = "" if text.endswith("\n") or not text else "\n"
+    return text + sep + "\n[greenclip]\n  static_history = " + array + "\n"
+
+
+def save(text):
+    """Replace the config atomically, following a symlink if there is one."""
+    target = CONFIG.resolve()
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=str(target.parent), delete=False
+    ) as tmp:
+        tmp.write(text)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        temp_name = tmp.name
+    os.replace(temp_name, target)
+
+
+def main(argv):
+    if len(argv) < 2:
+        sys.stderr.write(__doc__)
+        return 2
+    action = argv[1]
+
+    if not CONFIG.exists():
+        sys.stderr.write(f"clipboard-pin: no config at {CONFIG}\n")
+        return 1
+    text = CONFIG.read_text(encoding="utf-8")
+    pins = read_pins(text)
+
+    if action == "list":
+        for p in pins:
+            print(p)
+        return 0
+
+    if action not in ("add", "remove", "toggle") or len(argv) < 3:
+        sys.stderr.write(__doc__)
+        return 2
+    entry = argv[2]
+    if entry == "":
+        return 0
+
+    if action == "toggle":
+        action = "remove" if entry in pins else "add"
+
+    if action == "add":
+        if entry in pins:
+            print("pinned")
+            return 0
+        pins.append(entry)
+    else:
+        if entry not in pins:
+            print("unpinned")
+            return 0
+        pins = [p for p in pins if p != entry]
+
+    save(write_pins(text, pins))
+    print("pinned" if action == "add" else "unpinned")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
