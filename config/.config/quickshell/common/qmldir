@@ -5,6 +5,8 @@ singleton NightLight NightLight.qml
 singleton Media Media.qml
 singleton SystemTheme SystemTheme.qml
 singleton Audio Audio.qml
+singleton AudioDevices AudioDevices.qml
+singleton BluetoothPower BluetoothPower.qml
 singleton Brightness Brightness.qml
 singleton Network Network.qml
 singleton PowerEvents PowerEvents.qml

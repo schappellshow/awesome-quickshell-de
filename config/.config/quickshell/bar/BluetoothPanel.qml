@@ -77,7 +77,7 @@ PopupWindow {
                     width: 40
                     height: 22
                     radius: 11
-                    color: panel.adapter && panel.adapter.enabled
+                    color: BluetoothPower.enabled
                         ? Theme.accent : Theme.surface
 
                     Rectangle {
@@ -85,7 +85,7 @@ PopupWindow {
                         height: 16
                         radius: 8
                         y: 3
-                        x: panel.adapter && panel.adapter.enabled
+                        x: BluetoothPower.enabled
                             ? btTrack.width - width - 3 : 3
                         color: Theme.text
                         Behavior on x {
@@ -96,11 +96,21 @@ PopupWindow {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: {
-                        if (panel.adapter)
-                            panel.adapter.enabled = !panel.adapter.enabled;
-                    }
+                    // Via BluetoothPower so an rfkill-blocked radio gets
+                    // unblocked first — writing adapter.enabled directly
+                    // fails silently. See common/BluetoothPower.qml.
+                    onClicked: BluetoothPower.toggle()
                 }
+            }
+
+            Text {
+                visible: BluetoothPower.blocked
+                width: parent.width
+                text: "Radio blocked — turning on will unblock it"
+                wrapMode: Text.Wrap
+                font.family: Theme.fontFamily
+                font.pointSize: 8
+                color: Theme.muted
             }
 
             Rectangle { width: parent.width; height: 1; color: Theme.surface }

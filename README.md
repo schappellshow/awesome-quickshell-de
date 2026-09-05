@@ -47,6 +47,14 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
   self-contained JSON file, so a theme is something you can send someone
 - Monitor hotplug: restores your saved layout *and* returns windows to the
   screen and tag they came from
+- Audio follows what you plug in: connect a TV over HDMI, a bluetooth
+  speaker or a USB headset and sound moves to it, then moves back when it
+  goes away. Settings → Audio also exposes the card profile and output port
+  directly, so when the automatic choice is wrong it's one click to fix
+  rather than a trip to pavucontrol
+- Bluetooth that turns on: the adapter's power toggle clears an rfkill soft
+  block first, which BlueZ will not do for you and which otherwise makes the
+  switch a silent no-op that survives reboots
 - Optional daily backups — **off until you turn them on** — with the
   destination, schedule, retention and exclusions all in Settings → Backups
 

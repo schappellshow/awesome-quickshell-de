@@ -70,6 +70,12 @@ Singleton {
     // Displays (xrandr args, replayed at login)
     property alias displayCmd: adapter.displayCmd
 
+    // Audio / bluetooth device handling — see common/AudioDevices.qml and
+    // common/BluetoothPower.qml
+    property alias audioAutoSwitch: adapter.audioAutoSwitch
+    property alias btRestorePower: adapter.btRestorePower
+    property alias btPowered: adapter.btPowered
+
     // Keyboard ("" = leave system layout alone; "us" or "us:intl")
     property alias kbLayout: adapter.kbLayout
     property alias kbRepeatDelay: adapter.kbRepeatDelay
@@ -268,6 +274,19 @@ Singleton {
             property string notifPosition: "top-right"
 
             property string displayCmd: ""
+
+            // Move audio to a TV, bluetooth speaker or USB headset when it
+            // is connected, and back off it when it goes away. On by
+            // default: it is what every other desktop does, and the
+            // alternative — audio staying on the laptop speakers with no
+            // visible reason — is the confusing state, not the safe one.
+            property bool audioAutoSwitch: true
+
+            // Put the bluetooth adapter back to the state it was left in.
+            // btPowered is only ever written by an explicit toggle, so an
+            // install that never touches bluetooth never powers it on.
+            property bool btRestorePower: true
+            property bool btPowered: false
 
             property string kbLayout: ""
             property int kbRepeatDelay: 400

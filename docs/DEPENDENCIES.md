@@ -54,6 +54,7 @@ everything else costs you one feature.
 | `playerctl` | Media keys | Media keys do nothing |
 | `pavucontrol-qt` | Per-app volume mixer | Settings → Audio still handles defaults/volume |
 | `blueman` | Bluetooth pairing wizard | Bar widget still connects known devices |
+| `rfkill` (util-linux on Arch) | Clearing a soft-blocked bluetooth radio. BlueZ refuses `Powered=true` while rfkill blocks the adapter and reports nothing back over D-Bus, so without this the Settings toggle looks broken rather than blocked — and a block survives reboots | Bluetooth can't be turned on from the shell once blocked; `rfkill unblock bluetooth` by hand |
 | `networkmanager-applet` | `nm-connection-editor` for VPN/802.1X | Bar widget still does Wi-Fi scan/connect |
 | `thunar` (or any file manager) | `Super+E` | Auto-detects pcmanfm/nemo/nautilus/dolphin instead |
 | `system-config-printer` | Printer GUI | CUPS web UI at `localhost:631` still works |
@@ -68,7 +69,14 @@ and the desktop talks to them rather than shipping its own:
 - **systemd** — session target, user services
 - **NetworkManager** — the network widget drives `nmcli`
 - **BlueZ** — the bluetooth widget talks to it over D-Bus
-- **PipeWire** (or PulseAudio) — audio widget and OSD
+- **PipeWire** — audio widget, OSD, and Settings → Audio. `pactl` (from
+  `pulseaudio-utils` / `libpulse`, present wherever pipewire-pulse is) is
+  used for card profiles and ports, which PipeWire exposes but Quickshell's
+  Pipewire service does not model
+- **WirePlumber** — the session manager that persists card profiles, routes
+  and the default-sink choice. `install.sh` disables `pipewire-media-session`
+  when both are enabled: they contend for `pipewire-session-manager.service`,
+  and only WirePlumber remembers where audio was sent
 - **UDisks2** — automounting
 - **CUPS** — printing
 - **polkit** — privilege escalation

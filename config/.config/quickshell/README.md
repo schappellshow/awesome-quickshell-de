@@ -14,6 +14,8 @@ common/
   AwesomeState.qml         watches awesome's state file; sends awesome-client cmds
   NightLight.qml           gammastep one-shot control
   Audio.qml                default-sink volume/mute via PipeWire
+  AudioDevices.qml         card profiles/ports via pactl; follows new outputs
+  BluetoothPower.qml       adapter power incl. the rfkill unblock BlueZ skips
   Brightness.qml           backlight via brightnessctl (no-op without one)
   Network.qml              nmcli polling: status, wifi radio, saved connections
   PowerEvents.qml          low-battery notify at 15%, suspend at 5%

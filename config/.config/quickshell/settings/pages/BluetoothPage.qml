@@ -21,14 +21,30 @@ SettingsPage {
         value: "No bluetooth adapter found"
     }
 
+    // Goes through BluetoothPower rather than writing adapter.enabled
+    // directly: BlueZ refuses Powered=true while rfkill soft-blocks the
+    // radio, and that refusal is invisible from QML — the switch just
+    // slides back. See common/BluetoothPower.qml.
     ToggleRow {
         visible: page.adapter !== null
         label: "Enabled"
-        checked: page.adapter !== null && page.adapter.enabled
-        onToggled: value => {
-            if (page.adapter)
-                page.adapter.enabled = value;
-        }
+        checked: BluetoothPower.enabled
+        onToggled: value => BluetoothPower.setEnabled(value)
+    }
+
+    // A block survives reboots, so without this the adapter looks broken
+    // rather than switched off
+    InfoRow {
+        visible: BluetoothPower.blocked
+        label: "Radio"
+        value: "Blocked — turning bluetooth on will unblock it"
+    }
+
+    ToggleRow {
+        visible: page.adapter !== null
+        label: "Restore power state at login"
+        checked: Settings.btRestorePower
+        onToggled: value => Settings.btRestorePower = value
     }
 
     ToggleRow {

@@ -106,6 +106,12 @@ pkg_for() {
         # --- audio mixer ---
         *:mixer)           echo pavucontrol-qt ;;
 
+        # --- bluetooth radio unblock (BlueZ won't clear rfkill itself) ---
+        dnf:rfkill)        echo rfkill ;;
+        zypper:rfkill)     echo rfkill ;;
+        apt:rfkill)        echo rfkill ;;
+        pacman:rfkill)     echo util-linux ;;   # rfkill lives in util-linux
+
         # --- printing ---
         dnf:printer)       echo system-config-printer-gui ;;
         *:printer)         echo system-config-printer ;;
@@ -177,7 +183,7 @@ if [ "$PM" != none ] && [ "${SKIP_PACKAGES:-0}" != 1 ]; then
     for key in awesome quickshell picom rofi feh xsettingsd playerctl spectacle \
                nomacs \
                brightnessctl blueman thunar qt6ct stow git curl portal polkit \
-               kwallet i3lock mixer printer udiskie icons font-mono font-nerd \
+               kwallet i3lock mixer rfkill printer udiskie icons font-mono font-nerd \
                imagemagick jq pyxlib borg build; do
         names="$(pkg_for "$key")"
         if [ -z "$names" ]; then
@@ -326,6 +332,31 @@ ConditionEnvironment=!AWESOME_SESSION=1
 EOF
     ok "$unit gated on AWESOME_SESSION"
 done
+
+# ── Audio: one session manager, not two ──────────────────────────────────
+# PipeWire ships two mutually exclusive session managers, and several distros
+# leave both enabled. They both claim pipewire-session-manager.service, so
+# whichever wins is luck — and only WirePlumber persists card profiles and
+# routes, which is what moves audio to an HDMI display or a bluetooth speaker.
+# pipewire-media-session losing that state is the difference between a TV that
+# plays sound and one that doesn't.
+#
+# Only act when WirePlumber is actually present. Mask rather than disable:
+# distros enable pipewire-media-session in the *global* user preset, and a
+# user-scope `disable` is silently overridden by that ("will still be started
+# automatically after a successful disablement in user scope"). A user-scope
+# mask does win, needs no root, and is undone with `systemctl --user unmask`.
+if [ -n "$(systemctl --user list-unit-files --no-legend wireplumber.service 2>/dev/null)" ] &&
+   [ -n "$(systemctl --user list-unit-files --no-legend pipewire-media-session.service 2>/dev/null)" ]; then
+    if [ "$(systemctl --user is-enabled pipewire-media-session.service 2>/dev/null)" != masked ]; then
+        systemctl --user mask pipewire-media-session.service >/dev/null 2>&1 \
+            && ok "masked pipewire-media-session (wireplumber is the session manager)" \
+            || warn "could not mask pipewire-media-session"
+    fi
+    systemctl --user is-enabled wireplumber.service >/dev/null 2>&1 ||
+        systemctl --user enable wireplumber.service >/dev/null 2>&1 ||
+        warn "could not enable wireplumber"
+fi
 
 info "systemd user units"
 systemctl --user daemon-reload 2>/dev/null || true

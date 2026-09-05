@@ -24,6 +24,8 @@ ShellRoot {
         SystemTheme.apply();
         Wallpaper.init();
         DisplayConfig.init();
+        AudioDevices.init();
+        BluetoothPower.init();
         Keyboard.init();
         InputDevices.init();
         PowerConfig.init();
