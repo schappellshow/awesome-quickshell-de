@@ -175,21 +175,44 @@ awful.rules.rules = {
             local ht = h and (h.max_height or h.height)
             if not w or not ht then return end
 
-            local taken = {}
+            -- Two identical monitors make size alone ambiguous, so the pairing
+            -- has to be ordered rather than first-come-first-served.
+            --
+            -- Reading siblings' .screen to find a free one does not work:
+            -- awesome puts every new client on the focused screen before this
+            -- callback runs, so an overlay that has not been placed yet still
+            -- looks like it has claimed that screen. The first callback then
+            -- avoids the very screen it wanted, the second finds everything
+            -- claimed and takes the fallback, and the two same-sized overlays
+            -- come out swapped — intermittently, depending on callback order
+            -- and where focus happened to be.
+            --
+            -- Rank by window id instead. X ids ascend with creation, spectacle
+            -- creates one overlay per screen in Qt's order, and Qt's order
+            -- matches awesome's screen order here (both DP-2, DP-1, HDMI-A-0),
+            -- so the Nth overlay of a given size belongs on the Nth screen of
+            -- that size. This depends on no sibling's placement state, so it
+            -- cannot race.
+            local rank = 0
             for _, o in ipairs(client.get()) do
-                if o ~= c and o.class == "spectacle" and o.screen then
-                    taken[o.screen.index] = true
+                if o ~= c and o.class == "spectacle" and o.window < c.window then
+                    local oh  = o.size_hints
+                    local ow  = oh and (oh.max_width  or oh.width)
+                    local oht = oh and (oh.max_height or oh.height)
+                    if ow == w and oht == ht then rank = rank + 1 end
                 end
             end
 
             local target
+            local seen = 0
             for s in screen do
                 local g = s.geometry
                 if g.width == w and g.height == ht then
-                    -- Prefer an unclaimed screen, but fall back to a matching
-                    -- claimed one rather than leaving the overlay misplaced.
+                    -- Keep the first match as a fallback, in case fewer
+                    -- screens match than there are overlays of this size.
                     target = target or s
-                    if not taken[s.index] then target = s break end
+                    if seen == rank then target = s break end
+                    seen = seen + 1
                 end
             end
             if target then
