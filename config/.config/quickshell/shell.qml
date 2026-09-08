@@ -65,6 +65,46 @@ ShellRoot {
         Bar {}
     }
 
+    // `qs ipc call bar recreate` — Super+b.
+    //
+    // A bar section can end up laying out correctly while painting nothing:
+    // the pill is sized for it, toggling its show* setting resizes the pill
+    // by exactly the right number of pixels, and no QML error appears. A
+    // config reload, a full qs restart and even a reboot all fail to clear
+    // it. The one thing that does is destroying and recreating the
+    // PanelWindows, which is what cycling Settings -> Bar -> Bar screen was
+    // really doing — handing Variants a different screen list.
+    //
+    // This does that directly: empty the model, then rebuild it a frame
+    // later. Same recreate, without walking the bar to another monitor and
+    // back, so it cannot be left on the wrong screen if interrupted.
+    //
+    // It also recovers the other failure this file already describes: an
+    // awesome restart sometimes still leaves the bar on the wrong screen,
+    // showing DP1 while Settings says DP2. Rebuilding re-derives the screen
+    // from Settings.barScreen, so the bar returns to where the setting says
+    // it should be — holding barScreens as a stable property reduced that
+    // drift but evidently did not end it.
+    //
+    // Deliberately manual. Doing this automatically at startup would fight
+    // the reason barScreens is a stable property (see above) and cost a
+    // flicker every login, to work around a bug whose cause is still not
+    // established.
+    IpcHandler {
+        target: "bar"
+
+        function recreate(): void {
+            barScreens = [];
+            barRecreate.restart();
+        }
+    }
+
+    Timer {
+        id: barRecreate
+        interval: 50
+        onTriggered: updateBarScreens()
+    }
+
     NotificationPopups {}
 
     NotificationCenter {}

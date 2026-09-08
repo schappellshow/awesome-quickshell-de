@@ -170,6 +170,11 @@ M.registry = {
       mods = mods_super, key = "v", fn = ipc("calendar", "toggle") },
     { id = "shell.keepawake",   group = "misc", label = "toggle keep awake",
       mods = mods_super, key = "z", fn = ipc("keepawake", "toggle") },
+    -- Recovery for a bar section that lays out but paints nothing. Only a
+    -- destroy/recreate of the bar windows clears it; a reload, a restart and
+    -- a reboot do not. See the bar IpcHandler in shell.qml.
+    { id = "shell.barrecreate", group = "misc", label = "rebuild bar",
+      mods = mods_super, key = "b", fn = ipc("bar", "recreate") },
     { id = "shell.media",       group = "media", label = "media player panel",
       mods = mods_super, key = "a", fn = ipc("media", "toggle") },
 
