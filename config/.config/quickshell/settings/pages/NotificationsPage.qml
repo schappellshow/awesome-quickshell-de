@@ -13,6 +13,27 @@ SettingsPage {
         onToggled: value => Settings.doNotDisturb = value
     }
 
+    ToggleRow {
+        label: "Silence alert sounds with DND"
+        checked: Settings.dndSilenceSounds
+        onToggled: value => Settings.dndSilenceSounds = value
+    }
+
+    Text {
+        width: parent.width
+        text: "Mutes streams tagged as system alerts while do-not-disturb is "
+            + "on; music and video keep playing. The shell plays no sound "
+            + "itself — a notification's ping comes from the app that sent "
+            + "it, which is why DND alone hides the popup but not the sound. "
+            + "Apps that play their own audio without tagging it as an alert "
+            + "(most Electron apps) look like media and still ping — use "
+            + "their own notification settings for those."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
     SliderRow {
         label: "Popup timeout"
         from: 2

@@ -16,6 +16,7 @@ singleton Keyboard Keyboard.qml
 singleton InputDevices InputDevices.qml
 singleton PowerConfig PowerConfig.qml
 singleton Autostart Autostart.qml
+singleton EventSounds EventSounds.qml
 singleton NotifHistory NotifHistory.qml
 singleton SysMon SysMon.qml
 singleton BarState BarState.qml

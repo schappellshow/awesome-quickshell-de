@@ -64,6 +64,8 @@ Singleton {
     // Notifications
     property alias notifTimeoutMs: adapter.notifTimeoutMs
     property alias doNotDisturb: adapter.doNotDisturb
+    // With DND on, also mute alert sounds (media.role=event)
+    property alias dndSilenceSounds: adapter.dndSilenceSounds
     // "top-right" | "top-left" | "bottom-right" | "bottom-left"
     property alias notifPosition: adapter.notifPosition
 
@@ -271,6 +273,7 @@ Singleton {
 
             property int notifTimeoutMs: 6000
             property bool doNotDisturb: false
+            property bool dndSilenceSounds: true
             property string notifPosition: "top-right"
 
             property string displayCmd: ""

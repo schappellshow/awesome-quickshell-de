@@ -30,6 +30,7 @@ ShellRoot {
         InputDevices.init();
         PowerConfig.init();
         PowerEvents.init();
+        EventSounds.init();
         Autostart.init();
         BarSpace.init();
         WindowMode.init();
