@@ -36,6 +36,43 @@ SettingsPage {
     readonly property var defaultSinkPorts:
         defaultSinkInfo !== null ? defaultSinkInfo.ports : []
 
+    // staleHdmiOutputs is computed against xrandr's view, which is only
+    // re-read on hotplug — and the case this catches involves no hotplug
+    Component.onCompleted: DisplayConfig.probe()
+
+    // ── HDMI audio missing after a resume ──────────────────────────────
+
+    SectionLabel {
+        text: "HDMI AUDIO"
+        visible: AudioDevices.staleHdmiOutputs.length > 0
+    }
+
+    Text {
+        visible: AudioDevices.staleHdmiOutputs.length > 0
+        width: parent.width
+        text: "A display is connected but the sound card never received "
+            + "its audio information, so it offers no HDMI output. This "
+            + "happens when resuming from suspend with a display attached. "
+            + "Reconnecting the output asks the graphics driver to send it "
+            + "again — the screen will blank for a couple of seconds."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
+    Repeater {
+        model: AudioDevices.staleHdmiOutputs
+
+        ButtonRow {
+            required property var modelData
+
+            label: modelData.name + " — no audio"
+            buttonText: "Reconnect"
+            onClicked: AudioDevices.reconnect(modelData.name)
+        }
+    }
+
     SectionLabel { text: "MASTER" }
 
     SliderRow {
@@ -205,7 +242,7 @@ SettingsPage {
             current: modelData.activeProfile
             options: usable.map(p => ({ label: p.description, value: p.name }))
             onSelected: value =>
-                AudioDevices.setProfile(profileRow.modelData.name, value)
+                AudioDevices.setProfile(profileRow.modelData.name, value, true)
         }
     }
 

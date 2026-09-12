@@ -58,6 +58,7 @@ Singleton {
 
     function init() {
         refresh();
+        probeDrm();     // so drmProbed is trustworthy before the first card poll
         monitor.running = true;
     }
 
@@ -84,7 +85,18 @@ Singleton {
         return null;
     }
 
-    function setProfile(cardName, profileName) {
+    // Profiles chosen from the Settings page, as { card: profile }. The
+    // automatic revert consults this so it only ever undoes its own work
+    // — picking HDMI by hand with no display attached is a strange thing
+    // to want, but it should survive more than a second and a half.
+    property var manualProfiles: ({})
+
+    function setProfile(cardName, profileName, manual) {
+        if (manual === true) {
+            const m = manualProfiles;
+            m[cardName] = profileName;
+            manualProfiles = m;
+        }
         switching = true;
         switchGuard.restart();
         Quickshell.execDetached(
@@ -202,6 +214,11 @@ Singleton {
         cards = out;
         ready = true;
         autoSwitchProfiles();
+        // Level-triggered, not edge: a resume can restore an HDMI profile
+        // without the screen set ever changing, so there is no edge to
+        // catch. Safe to re-run because the condition clears itself the
+        // moment the switch lands.
+        revertHdmiProfiles();
     }
 
     function parseSinks(text) {
@@ -307,6 +324,200 @@ Singleton {
         setProfile(act.card, act.profile);
     }
 
+    // ── HDMI audio that a resume left behind ───────────────────────────
+    // i915 can come back from suspend with the display fully alive but
+    // without re-pushing its ELD to the HDA codec. DRM then reports the
+    // connector connected while every HDA pin reports monitor_present 0,
+    // so no HDMI port is available, no HDMI profile exists, and there is
+    // no sink to select. The Audio page shows nothing — indistinguishable
+    // from an unplugged cable, which is exactly how it reads to the user.
+    //
+    // Cycling the output forces the modeset that re-pushes the ELD. That
+    // is a display-visible action, so it is offered as a button rather
+    // than done on a heuristic: guessing wrong here blanks both screens.
+
+    readonly property bool anyHdmiPortAvailable: {
+        for (const c of cards)
+            for (const p of c.ports)
+                if (p.type === "HDMI" && p.available)
+                    return true;
+        return false;
+    }
+
+    // Whether a cable is actually in is asked of the DRM connector, and
+    // of nothing else. The two obvious sources are both wrong here:
+    //
+    //   - the HDA port's "available" flag is the very thing this section
+    //     works around. It is stale in both directions after a resume —
+    //     stuck unavailable with a TV attached, stuck available after the
+    //     cable is pulled.
+    //   - Quickshell.screens lists *enabled* outputs, not connected ones.
+    //     Unplugging a display that X still holds a CRTC on leaves it in
+    //     the list at full size, while xrandr calls it disconnected.
+    //
+    // /sys/class/drm/<card>-<connector>/status is the kernel's own answer
+    // and disagrees with neither reality nor itself.
+    property bool hdmiConnected: false
+    property bool drmProbed: false
+
+    // Connector names are like "card0-HDMI-A-1" / "card0-DP-1"; eDP is the
+    // internal panel and would otherwise match "DP".
+    function isExternalConnector(path) {
+        const name = path.replace(/^.*\/card\d+-/, "").replace(/\/status$/, "");
+        return /^(HDMI|DP)/i.test(name);
+    }
+
+    Process {
+        id: drmProc
+        command: ["sh", "-c", "grep -H . /sys/class/drm/*/status 2>/dev/null"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let any = false;
+                let seen = false;
+                for (const line of text.split("\n")) {
+                    const bits = line.split(":");
+                    if (bits.length < 2)
+                        continue;
+                    if (!root.isExternalConnector(bits[0]))
+                        continue;
+                    seen = true;
+                    if (bits[1].trim() === "connected")
+                        any = true;
+                }
+                root.hdmiConnected = any;
+                // Without a single external connector to read, the answer
+                // is unknown rather than "nothing is plugged in" — and
+                // acting on unknown would revert a card off HDMI for no
+                // reason on any system this probe cannot see.
+                root.drmProbed = seen;
+                // Re-check on every probe, not on hdmiConnected changing:
+                // the common case is the value staying false across the
+                // probe that first makes it trustworthy, which emits no
+                // change signal at all.
+                revertWatch.restart();
+            }
+        }
+    }
+
+    function probeDrm() {
+        if (!drmProc.running)
+            drmProc.running = true;
+    }
+
+    // A display is attached but the card offers no HDMI audio for it.
+    // Named for the UI: these are the outputs the Reconnect button acts
+    // on, so it reports xrandr's names, not the kernel's connector names.
+    readonly property var staleHdmiOutputs:
+        (ready && drmProbed && hdmiConnected && !anyHdmiPortAvailable)
+            ? DisplayConfig.outputs.filter(o => /^(HDMI|DP)/i.test(o.name))
+            : []
+
+    // Off, then back to exactly the geometry it had. --auto would silently
+    // re-place a display the user had positioned by hand.
+    function reconnect(outputName) {
+        let geom = "--auto";
+        for (const o of DisplayConfig.outputs) {
+            if (o.name !== outputName)
+                continue;
+            geom = (o.currentMode !== "" ? "--mode " + o.currentMode : "--auto")
+                 + " --pos " + o.x + "x" + o.y
+                 + " --rotate " + o.rotation
+                 + (o.primary ? " --primary" : "");
+        }
+        Quickshell.execDetached(["sh", "-c",
+            "xrandr --output " + outputName + " --off; sleep 2; "
+          + "xrandr --output " + outputName + " " + geom]);
+        recheck.restart();
+    }
+
+    // The port flips available a moment after the modeset lands, and the
+    // pactl subscribe burst may be swallowed by the debounce mid-cycle
+    Timer {
+        id: recheck
+        interval: 6000
+        onTriggered: root.refresh()
+    }
+
+    // ── Unplugging the display ─────────────────────────────────────────
+    // The mirror image of the above, and the more damaging half: pulling
+    // the cable can leave hdmi-output-0 reading "available", so the HDMI
+    // profile stays valid, WirePlumber sees no reason to fall back, and
+    // the card sits on a profile whose only sink plays into a cable that
+    // isn't there. The analog sink does not exist while that profile is
+    // active, so there is nothing to switch *to* — which is what "my
+    // speakers aren't even an option any more" looks like from the UI.
+    //
+    // Keyed on RandR losing the screen rather than on the port going
+    // unavailable, because the port is exactly what cannot be trusted.
+
+    function activeProfileIsHdmi(cardObj) {
+        for (const p of cardObj.ports)
+            if (p.type === "HDMI" && p.profiles.indexOf(cardObj.activeProfile) >= 0)
+                return true;
+        return false;
+    }
+
+    function bestNonHdmiProfile(cardObj) {
+        let best = null;
+        for (const p of cardObj.profiles) {
+            if (!p.available || p.name === "off" || p.name === "pro-audio")
+                continue;
+            if (/hdmi/i.test(p.name))
+                continue;
+            if (best === null || p.priority > best.priority)
+                best = p;
+        }
+        return best;
+    }
+
+    // Unplugging a display that X still holds a CRTC on changes neither
+    // the screen set nor, when the port is stale, anything pactl reports
+    // — so there is no event to hang this on and it has to be asked for.
+    // Only while a card is actually on an HDMI profile, which makes it
+    // free in the normal case.
+    readonly property bool anyCardOnHdmi: {
+        for (const c of cards)
+            if (activeProfileIsHdmi(c))
+                return true;
+        return false;
+    }
+
+    Timer {
+        running: root.anyCardOnHdmi
+        repeat: true
+        interval: 5000
+        triggeredOnStart: true
+        onTriggered: root.probeDrm()
+    }
+
+    // DRM reports the loss before the card has caught up
+    Timer {
+        id: revertWatch
+        interval: 1500
+        onTriggered: root.revertHdmiProfiles()
+    }
+
+    function revertHdmiProfiles() {
+        if (!Settings.audioAutoSwitch || switching)
+            return;
+        if (!drmProbed || hdmiConnected)
+            return;
+
+        for (const c of cards) {
+            if (!activeProfileIsHdmi(c))
+                continue;
+            // Leave a profile the user picked by hand alone; only undo
+            // what the automatic switch did
+            if (manualProfiles[c.name] === c.activeProfile)
+                continue;
+            const best = bestNonHdmiProfile(c);
+            if (best !== null) {
+                setProfile(c.name, best.name);
+                return;
+            }
+        }
+    }
+
     // ── Bluetooth / USB: follow a newly connected sink ─────────────────
 
     // Pipewire.nodes is a constant property holding a live model, so there
@@ -318,19 +529,24 @@ Singleton {
 
     onSinkNodesChanged: sinkWatch.restart()
 
-    // A sink that arriving means "the user just connected something": a
-    // bluetooth speaker, a USB headset, an HDMI display. Built-in analog
-    // is excluded — it never "arrives", and treating it as external would
-    // make every profile switch back to the laptop speakers.
+    // A sink whose arrival means "the user just connected something":
+    // a bluetooth speaker or a USB headset. Built-in analog is excluded —
+    // it never "arrives", and treating it as external would make every
+    // profile switch land back on the laptop speakers.
+    //
+    // HDMI is deliberately NOT here even though it is plainly external.
+    // An HDMI sink exists only while the card sits on an HDMI profile, so
+    // it is not a device but a view of one — and pinning it writes
+    // default.configured.audio.sink to a node that routinely vanishes,
+    // leaving a sticky pin (which outlives reboots) aimed at nothing.
+    // HDMI is handled one level down, by the profile switch.
     function isExternal(node) {
         const p = node.properties || {};
         if (p["device.api"] === "bluez5")
             return true;
         if (String(node.name).indexOf("bluez_output.") === 0)
             return true;
-        if (p["device.bus"] === "usb")
-            return true;
-        return String(p["api.alsa.path"] || node.name).indexOf("hdmi") >= 0;
+        return p["device.bus"] === "usb";
     }
 
     // Nodes land in several steps (the node, then its audio interface,
