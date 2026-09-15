@@ -175,44 +175,44 @@ awful.rules.rules = {
             local ht = h and (h.max_height or h.height)
             if not w or not ht then return end
 
-            -- Two identical monitors make size alone ambiguous, so the pairing
-            -- has to be ordered rather than first-come-first-served.
+            -- Each overlay states which screen it is for: spectacle sets
+            -- USPosition in WM_NORMAL_HINTS, which awesome surfaces as
+            -- size_hints.user_position. Match on that and ordering never
+            -- enters into it.
             --
-            -- Reading siblings' .screen to find a free one does not work:
-            -- awesome puts every new client on the focused screen before this
-            -- callback runs, so an overlay that has not been placed yet still
-            -- looks like it has claimed that screen. The first callback then
-            -- avoids the very screen it wanted, the second finds everything
-            -- claimed and takes the fallback, and the two same-sized overlays
-            -- come out swapped — intermittently, depending on callback order
-            -- and where focus happened to be.
+            -- Two earlier attempts keyed on SIZE, which cannot separate two
+            -- identical monitors, and both were wrong:
             --
-            -- Rank by window id instead. X ids ascend with creation, spectacle
-            -- creates one overlay per screen in Qt's order, and Qt's order
-            -- matches awesome's screen order here (both DP-2, DP-1, HDMI-A-0),
-            -- so the Nth overlay of a given size belongs on the Nth screen of
-            -- that size. This depends on no sibling's placement state, so it
-            -- cannot race.
-            local rank = 0
-            for _, o in ipairs(client.get()) do
-                if o ~= c and o.class == "spectacle" and o.window < c.window then
-                    local oh  = o.size_hints
-                    local ow  = oh and (oh.max_width  or oh.width)
-                    local oht = oh and (oh.max_height or oh.height)
-                    if ow == w and oht == ht then rank = rank + 1 end
+            --  * Picking an "unclaimed" screen raced. awesome parks every new
+            --    client on the focused screen before this callback runs, so a
+            --    sibling that has not been placed yet already looks like it
+            --    claimed one. The first callback avoided the screen it wanted;
+            --    the second found everything claimed and took the fallback.
+            --  * Ranking by window id then paired the Nth overlay of a size
+            --    with the Nth screen of that size. That held only while
+            --    awesome's screen order matched Qt's. It does not: after a
+            --    reboot on 2026-09-14 awesome read DP-1, DP-2, HDMI while Qt
+            --    still read DP-2, DP-1, HDMI, and every region screenshot came
+            --    out swapped across the two 1920x1080 monitors.
+            --
+            -- awesome's screen index order is neither stable across reboots nor
+            -- the same as spectacle's, so nothing may be inferred from it.
+            local target
+            local pos = h.user_position
+            if pos then
+                for s in screen do
+                    local g = s.geometry
+                    if g.x == pos.x and g.y == pos.y then target = s break end
                 end
             end
 
-            local target
-            local seen = 0
-            for s in screen do
-                local g = s.geometry
-                if g.width == w and g.height == ht then
-                    -- Keep the first match as a fallback, in case fewer
-                    -- screens match than there are overlays of this size.
-                    target = target or s
-                    if seen == rank then target = s break end
-                    seen = seen + 1
+            -- Fallback for a build that omits the position hint: first screen
+            -- of the right size. Ambiguous between identical monitors, but
+            -- better than leaving the overlay where it landed.
+            if not target then
+                for s in screen do
+                    local g = s.geometry
+                    if g.width == w and g.height == ht then target = s break end
                 end
             end
             if target then
