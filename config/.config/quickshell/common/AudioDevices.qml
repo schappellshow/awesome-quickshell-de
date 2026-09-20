@@ -41,20 +41,13 @@ Singleton {
     // "no card control" rather than flash an empty section at startup.
     property bool ready: false
 
-    // Port availability from the previous poll, as { "card:port": bool }.
-    // The HDMI switch is edge-triggered off this: acting on the level
-    // instead would re-issue set-card-profile on every poll and fight both
-    // WirePlumber and the user's own choice.
-    property var portWasAvailable: ({})
-
-    // Sink node ids seen on the previous nodes change, for the same reason.
+    // Sink node ids seen on the previous nodes change, so an arrival can
+    // be told from a node that was simply always there.
     property var knownSinkIds: []
 
     // Set while our own `pactl set-card-profile` is in flight, so the
     // resulting card event doesn't read as a fresh hotplug.
     property bool switching: false
-
-    property bool primed: false
 
     function init() {
         refresh();
@@ -85,16 +78,18 @@ Singleton {
         return null;
     }
 
-    // Profiles chosen from the Settings page, as { card: profile }. The
-    // automatic revert consults this so it only ever undoes its own work
-    // — picking HDMI by hand with no display attached is a strange thing
-    // to want, but it should survive more than a second and a half.
+    // Profiles chosen from the Settings page, as
+    // { card: { profile, connected } }. The cable state at the moment of
+    // choosing is stored alongside, because that is what makes the choice
+    // expire: picking the laptop speakers while a TV is attached has to
+    // stick, but it should not still be binding three days later with the
+    // cable long gone. See applyHdmiPolicy.
     property var manualProfiles: ({})
 
     function setProfile(cardName, profileName, manual) {
         if (manual === true) {
             const m = manualProfiles;
-            m[cardName] = profileName;
+            m[cardName] = { profile: profileName, connected: hdmiConnected };
             manualProfiles = m;
         }
         switching = true;
@@ -213,12 +208,11 @@ Singleton {
 
         cards = out;
         ready = true;
-        autoSwitchProfiles();
         // Level-triggered, not edge: a resume can restore an HDMI profile
-        // without the screen set ever changing, so there is no edge to
-        // catch. Safe to re-run because the condition clears itself the
+        // without the connector state ever changing, so there is no edge
+        // to catch. Safe to re-run because the condition clears itself the
         // moment the switch lands.
-        revertHdmiProfiles();
+        applyHdmiPolicy();
     }
 
     function parseSinks(text) {
@@ -258,20 +252,41 @@ Singleton {
         sinks = out;
     }
 
-    // ── HDMI: promote the card when an output port shows up ────────────
+    // ── HDMI profiles ──────────────────────────────────────────────────
+    //
+    // An HDMI port's "available" flag is NOT a precondition for using it.
+    // That flag reflects the ELD — the block of capability data the display
+    // sends back — and on Intel the ELD frequently never arrives: i915
+    // comes out of a resume without pushing it, so every pin reads
+    // monitor_present 0 while DRM plainly reports the connector connected.
+    //
+    // Selecting such a profile anyway works. The card switches, the sink
+    // appears, and sound plays: the ELD describes what the display can
+    // decode, it is not permission to send. So availability is used to
+    // *label* HDMI outputs here, never to hide them and never to gate
+    // switching to one. Anything else makes HDMI vanish from the settings
+    // exactly when the user needs it.
 
     function profileHasPort(cardObj, portObj) {
         return portObj.profiles.indexOf(cardObj.activeProfile) >= 0;
     }
 
-    // Best profile carrying this port: highest priority among the card's
-    // available ones. On Intel HDA that picks "Digital Stereo (HDMI) Output
-    // + Analog Stereo Input" over plain HDMI output, so plugging in a TV
-    // doesn't cost you the microphone.
+    function isHdmiProfile(name) {
+        return /hdmi/i.test(name);
+    }
+
+    function activeProfileIsHdmi(cardObj) {
+        return isHdmiProfile(cardObj.activeProfile);
+    }
+
+    // Highest-priority profile carrying this port, availability ignored.
+    // On Intel HDA that picks "Digital Stereo (HDMI) Output + Analog Stereo
+    // Input" over plain HDMI output, so moving sound to a TV doesn't cost
+    // you the microphone.
     function bestProfileFor(cardObj, portObj) {
         let best = null;
         for (const p of cardObj.profiles) {
-            if (!p.available || p.name === "off")
+            if (p.name === "off" || p.name === "pro-audio")
                 continue;
             if (portObj.profiles.indexOf(p.name) < 0)
                 continue;
@@ -281,47 +296,105 @@ Singleton {
         return best;
     }
 
-    function autoSwitchProfiles() {
-        const seen = {};
-        let act = null;
-
+    // Every HDMI/DisplayPort output the card physically has, whether or not
+    // the display has identified itself — one entry per socket, each with
+    // the profile that switches to it. This is what makes HDMI a permanent
+    // choice in the settings rather than one that comes and goes.
+    readonly property var hdmiOptions: {
+        const out = [];
         for (const c of cards) {
             for (const p of c.ports) {
-                const key = c.name + ":" + p.name;
-                seen[key] = p.detected;
-
-                // Only outputs, only HDMI/DisplayPort. Headphones already
-                // switch by port within the analog profile, which works.
                 if (p.type !== "HDMI")
                     continue;
-                // Edge: not previously detected, detected now
-                if (!p.detected || portWasAvailable[key] === true)
-                    continue;
-                // Already on a profile that carries it — nothing to do,
-                // WirePlumber got there first
-                if (profileHasPort(c, p))
-                    continue;
-
-                // Ports are sorted by priority, so the first port that
-                // wants a switch is the best one to honour — plugging into
-                // two HDMI sockets at once should follow the primary.
                 const best = bestProfileFor(c, p);
-                if (best !== null && act === null)
-                    act = { card: c.name, profile: best.name };
+                if (best === null)
+                    continue;
+                out.push({
+                    card: c.name,
+                    port: p.name,
+                    profile: best.name,
+                    description: p.description,
+                    detected: p.detected,
+                    active: profileHasPort(c, p)
+                });
             }
         }
+        return out;
+    }
 
-        const first = !primed;
-        portWasAvailable = seen;
-        primed = true;
+    function selectHdmi(opt) {
+        setProfile(opt.card, opt.profile, true);
+    }
 
-        // The first poll of a session establishes the baseline; every port
-        // looks "new" then, and a display connected at login was already
-        // handled by WirePlumber.
-        if (first || !Settings.audioAutoSwitch || switching || act === null)
+    // ── Following the cable ────────────────────────────────────────────
+    // Driven by the DRM connector, never by port availability. The old
+    // trigger — a port flipping to "detected" — cannot fire at all on
+    // hardware whose ELD never arrives, which is why plugging in a TV did
+    // nothing. DRM knows a cable is in even when the sound card doesn't.
+    //
+    // Symmetric on purpose: connected promotes the card onto HDMI,
+    // disconnected puts it back. Nothing else decides.
+
+    function bestHdmiProfile(cardObj) {
+        // Prefer a socket the display actually identified itself on; with
+        // no ELD anywhere, fall back to the highest-priority HDMI output,
+        // which is the primary socket. A card with several HDMI sockets and
+        // no ELD is a guess — and the reason every socket is listed in the
+        // settings, so a wrong guess is one click to correct.
+        let best = null;
+        let detected = null;
+        for (const p of cardObj.ports) {
+            if (p.type !== "HDMI")
+                continue;
+            const prof = bestProfileFor(cardObj, p);
+            if (prof === null)
+                continue;
+            if (p.detected && (detected === null || prof.priority > detected.priority))
+                detected = prof;
+            if (best === null || prof.priority > best.priority)
+                best = prof;
+        }
+        return detected !== null ? detected : best;
+    }
+
+    function bestNonHdmiProfile(cardObj) {
+        let best = null;
+        for (const p of cardObj.profiles) {
+            if (!p.available || p.name === "off" || p.name === "pro-audio")
+                continue;
+            if (isHdmiProfile(p.name))
+                continue;
+            if (best === null || p.priority > best.priority)
+                best = p;
+        }
+        return best;
+    }
+
+    function applyHdmiPolicy() {
+        if (!Settings.audioAutoSwitch || switching || !drmProbed)
             return;
 
-        setProfile(act.card, act.profile);
+        for (const c of cards) {
+            const onHdmi = activeProfileIsHdmi(c);
+            if (onHdmi === hdmiConnected)
+                continue;               // already where the cable says
+
+            // A choice made by hand stands until the cable state changes —
+            // then it is stale and the policy takes over again. Without
+            // this, picking the laptop speakers while a TV is attached
+            // would be undone within the second.
+            const m = manualProfiles[c.name];
+            if (m !== undefined && m.profile === c.activeProfile
+                && m.connected === hdmiConnected)
+                continue;
+
+            const best = hdmiConnected ? bestHdmiProfile(c)
+                                       : bestNonHdmiProfile(c);
+            if (best !== null) {
+                setProfile(c.name, best.name);
+                return;                 // one card at a time; re-runs on refresh
+            }
+        }
     }
 
     // ── HDMI audio that a resume left behind ───────────────────────────
@@ -391,10 +464,10 @@ Singleton {
                 // reason on any system this probe cannot see.
                 root.drmProbed = seen;
                 // Re-check on every probe, not on hdmiConnected changing:
-                // the common case is the value staying false across the
+                // the common case is the value staying put across the
                 // probe that first makes it trustworthy, which emits no
                 // change signal at all.
-                revertWatch.restart();
+                policyWatch.restart();
             }
         }
     }
@@ -438,84 +511,23 @@ Singleton {
         onTriggered: root.refresh()
     }
 
-    // ── Unplugging the display ─────────────────────────────────────────
-    // The mirror image of the above, and the more damaging half: pulling
-    // the cable can leave hdmi-output-0 reading "available", so the HDMI
-    // profile stays valid, WirePlumber sees no reason to fall back, and
-    // the card sits on a profile whose only sink plays into a cable that
-    // isn't there. The analog sink does not exist while that profile is
-    // active, so there is nothing to switch *to* — which is what "my
-    // speakers aren't even an option any more" looks like from the UI.
-    //
-    // Keyed on RandR losing the screen rather than on the port going
-    // unavailable, because the port is exactly what cannot be trusted.
-
-    function activeProfileIsHdmi(cardObj) {
-        for (const p of cardObj.ports)
-            if (p.type === "HDMI" && p.profiles.indexOf(cardObj.activeProfile) >= 0)
-                return true;
-        return false;
-    }
-
-    function bestNonHdmiProfile(cardObj) {
-        let best = null;
-        for (const p of cardObj.profiles) {
-            if (!p.available || p.name === "off" || p.name === "pro-audio")
-                continue;
-            if (/hdmi/i.test(p.name))
-                continue;
-            if (best === null || p.priority > best.priority)
-                best = p;
-        }
-        return best;
-    }
-
-    // Unplugging a display that X still holds a CRTC on changes neither
-    // the screen set nor, when the port is stale, anything pactl reports
-    // — so there is no event to hang this on and it has to be asked for.
-    // Only while a card is actually on an HDMI profile, which makes it
-    // free in the normal case.
-    readonly property bool anyCardOnHdmi: {
-        for (const c of cards)
-            if (activeProfileIsHdmi(c))
-                return true;
-        return false;
-    }
-
+    // Plugging or unplugging a display changes neither the screen set (X
+    // keeps a CRTC on a dead output) nor, with a stale port, anything
+    // pactl reports — so there is no event to hang this on and the
+    // connector has to be asked. Cheap: one grep of four sysfs files.
     Timer {
-        running: root.anyCardOnHdmi
+        running: true
         repeat: true
-        interval: 5000
+        interval: 4000
         triggeredOnStart: true
         onTriggered: root.probeDrm()
     }
 
-    // DRM reports the loss before the card has caught up
+    // DRM sees the change before the card does
     Timer {
-        id: revertWatch
-        interval: 1500
-        onTriggered: root.revertHdmiProfiles()
-    }
-
-    function revertHdmiProfiles() {
-        if (!Settings.audioAutoSwitch || switching)
-            return;
-        if (!drmProbed || hdmiConnected)
-            return;
-
-        for (const c of cards) {
-            if (!activeProfileIsHdmi(c))
-                continue;
-            // Leave a profile the user picked by hand alone; only undo
-            // what the automatic switch did
-            if (manualProfiles[c.name] === c.activeProfile)
-                continue;
-            const best = bestNonHdmiProfile(c);
-            if (best !== null) {
-                setProfile(c.name, best.name);
-                return;
-            }
-        }
+        id: policyWatch
+        interval: 1200
+        onTriggered: root.applyHdmiPolicy()
     }
 
     // ── Bluetooth / USB: follow a newly connected sink ─────────────────

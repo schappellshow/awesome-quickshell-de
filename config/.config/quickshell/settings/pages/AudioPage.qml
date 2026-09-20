@@ -50,11 +50,12 @@ SettingsPage {
     Text {
         visible: AudioDevices.staleHdmiOutputs.length > 0
         width: parent.width
-        text: "A display is connected but the sound card never received "
-            + "its audio information, so it offers no HDMI output. This "
-            + "happens when resuming from suspend with a display attached. "
-            + "Reconnecting the output asks the graphics driver to send it "
-            + "again — the screen will blank for a couple of seconds."
+        text: "A display is connected but never told the sound card what "
+            + "it can play, so HDMI shows as not detected below. You can "
+            + "still select it and it will work. Reconnecting the output "
+            + "asks the graphics driver to send that information again, "
+            + "which restores surround formats and the display's name — "
+            + "the screen will blank for a couple of seconds."
         wrapMode: Text.Wrap
         font.family: Theme.fontFamily
         font.pointSize: 8
@@ -185,6 +186,61 @@ SettingsPage {
         }
     }
 
+    // HDMI sockets the machine has but isn't currently using. Listed
+    // whether or not the display has identified itself, because "not
+    // detected" is routinely wrong — the sound card can miss a TV that
+    // DRM, X and your eyes all agree is plugged in. Selecting one forces
+    // the card onto it, which works regardless.
+    Repeater {
+        model: AudioDevices.hdmiOptions.filter(o => !o.active)
+
+        Item {
+            id: hdmiRow
+
+            required property var modelData
+
+            width: parent.width
+            height: 30
+
+            Rectangle {
+                width: 8
+                height: 8
+                radius: 4
+                y: 6
+                color: Theme.surface
+            }
+
+            Text {
+                x: 16
+                y: 0
+                width: parent.width - 16
+                text: hdmiRow.modelData.description
+                elide: Text.ElideRight
+                font.family: Theme.fontFamily
+                font.pointSize: 9
+                color: Theme.subtext
+            }
+
+            Text {
+                x: 16
+                y: 14
+                width: parent.width - 16
+                text: hdmiRow.modelData.detected
+                    ? "Display detected — click to use it"
+                    : "No display detected here — click to use it anyway"
+                elide: Text.ElideRight
+                font.family: Theme.fontFamily
+                font.pointSize: 8
+                color: Theme.muted
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: AudioDevices.selectHdmi(hdmiRow.modelData)
+            }
+        }
+    }
+
     // ── Port ───────────────────────────────────────────────────────────
     // Which socket on the active device the sound leaves by: speakers vs
     // headphones vs HDMI. Hidden when there is only one, which is the case
@@ -230,17 +286,25 @@ SettingsPage {
 
             required property var modelData
 
-            // Unavailable profiles are every HDMI output on an unplugged
-            // laptop — 20-odd entries describing sockets with nothing in
-            // them. The active one is kept regardless so the chip always
-            // has something to name.
+            // Unavailable profiles are mostly surround variants of sockets
+            // with nothing in them — 20-odd entries of noise. An HDMI
+            // *stereo* profile is the exception and is always kept:
+            // "not available" there means the display never identified
+            // itself, which is a routine lie on Intel and no reason to
+            // refuse the choice. The active profile is kept regardless so
+            // the chip always has something to name.
             readonly property var usable:
-                profileRow.modelData.profiles.filter(
-                    p => p.available || p.name === profileRow.modelData.activeProfile)
+                profileRow.modelData.profiles.filter(p =>
+                    p.available
+                    || p.name === profileRow.modelData.activeProfile
+                    || (/hdmi/i.test(p.name) && !/surround/i.test(p.name)))
 
             label: modelData.description
             current: modelData.activeProfile
-            options: usable.map(p => ({ label: p.description, value: p.name }))
+            options: usable.map(p => ({
+                label: p.description + (p.available ? "" : "  (not detected)"),
+                value: p.name
+            }))
             onSelected: value =>
                 AudioDevices.setProfile(profileRow.modelData.name, value, true)
         }
