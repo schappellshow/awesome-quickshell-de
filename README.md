@@ -289,10 +289,29 @@ run. Corrections to the package maps in `install.sh` are welcome.
 **Bar/notifications missing** — Quickshell isn't running. `qs` in a
 terminal shows the error; `qs -vv` is more verbose.
 
-**Qt menus or dialogs look light in a dark session** — `~/.xprofile` isn't
-being sourced. Confirm with `echo $QT_QPA_PLATFORMTHEME` (expect `qt6ct`).
-Some display managers skip `.xprofile`; the installer chains it from
-`~/.bash_profile` for that reason.
+**Qt menus or dialogs look light in a dark session** — tray right-click
+menus are native Qt menus, so they follow Qt's platform theme rather than
+this shell's colours. Two causes:
+
+*`~/.xprofile` isn't being sourced.* Confirm with
+`echo $QT_QPA_PLATFORMTHEME` — empty means it never ran. Some display
+managers skip `.xprofile`; the installer chains it from `~/.bash_profile`
+for that reason.
+
+*Qt cannot load the platform theme.* A plugin built against an older Qt
+stays on disk and is ignored without a warning, and Qt quietly reverts to
+Fusion's light palette. Ask Qt what it can see:
+
+```sh
+qtdiag6 | sed -n '/^Theme:/,/^$/p'
+```
+
+If the `available` list does not contain the theme named in
+`$QT_QPA_PLATFORMTHEME`, that is the problem, and it is your distribution's
+packaging rather than this config — the fix is a rebuilt package.
+`.xprofile` already prefers whichever of `qt6ct` or `kde` Qt reports as
+available, so installing `plasma-integration` gives it something to fall
+back to in the meantime.
 
 **Screen locks while watching video** — the screensaver inhibitor isn't
 running. Check with

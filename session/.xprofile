@@ -31,4 +31,43 @@ export XDG_CURRENT_DESKTOP=awesome
 # instead of following the portal live, so system-theme-apply rewrites
 # that file's color scheme on every dark/light toggle (it also creates
 # the file, so this needs no tracked copy).
-export QT_QPA_PLATFORMTHEME=qt6ct
+#
+# ASK QT WHICH THEMES IT CAN LOAD rather than naming one and hoping. A
+# platform theme plugin built against an older Qt stays on disk and is
+# silently ignored by the new one -- Qt neither warns nor falls back
+# visibly, it just reverts to Fusion's light palette, and the first thing
+# anyone notices is grey tray menus on a dark desktop. OpenMandriva moving
+# to Qt 6.11 while shipping a qt6ct built for 6.10 did exactly that, and
+# the plugin file being present made it look like a config problem.
+#
+# `kde` (plasma-integration) is the fallback because system-theme-apply
+# already keeps kdeglobals in step with qt6ct.conf, so the colours are
+# right either way. It is only a fallback: qt6ct is preferred whenever Qt
+# can actually see it, since it is the one this desktop configures.
+qt_platform_theme() (
+    command -v qtdiag6 >/dev/null 2>&1 || return 1
+    # offscreen: this runs before anything needs a display, and the theme
+    # list does not depend on the platform plugin.
+    avail=$(QT_QPA_PLATFORM=offscreen qtdiag6 2>/dev/null \
+            | sed -n '/^Theme:/,/^$/p' \
+            | sed -n 's/.*available *: *//p' | head -1 | tr -d ' ')
+    [ -n "$avail" ] || return 1
+    for t in qt6ct kde; do
+        case ",$avail," in
+            *",$t,"*) printf '%s' "$t"; return 0 ;;
+        esac
+    done
+    return 1
+)
+
+QT_QPA_PLATFORMTHEME=$(qt_platform_theme) || QT_QPA_PLATFORMTHEME=qt6ct
+export QT_QPA_PLATFORMTHEME
+
+# NOTE ON THE WIDGET STYLE, on the `kde` path only. The style then comes from
+# kdeglobals [KDE] widgetStyle, NOT from qt6ct.conf and NOT from
+# QT_STYLE_OVERRIDE -- plasma-integration applies its own choice after Qt has
+# honoured the variable, so setting it here looks like it works (a plain Qt
+# app reports the overridden style) while the shell quietly loads whatever
+# kdeglobals names. A leftover kvantum-dark there is enough to style every
+# tray menu, margins and translucency included, with no sign of where it came
+# from. If Qt apps are themed but the wrong shape, check that key first.

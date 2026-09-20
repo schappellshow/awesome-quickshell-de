@@ -2,8 +2,12 @@
 # Push dark/light mode to every channel apps use for the "system" theme:
 #   gsettings  → read by xdg-desktop-portal-gtk, which answers Electron and
 #                libadwaita apps (portal routing: .config/xdg-desktop-portal/)
-#   kdeglobals → Qt/KDE apps (via plasma-apply-colorscheme)
-#   qt6ct.conf → Qt apps, via QT_QPA_PLATFORMTHEME=qt6ct (see ~/.xprofile)
+#   kdeglobals → Qt/KDE apps (via plasma-apply-colorscheme). Also the
+#                colours the `kde` platform theme reads, which .xprofile
+#                falls back to when Qt cannot load qt6ct -- so both Qt
+#                channels are kept in step whichever one is in play.
+#   qt6ct.conf → Qt apps, when QT_QPA_PLATFORMTHEME resolves to qt6ct
+#                (see ~/.xprofile, which picks whichever Qt can load)
 #   xsettingsd + gtk settings.ini → running/starting GTK apps
 # Files are created if missing, so this works on a freshly-stowed machine.
 # Called by quickshell's SystemTheme service on every dark-mode change.

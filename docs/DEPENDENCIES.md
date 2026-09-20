@@ -25,6 +25,8 @@ everything else costs you one feature.
 | `xrdb` + `xsetroot` *(xorg utils)* | Settings → Mouse applies the cursor theme to the root window immediately, and clears a stale `Xcursor.theme` left behind by Plasma | Cursor still changes for newly started apps via `~/.icons/default`, but the desktop background keeps the old pointer until you log out — and a leftover `Xcursor.theme` would override the choice entirely |
 | `python-xlib` + X `RECORD` extension | `super-tap`, the watcher behind Settings → Apps → "Super key opens the menu". It reads the raw event stream because awesome only sees the keys it has grabbed, and so cannot tell a tap from `Super+`<key an application handled> | The switch is there but the tap never fires; every other shortcut is unaffected |
 | `qt6ct` + a Qt platform theme | Qt apps follow dark/light and find icons | Qt apps and tray menus render light |
+| `qt6-qtbase-tools` (`qtdiag6`) | Lets `~/.xprofile` ask Qt which platform themes it can actually load, instead of naming one and hoping | The session assumes `qt6ct` works. If your distro ships a `qt6ct` built against an older Qt, the plugin is ignored in silence and every Qt menu goes light — see Troubleshooting |
+| `plasma-integration` *(optional)* | The `kde` platform theme, used as a fallback when Qt cannot load `qt6ct`. Reads `kdeglobals`, which `system-theme-apply` already keeps in step | No fallback: if `qt6ct` is broken there is nothing to fall back to, and Qt reverts to Fusion's light palette |
 | Breeze icons | Icon theme used by the power menu and Qt apps | Missing icons in menus |
 | Hack (or any mono font) | Bar and UI text | Falls back to a default font |
 | JetBrainsMono Nerd Font | Bar glyphs (lock, network, bluetooth icons) | Those pills show blank boxes |
