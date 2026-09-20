@@ -56,10 +56,31 @@ awful.spawn.with_shell(
     .. "systemctl --user start awesome-session.target"
 )
 
--- Kill the system-default xcompmgr before picom claims the compositing slot
-awful.spawn.with_shell(
-    "pkill -x xcompmgr; sleep 0.5 && picom --config ~/.config/picom/picom.conf --daemon"
-)
+-- Kill the system-default xcompmgr before picom claims the compositing slot.
+--
+-- Both halves of that used to be a guess: pkill, sleep half a second, hope
+-- the selection had been released. picom exits 1 with "Another composite
+-- manager is already running" when it has not, and losing that race leaves
+-- the session with NO compositor -- no blur, no transparency, and windows
+-- that reserve a transparent margin (Qt menus under a KDE platform theme,
+-- conky) drawing stale pixels around their edge. It reads as a blurred
+-- border rather than as "the compositor is missing", which is what makes it
+-- worth retrying rather than sleeping longer.
+--
+-- The retry is self-limiting: --daemon returns 0 the moment picom owns the
+-- slot, so the loop exits on the first success and only spins while it is
+-- genuinely being refused.
+awful.spawn.with_shell([[
+pkill -x xcompmgr
+if ! pgrep -x picom >/dev/null; then
+    i=0
+    until picom --config ~/.config/picom/picom.conf --daemon 2>/dev/null; do
+        i=$((i + 1))
+        [ "$i" -ge 20 ] && break
+        sleep 0.5
+    done
+fi
+]])
 
 -- Wallpaper is quickshell's job now (Settings app → Wallpaper page;
 -- common/Wallpaper.qml runs feh from Settings.wallpaperPath at startup).
