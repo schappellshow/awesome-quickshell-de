@@ -41,7 +41,7 @@ everything else costs you one feature.
 | `xsecurelock` *(source build)* | Lock screen with a password prompt | Falls back to `i3lock-color`, then plain `i3lock` |
 | `i3lock-color` | The lock screen itself (`lock-screen`) | Falls back to xsecurelock's plain screen |
 | `imagemagick` | `lock-image` builds the blur/dim cache | No lock image; `lock-screen` falls back to xsecurelock |
-| `jq` | `lock-screen` / `lock-image` read settings.json | Both fall back to built-in defaults |
+| `jq` | `lock-screen` / `lock-image` read settings.json, and `~/.xprofile` reads the saved monitor layout from it before the WM starts | Lock screen falls back to built-in defaults; the monitor layout is applied later by quickshell instead, which can leave awesome's screen order out of step until the next restart |
 | `gammastep` *(often source)* | Night light / colour temperature | `Super+Shift+N` does nothing |
 | `udiskie` *(often pip)* | Automounts USB sticks and SD cards | Mount removable media by hand |
 | `brightnessctl` | Backlight keys | Brightness keys do nothing (desktops have no backlight anyway) |

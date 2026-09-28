@@ -71,3 +71,31 @@ export QT_QPA_PLATFORMTHEME
 # kdeglobals names. A leftover kvantum-dark there is enough to style every
 # tray menu, margins and translucency included, with no sign of where it came
 # from. If Qt apps are themed but the wrong shape, check that key first.
+
+# ── Monitor layout, BEFORE the window manager starts ────────────────────
+# quickshell replays the saved xrandr layout too (common/DisplayConfig.qml),
+# but it starts from awesome's autostart — i.e. AFTER awesome has already
+# enumerated the screens. Reconfiguring outputs underneath a running awesome
+# updates each screen's geometry but not the order of its screen objects, so
+# the session runs with one order while X has another. Nothing looks wrong
+# until awesome is restarted: it then enumerates afresh, gets the real order,
+# the indices move, and every window lands on a different monitor.
+#
+# Applying the layout here means awesome's first enumeration is already the
+# final one, and quickshell's replay becomes a no-op that changes nothing.
+#
+# Deliberately unquoted: displayCmd is a whole xrandr argument list, not one
+# argument, and it has to word-split. It is this session's own setting,
+# written by the Displays page.
+if command -v xrandr >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    for _f in "${XDG_STATE_HOME:-$HOME/.local/state}"/quickshell/by-shell/*/settings.json; do
+        [ -f "$_f" ] || continue
+        _cmd=$(jq -r '.displayCmd // empty' "$_f" 2>/dev/null)
+        if [ -n "$_cmd" ]; then
+            # shellcheck disable=SC2086
+            xrandr $_cmd 2>/dev/null
+        fi
+        break
+    done
+    unset _f _cmd
+fi

@@ -313,6 +313,23 @@ packaging rather than this config — the fix is a rebuilt package.
 available, so installing `plasma-integration` gives it something to fall
 back to in the meantime.
 
+**Windows land on a different monitor after `Super`+`Ctrl`+`R`** — awesome's
+screen *order* and X's disagree. awesome numbers screens when it starts; if
+the monitor layout is applied afterwards, geometries update but the screen
+objects keep their original order, and a restart re-enumerates into the real
+order — so every window follows its index onto a different output.
+
+`~/.xprofile` applies the saved layout before awesome starts so the two
+orders match from the outset. If it recurs, compare them:
+
+```sh
+awesome-client 'local o={} for s in screen do local n={} for k in pairs(s.outputs) do n[#n+1]=k end o[#o+1]=s.index..": "..table.concat(n,",") end return table.concat(o,"  ")'
+xrandr --listmonitors
+```
+
+Note this is separate from a monitor being unplugged and replugged mid-session,
+which `modules/screen_memory.lua` handles by output name.
+
 **Screen locks while watching video** — the screensaver inhibitor isn't
 running. Check with
 `busctl --user status org.freedesktop.ScreenSaver`.
