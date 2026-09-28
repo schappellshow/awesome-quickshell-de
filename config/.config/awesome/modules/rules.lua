@@ -14,6 +14,24 @@ awful.rules.rules = {
         properties = {
             border_width      = beautiful.border_width,
             border_color      = beautiful.border_normal,
+            -- Ignore the client's own minimum/increment size hints when
+            -- tiling. A tiling layout divides the screen and tells each
+            -- client what it gets; a client that refuses is not resized, so
+            -- it keeps its old size and the next window is placed over the
+            -- top of it. There is no negotiation and no error -- the windows
+            -- simply overlap, and the layout looks "off" rather than broken.
+            --
+            -- Chromium-family browsers are the ones that bite here: they
+            -- derive a minimum width from their tab strip and toolbar, so it
+            -- GROWS as you open tabs. Two Helium windows advertising
+            -- min_width 981 and 1049 on a 1920px screen overlapped by 48px
+            -- and ran 115px off the right edge. Terminals do the same thing
+            -- with character-cell increments, leaving uneven gutters.
+            --
+            -- The cost is that floating windows no longer snap to their
+            -- preferred granularity (a floating terminal can end mid-cell).
+            -- That is a fair trade for a desktop that tiles by default.
+            size_hints_honor  = false,
             focus             = awful.client.focus.filter,
             raise             = true,
             keys              = keys.clientkeys,
