@@ -84,18 +84,71 @@ export QT_QPA_PLATFORMTHEME
 # Applying the layout here means awesome's first enumeration is already the
 # final one, and quickshell's replay becomes a no-op that changes nothing.
 #
-# Deliberately unquoted: displayCmd is a whole xrandr argument list, not one
-# argument, and it has to word-split. It is this session's own setting,
-# written by the Displays page.
-if command -v xrandr >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-    for _f in "${XDG_STATE_HOME:-$HOME/.local/state}"/quickshell/by-shell/*/settings.json; do
-        [ -f "$_f" ] || continue
-        _cmd=$(jq -r '.displayCmd // empty' "$_f" 2>/dev/null)
-        if [ -n "$_cmd" ]; then
-            # shellcheck disable=SC2086
-            xrandr $_cmd 2>/dev/null
-        fi
-        break
-    done
-    unset _f _cmd
+# Use argument arrays, not shell splitting (which differs between bash and
+# zsh). Filter disconnected outputs before replaying; a missing dock should
+# not invalidate every connected output. Bound both calls so login cannot
+# wait forever on RandR. Prefer the most recently written nonempty profile
+# if stale per-shell directories from an older config location remain.
+if command -v xrandr >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+    python3 - <<'PY'
+import json
+import os
+import pathlib
+import re
+import shlex
+import subprocess
+import sys
+
+try:
+    state = pathlib.Path(os.environ.get("XDG_STATE_HOME",
+                                       os.path.expanduser("~/.local/state")))
+    files = sorted((state / "quickshell/by-shell").glob("*/settings.json"),
+                   key=lambda p: p.stat().st_mtime, reverse=True)
+    command = ""
+    for path in files:
+        try:
+            command = json.loads(path.read_text()).get("displayCmd", "")
+        except (OSError, ValueError):
+            continue
+        if command:
+            break
+    if command:
+        query = subprocess.run(["xrandr", "--query"], capture_output=True,
+                               text=True, timeout=10, check=True)
+        connected = set(re.findall(r"^(\S+) connected\b", query.stdout, re.M))
+        tokens = shlex.split(command)
+        args = []
+        keep = False
+        i = 0
+        options = {"--mode": r"\d+x\d+i?", "--pos": r"-?\d+x-?\d+",
+                   "--rotate": r"normal|left|right|inverted",
+                   "--rate": r"\d+(?:\.\d+)?"}
+        while i < len(tokens):
+            token = tokens[i]
+            if token == "--output":
+                name = tokens[i + 1]
+                if not re.fullmatch(r"[A-Za-z0-9_.:-]+", name):
+                    raise ValueError("Invalid output name")
+                keep = name in connected
+                if keep:
+                    args.extend([token, name])
+                i += 2
+            elif token in options:
+                value = tokens[i + 1]
+                if not re.fullmatch(options[token], value):
+                    raise ValueError("Invalid display option")
+                if keep:
+                    args.extend([token, value])
+                i += 2
+            elif token in ("--primary", "--noprimary", "--off"):
+                if keep:
+                    args.append(token)
+                i += 1
+            else:
+                raise ValueError("Unsupported saved display option")
+        if args:
+            subprocess.run(["xrandr", *args], timeout=15, check=True)
+except (OSError, ValueError, IndexError, subprocess.SubprocessError) as error:
+    print("Monitor layout restore:", error, file=sys.stderr)
+PY
 fi

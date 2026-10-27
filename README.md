@@ -106,8 +106,11 @@ source builds).
    directly and save it as a named scheme
 3. **Wallpaper** — a distro-shipped wallpaper is adopted automatically;
    pick another here (it lists `~/Pictures/Wallpapers` and the system dirs)
-4. **Displays** — arrange monitors, then Apply. This is also what teaches
-   the session your layout so it can be restored at login and on hotplug
+4. **Displays** — drag the labelled screens to match your desk (edges and
+   centres snap), choose the primary display, then **Apply** and **Keep**.
+   Unconfirmed changes revert after 20 seconds; only Keep saves the layout
+   for login and hotplug. Pixel coordinates are editable below the preview;
+   press Enter to stage each value. Refresh / Reset discards pending edits.
 5. **Bar** — choose which screen the bar lives on, and which pills to show
 
 ---
@@ -286,6 +289,17 @@ run. Corrections to the package maps in `install.sh` are welcome.
 
 ## Troubleshooting
 
+**Monitor positions are wrong** — open Settings → Displays and drag the
+labelled rectangles into their physical arrangement. Portrait previews
+follow the Rotation setting. Screens must not overlap; negative coordinates
+are allowed while editing and are shifted together to start at 0,0 on Apply.
+Apply tests the layout, and **Keep** saves it; **Revert** restores the previous
+layout immediately, and the 20-second countdown does so automatically even
+if you close the page without confirming. Errors
+are shown on the page rather than saving a command that failed. Refresh /
+Reset reads the live layout if another tool changed it. Connected displays
+that are disabled are left disabled by this editor.
+
 **Bar/notifications missing** — Quickshell isn't running. `qs` in a
 terminal shows the error; `qs -vv` is more verbose.
 
@@ -346,3 +360,12 @@ recreated with defaults.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Display tests
+
+Run `node --test tests/display-layout.test.cjs` for the standalone RandR
+parser, geometry, snapping, validation and command-generation tests.
+Run `python3 tests/display-integration.py` for offscreen QML pointer-drag
+tests, apply/confirmation/rollback checks and login replay, with a fake
+`xrandr` and isolated settings (requires Quickshell and QtTest). These tests
+never change the real monitor layout.
