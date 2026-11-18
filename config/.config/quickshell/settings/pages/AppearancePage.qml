@@ -6,7 +6,7 @@ import "../../common"
 SettingsPage {
     id: page
 
-    title: "Appearance"
+    title: "Theme"
 
     property var iconThemes: []
     property bool saving: false

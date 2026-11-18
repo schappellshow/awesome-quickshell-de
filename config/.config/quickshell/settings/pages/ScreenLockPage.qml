@@ -3,9 +3,7 @@ import "../components"
 import "../../common"
 
 SettingsPage {
-    title: "Power"
-
-    SectionLabel { text: "SCREEN" }
+    title: "Screen Lock"
 
     SliderRow {
         label: "Blank and lock after (0 = never)"
@@ -31,28 +29,6 @@ SettingsPage {
         label: "Keep awake (until shell restart)"
         checked: PowerConfig.keepAwake
         onToggled: value => Settings.keepAwake = value
-    }
-
-    SectionLabel { text: "BATTERY (LAPTOPS)" }
-
-    SliderRow {
-        label: "Low battery warning"
-        from: 5
-        to: 30
-        step: 1
-        suffix: "%"
-        value: Settings.batteryWarnPct
-        onMoved: value => Settings.batteryWarnPct = value
-    }
-
-    SliderRow {
-        label: "Critical: suspend at"
-        from: 2
-        to: 10
-        step: 1
-        suffix: "%"
-        value: Settings.batteryCriticalPct
-        onMoved: value => Settings.batteryCriticalPct = value
     }
 
     Text {

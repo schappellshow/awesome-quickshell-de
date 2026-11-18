@@ -28,9 +28,12 @@ notifications/             org.freedesktop.Notifications daemon + popups
   NotificationCenter.qml   history panel (Super+Shift+B / NTF bell in bar)
 settings/                  the Settings app (Super+Shift+s): sidebar + pages
   components/              ToggleRow, SliderRow, ComboRow, ... (shared rows)
-  pages/                   Appearance, Wallpaper, Bar, Night Light,
-                           Notifications, Displays, Audio, Network,
-                           Bluetooth, Power, Keyboard, Mouse, Autostart, About
+  pages/                   grouped: Appearance (Wallpaper, Windows, Night
+                           Light, Displays, Theme), Power (Lock Screen,
+                           Screen Lock, Battery); plain: Bar, Apps,
+                           Notifications, Audio, Network, Bluetooth,
+                           Keyboard, Mouse, Autostart, Default Apps,
+                           Backups, About
 power/                     full-screen session menu (Super+BackSpace)
 osd/                       volume/brightness on-screen display
 ```
