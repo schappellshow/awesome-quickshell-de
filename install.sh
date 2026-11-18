@@ -117,8 +117,15 @@ pkg_for() {
         *:printer)         echo system-config-printer ;;
 
         # --- automount ---
-        dnf:udiskie)       echo "" ;;   # not packaged; pip fallback
+        dnf:udiskie)       echo "" ;;   # not packaged; pipx fallback below
         *:udiskie)         echo udiskie ;;
+
+        # --- pipx: isolated venvs for the Python tools nothing packages ---
+        # Always the distro package; pipx itself is never pip --user, since
+        # that ties it to one Python minor.
+        apt:pipx)          echo pipx ;;
+        zypper:pipx)       echo python3-pipx ;;
+        *:pipx)            echo python-pipx ;;   # dnf, pacman
 
         # --- lock-image builds the blur/dim cache with `magick` ---
         zypper:imagemagick) echo ImageMagick ;;
@@ -183,10 +190,12 @@ if [ "$PM" != none ] && [ "${SKIP_PACKAGES:-0}" != 1 ]; then
     for key in awesome quickshell picom rofi feh xsettingsd playerctl spectacle \
                nomacs \
                brightnessctl blueman thunar qt6ct stow git curl portal polkit \
-               kwallet i3lock mixer rfkill printer udiskie icons font-mono font-nerd \
+               kwallet i3lock mixer rfkill printer udiskie pipx icons font-mono font-nerd \
                imagemagick jq pyxlib borg build; do
         names="$(pkg_for "$key")"
         if [ -z "$names" ]; then
+            # udiskie is handled by the pipx fallback below, not reported here
+            [ "$key" = udiskie ] && continue
             MISSING+=("$key (not packaged for $PM)")
             continue
         fi
@@ -246,26 +255,31 @@ if ! command -v greenclip >/dev/null 2>&1; then
     fi
 fi
 
+# Python tools that no distro packages go through pipx, not pip --user: a
+# pip --user install is bound to one Python minor and breaks on the next
+# upgrade, whereas `pipx reinstall-all` rebuilds the venvs.
+HAVE_PIPX=0
+command -v pipx >/dev/null 2>&1 && pipx --version >/dev/null 2>&1 && HAVE_PIPX=1
+
 # Emoji picker behind Super+. — python, rarely packaged.
 if ! command -v rofimoji >/dev/null 2>&1; then
     info "rofimoji (emoji picker)"
-    if command -v pipx >/dev/null 2>&1 && pipx --version >/dev/null 2>&1; then
+    if [ "$HAVE_PIPX" = 1 ]; then
         pipx install rofimoji || MISSING+=("rofimoji (pipx install failed)")
-    elif command -v pip3 >/dev/null 2>&1 || command -v pip >/dev/null 2>&1; then
-        python3 -m pip install --user rofimoji || MISSING+=("rofimoji (pip install failed)")
     else
-        MISSING+=("rofimoji (no pipx/pip; install python3-pip)")
+        MISSING+=("rofimoji (no pipx; install your distro's pipx package, then: pipx install rofimoji)")
     fi
 fi
 
-# udiskie: needs the system PyGObject, so pip --user rather than an
-# isolated venv. Only when the distro doesn't package it.
+# udiskie: the distro package where one exists (installed above). Otherwise
+# pipx, with --system-site-packages because it needs the system PyGObject,
+# which can't be built into an isolated venv.
 if ! command -v udiskie >/dev/null 2>&1; then
-    if command -v pip3 >/dev/null 2>&1 || command -v pip >/dev/null 2>&1; then
-        info "Installing udiskie (pip --user)"
-        python3 -m pip install --user udiskie || MISSING+=("udiskie (pip install failed)")
+    info "udiskie (automount)"
+    if [ "$HAVE_PIPX" = 1 ]; then
+        pipx install --system-site-packages udiskie || MISSING+=("udiskie (pipx install failed)")
     else
-        MISSING+=("udiskie (no pip; install python3-pip)")
+        MISSING+=("udiskie (no pipx; install your distro's pipx package, then: pipx install --system-site-packages udiskie)")
     fi
 fi
 

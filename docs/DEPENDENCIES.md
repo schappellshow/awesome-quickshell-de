@@ -19,7 +19,7 @@ everything else costs you one feature.
 | `picom` | Compositing: transparency, blur, rounded corners | Bar/panels look flat and opaque |
 | `rofi` | App launcher, run dialog, window switcher | `Super+Space` and friends do nothing |
 | `greenclip` *(binary)* | Clipboard history daemon behind `Super+/`; pinning uses its `static_history` | Clipboard panel opens empty and never records |
-| `rofimoji` *(pip)* | Emoji picker on `Super+.` | `Super+.` does nothing |
+| `rofimoji` *(pipx)* | Emoji picker on `Super+.` | `Super+.` does nothing |
 | `feh` | Sets the wallpaper | No wallpaper |
 | `xsettingsd` | Pushes GTK theme/icon/cursor changes to running apps | Theme changes need an app restart |
 | `xrdb` + `xsetroot` *(xorg utils)* | Settings → Mouse applies the cursor theme to the root window immediately, and clears a stale `Xcursor.theme` left behind by Plasma | Cursor still changes for newly started apps via `~/.icons/default`, but the desktop background keeps the old pointer until you log out — and a leftover `Xcursor.theme` would override the choice entirely |
@@ -43,9 +43,16 @@ everything else costs you one feature.
 | `imagemagick` | `lock-image` builds the blur/dim cache | No lock image; `lock-screen` falls back to xsecurelock |
 | `jq` | `lock-screen` / `lock-image` read settings.json, and `~/.xprofile` reads the saved monitor layout from it before the WM starts | Lock screen falls back to built-in defaults; the monitor layout is applied later by quickshell instead, which can leave awesome's screen order out of step until the next restart |
 | `gammastep` *(often source)* | Night light / colour temperature | `Super+Shift+N` does nothing |
-| `udiskie` *(often pip)* | Automounts USB sticks and SD cards | Mount removable media by hand |
+| `udiskie` *(distro, or pipx)* | Automounts USB sticks and SD cards | Mount removable media by hand |
 | `brightnessctl` | Backlight keys | Brightness keys do nothing (desktops have no backlight anyway) |
 | `xdg-desktop-portal` + `-gtk` | File dialogs, dark-mode for Electron/Flatpak apps | Browser save dialogs look wrong or don't open |
+
+## Python tools (pipx)
+
+`rofimoji`, and `udiskie` where the distro doesn't package it, are installed
+with `pipx` (itself a distro package), not `pip --user`. After a Python minor
+upgrade, run `pipx reinstall-all` to rebuild their venvs; a `pip --user`
+install can't be repaired that way and has to be redone by hand.
 
 ## Optional
 
