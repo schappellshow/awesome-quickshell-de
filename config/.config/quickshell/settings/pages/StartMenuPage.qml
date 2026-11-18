@@ -12,7 +12,7 @@ import "../../common"
 // undone or adjusted piecemeal afterwards.
 SettingsPage {
     id: page
-    title: "Apps"
+    title: "Start Menu"
 
     SectionLabel { text: "LAYOUT PRESET" }
 

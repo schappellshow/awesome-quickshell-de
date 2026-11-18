@@ -22,7 +22,7 @@ FloatingWindow {
     // currentPage is always a LEAF id (a page that has a source); groups
     // are only navigation. openGroup is the group whose sub-list the sidebar
     // is showing, or "" for the top-level list.
-    property string currentPage: "wallpaper"
+    property string currentPage: "display"
     property string openGroup: "appearance"
 
     // A shortcut capture has awesome holding the keyboard on this window's
@@ -34,18 +34,20 @@ FloatingWindow {
     // no page of its own, and clicking it drills into its sub-list.
     readonly property var pages: [
         { id: "appearance", title: "Appearance", children: [
-            { id: "wallpaper",  title: "Wallpaper",   source: "pages/WallpaperPage.qml" },
-            { id: "windows",    title: "Windows",     source: "pages/WindowsPage.qml" },
-            { id: "nightlight", title: "Night Light", source: "pages/NightLightPage.qml" },
             { id: "display",    title: "Displays",    source: "pages/DisplayPage.qml" },
-            { id: "theme",      title: "Theme",       source: "pages/AppearancePage.qml" }
+            { id: "windows",    title: "Windows",     source: "pages/WindowsPage.qml" },
+            { id: "theme",      title: "Theme",       source: "pages/AppearancePage.qml" },
+            { id: "bar",        title: "Bar",         source: "pages/BarPage.qml" },
+            { id: "startmenu",  title: "Start Menu",  source: "pages/StartMenuPage.qml" },
+            { id: "nightlight", title: "Night Light", source: "pages/NightLightPage.qml" },
+            { id: "wallpaper",  title: "Wallpaper",   source: "pages/WallpaperPage.qml" }
         ] },
-        { id: "bar",           title: "Bar",           source: "pages/BarPage.qml" },
-        { id: "apps",          title: "Apps",          source: "pages/AppsPage.qml" },
         { id: "notifications", title: "Notifications", source: "pages/NotificationsPage.qml" },
         { id: "audio",         title: "Audio",         source: "pages/AudioPage.qml" },
-        { id: "network",       title: "Network",       source: "pages/NetworkPage.qml" },
-        { id: "bluetooth",     title: "Bluetooth",     source: "pages/BluetoothPage.qml" },
+        { id: "connections", title: "Connections", children: [
+            { id: "network",   title: "Network",   source: "pages/NetworkPage.qml" },
+            { id: "bluetooth", title: "Bluetooth", source: "pages/BluetoothPage.qml" }
+        ] },
         { id: "power", title: "Power", children: [
             { id: "lock",       title: "Lock Screen", source: "pages/LockPage.qml" },
             { id: "screenlock", title: "Screen Lock", source: "pages/ScreenLockPage.qml" },

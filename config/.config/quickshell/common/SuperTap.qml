@@ -21,7 +21,7 @@ Singleton {
 
     // Tied to the start button: the tap opens that button's menu, so leaving
     // it live while the button is hidden would be a shortcut to something the
-    // user has put away. AppsPage says so where the switch is.
+    // user has put away. StartMenuPage says so where the switch is.
     readonly property bool enabled: Settings.startSuperKey && Settings.showStart
 
     // Called from shell.qml's startup chain: singletons are lazy, and one
