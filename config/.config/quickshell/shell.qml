@@ -37,6 +37,7 @@ ShellRoot {
         WindowBorders.init();
         SuperTap.init();
         Shortcuts.init();
+        PerformanceMode.init();
     }
 
     // One bar on Settings.barScreen; if it's unset or that output isn't
