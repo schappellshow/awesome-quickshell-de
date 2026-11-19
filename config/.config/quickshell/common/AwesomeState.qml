@@ -27,6 +27,24 @@ Singleton {
     // [{ id, class, instance, name, focused }]
     property var clients: []
 
+    // Every managed normal client on every tag and screen, minimized and
+    // hidden-tag ones included (the bridge's `allClients`), as
+    // [{ id, class, instance, name, screen, output, tags: [..], x, y, width,
+    //    height, floating, minimized, focused, urgent, scratchpad,
+    //    focusRank }]. Geometry is absolute and last-known; focusRank 0 is
+    // the most recently focused window over all screens. `clients` above is
+    // the bar's visible-only view of the same windows.
+    property var allClients: []
+
+    // Output name of the screen with focus: the focused window's, or "" when
+    // nothing has focus. Surfaces that open "where you are" (the switcher,
+    // the shortcut list) place themselves with it and fall back to the bar's
+    // screen.
+    readonly property string focusedOutput: {
+        const c = root.allClients.find(w => w.focused);
+        return c ? (c.output || "") : "";
+    }
+
     // Constant for the life of the awesome process. A change means awesome
     // restarted, which resets every tag to rc.lua's defaults — the signal
     // WindowMode needs to re-impose the configured layouts.
@@ -108,6 +126,32 @@ Singleton {
             + `end end`);
     }
 
+    // The shell_* entry points and friends exported by modules/ (awesome
+    // side). All take the X window id, never an index into a list that may
+    // reorder underneath.
+    function shellFocusClient(windowId) {
+        exec(`shell_focus_client(${windowId})`);
+    }
+
+    function shellViewTag(screenIndex, tagIndex) {
+        exec(`shell_view_tag(${screenIndex}, ${tagIndex})`);
+    }
+
+    function shellMoveClient(windowId, screenIndex, tagIndex) {
+        exec(`shell_move_client(${windowId}, ${screenIndex}, ${tagIndex})`);
+    }
+
+    // Run a registry shortcut by id. Ids are dotted words and are escaped
+    // anyway, since a custom one is user-made.
+    function shortcutRun(id) {
+        exec(`shortcut_run("${String(id).replace(/[\\"]/g, "\\$&")}")`);
+    }
+
+    // End awesome's Alt+Tab key grab (the switcher closed by mouse).
+    function switcherRelease() {
+        exec("switcher_release()");
+    }
+
     // Set the layout of every tag on one screen, matched by output name so
     // it follows the monitor rather than awesome's screen index (which is
     // not stable across restarts or hotplug).
@@ -144,6 +188,7 @@ Singleton {
             const st = JSON.parse(file.text());
             root.screens = st.screens || [];
             root.clients = st.clients || [];
+            root.allClients = st.allClients || [];
             root.epoch = st.epoch || "";
         } catch (e) {
             console.log("AwesomeState: failed to parse state file:", e);

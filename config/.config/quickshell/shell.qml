@@ -13,6 +13,9 @@ import "./power"
 import "./launcher"
 import "./clipboard"
 import "./osd"
+import "./keyhints"
+import "./switcher"
+import "./overview"
 
 ShellRoot {
     // Startup apply chain: settings.json is the source of truth, but X11
@@ -120,8 +123,29 @@ ShellRoot {
     // Session menu — `qs ipc call power toggle`, bound to Super+BackSpace
     PowerMenu {}
 
+    // Searchable shortcut list — `qs ipc call keyhints toggle`, Super+S
+    KeyHints {}
+
+    // Alt+Tab popup — `qs ipc call switcher open|next|prev|accept|cancel`,
+    // driven by awesome's key grab while Alt is held
+    Switcher {}
+
+    // Workspace overview — `qs ipc call overview toggle`, Super+Tab
+    Overview {}
+
     // Volume/brightness pill, driven by the audio/brightness handlers below
     Osd { id: osd }
+
+    // `qs ipc call osd text "<message>"` — the same pill with a message in
+    // place of the level bar, for other parts of the shell (and awesome) to
+    // say something short without a notification.
+    IpcHandler {
+        target: "osd"
+
+        function text(message: string): void {
+            osd.showText(message);
+        }
+    }
 
     // `qs ipc call audio raise|lower|muteToggle` — volume keys in awesome
     IpcHandler {
