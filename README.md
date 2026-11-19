@@ -117,7 +117,8 @@ source builds).
 
 ## Keybindings
 
-`Super+S` (or `Super+F1`) shows this list live, and Settings → Keyboard
+`Super+S` shows this list live (`Super+F1` opens awesome's own cheatsheet,
+which still works without the shell), and Settings → Keyboard
 rebinds any of it — the table below is the defaults.
 
 | Keys | Action |
@@ -125,7 +126,13 @@ rebinds any of it — the table below is the defaults.
 | `Super+Return` | Terminal |
 | `Super+E` | File manager |
 | `Super+Space` | App launcher (rofi) |
-| `Super+Shift+Space` / `Super+Ctrl+Space` | Run command / window switcher |
+| `Super+Shift+Space` / `Super+Ctrl+Space` | Run command / window switcher (rofi) |
+| `Alt+Tab` / `Alt+Shift+Tab` | Window switcher: hold Alt, Tab cycles, release to switch, `Esc` cancels. A quick tap flips between the last two windows |
+| `Super+Tab` | Window overview (was the rofi switcher) |
+| `Super+grave` (the backtick key) | Scratchpad: summon a floating window over the current tag, same key hides it; starts a terminal if empty |
+| `Super+Shift+grave` | Send the focused window to the scratchpad; on the scratchpad itself, take it back out as a tiled window |
+| `Super+Ctrl+F` | Float / tile just this tag (windows keep their positions) |
+| `Super+Alt+G` | Performance mode |
 | `Super+/` · `Super+.` | Clipboard history · emoji picker |
 | `Super+H/J/K/L` | Focus left/down/up/right (crosses monitors) |
 | `Super+Shift+H/J/K/L` | Swap window in that direction |
@@ -135,6 +142,7 @@ rebinds any of it — the table below is the defaults.
 | `Super+Q` · `Super+F` · `Super+M` · `Super+N` | Close · fullscreen · maximise · minimise |
 | `Super+Shift+F` · `Super+T` | Toggle floating · keep on top |
 | `Super+\` | Cycle layout |
+| `Super+S` · `Super+F1` | Shortcut list · awesome's cheatsheet |
 | `Super+Shift+S` | Settings app |
 | `Super+Shift+B` · `Super+Shift+X` · `Super+D` | Notification center · clear · do-not-disturb |
 | `Super+V` · `Super+A` | Calendar · media panel |

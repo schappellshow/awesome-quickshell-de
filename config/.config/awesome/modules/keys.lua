@@ -23,6 +23,9 @@ for keysym, label in pairs({
     hotkeys_widget.default_widget.labels[keysym] = label
 end
 
+local scratchpad = require("modules.scratchpad")
+local tag_float  = require("modules.tag_float")
+
 local modkey = "Mod4"
 local unpack = table.unpack or unpack
 
@@ -63,6 +66,117 @@ local function power_menu_open()
         end
         awful.spawn({ "qs", "ipc", "call", "power", "key", key }, false)
     end)
+end
+
+
+-- ── Alt+Tab switcher keyboard ────────────────────────────────────────────
+-- Same reason as the power menu: the popup is an override-redirect window and
+-- never sees a key. Awesome grabs the keyboard while the chord's modifier is
+-- held and drives quickshell's `switcher` IPC target (open/next/prev/accept/
+-- cancel); the visuals and the choice of window live in QML.
+--
+-- The grab must never strand the keyboard, so every way out is handled HERE
+-- and none of them depends on quickshell answering: Escape cancels, the hold
+-- modifier going up accepts, and a missing `qs` only makes the IPC calls
+-- no-ops.
+local switcher_grabber = nil
+local switcher_hold    = {}     -- modifier names whose release ends the grab
+local switcher_hold_keys = {}   -- ... and the keysyms that release them
+local switcher_chord_key = "Tab"
+
+-- IPC calls are ordered rather than fired together: separate `qs` processes
+-- would otherwise race, and "open" arriving after "accept" is a popup that
+-- never closes. Each call waits for the PID of the one spawned before it.
+-- (Not easy_async: it needs Gio.UnixInputStream, which a broken lgi lacks,
+-- and its callback never fires when the spawn fails.)
+local switcher_last_pid = nil
+local function switcher_ipc(cmd)
+    local wait = ""
+    if switcher_last_pid then
+        wait = string.format("while [ -d /proc/%d ]; do sleep 0.005; done; ",
+            switcher_last_pid)
+    end
+    local pid = awful.spawn.with_shell(
+        wait .. "exec qs ipc call switcher " .. cmd .. " >/dev/null 2>&1")
+    if type(pid) == "number" then switcher_last_pid = pid end
+end
+
+local HOLD_KEYSYMS = {
+    Mod1    = { "Alt_L", "Alt_R", "Meta_L", "Meta_R" },
+    Mod4    = { "Super_L", "Super_R" },
+    Control = { "Control_L", "Control_R" },
+}
+
+local function switcher_release()
+    if switcher_grabber then
+        awful.keygrabber.stop(switcher_grabber)
+        switcher_grabber = nil
+    end
+end
+
+-- The shell calls this when the switcher closes by mouse, so the grab cannot
+-- outlive the popup.
+_G.switcher_release = switcher_release
+
+local function switcher_end(cmd)
+    switcher_release()
+    switcher_ipc(cmd)
+end
+
+local function switcher_handle(mods, key, event)
+    local held = {}
+    for _, m in ipairs(mods) do held[m] = true end
+
+    -- Hold modifier already gone (a tap quicker than the grab, or released
+    -- while the grab was being set up): accept. Checked on every event, so
+    -- the very next key event after the grab ends it.
+    for _, m in ipairs(switcher_hold) do
+        if not held[m] then
+            return switcher_end("accept")
+        end
+    end
+
+    if event == "release" then
+        if switcher_hold_keys[key] then
+            switcher_end("accept")
+        end
+        return
+    end
+
+    if key == "Escape" then
+        switcher_end("cancel")
+    elseif key == "Return" or key == "KP_Enter"
+        or (#switcher_hold == 0 and key == "space") then
+        switcher_end("accept")
+    elseif key == "ISO_Left_Tab" or key == "Left" or key == "Up" then
+        switcher_ipc("prev")
+    elseif key == switcher_chord_key or key == "Tab"
+        or key == "Right" or key == "Down" then
+        switcher_ipc(held.Shift and (key == "Tab" or key == switcher_chord_key)
+            and "prev" or "next")
+    end
+end
+
+local function switcher_open(backwards, chord)
+    local mods, key = M.parse(chord)
+    switcher_hold, switcher_hold_keys = {}, {}
+    for _, m in ipairs(mods or {}) do
+        if HOLD_KEYSYMS[m] then
+            switcher_hold[#switcher_hold + 1] = m
+            for _, k in ipairs(HOLD_KEYSYMS[m]) do
+                switcher_hold_keys[k] = true
+            end
+        end
+    end
+    switcher_chord_key = key or "Tab"
+
+    if switcher_grabber then
+        switcher_ipc(backwards and "prev" or "next")
+        return
+    end
+    switcher_ipc("open")
+    if backwards then switcher_ipc("prev") end
+    switcher_grabber = awful.keygrabber.run(switcher_handle)
 end
 
 -- ── The registry ─────────────────────────────────────────────────────────
@@ -117,8 +231,11 @@ M.registry = {
     -- chord — avoid holding them together).
     { id = "awesome.help",      group = "awesome", label = "show keybindings",
       mods = mods_super, key = "F1", fn = hotkeys_popup.show_help },
-    { id = "awesome.help.alt",  group = "awesome", label = "show keybindings (alt)",
-      mods = mods_super, key = "s", fn = hotkeys_popup.show_help },
+    -- Super+S used to be a second route to the popup above. It now opens the
+    -- shell's own shortcut list; Super+F1 keeps awesome's cheatsheet as the
+    -- fallback that still works when quickshell is not running.
+    { id = "shell.keyhints",    group = "awesome", label = "shortcut list",
+      mods = mods_super, key = "s", fn = ipc("keyhints", "toggle") },
     { id = "awesome.restart",   group = "awesome", label = "reload config",
       mods = mods_super_ctrl, key = "r", fn = awesome.restart },
     { id = "awesome.quit",      group = "awesome", label = "quit awesome",
@@ -143,8 +260,6 @@ M.registry = {
       mods = mods_super_shift, key = "space", fn = spawn("rofi -show run") },
     { id = "launcher.windows",  group = "launcher", label = "window switcher (rofi)",
       mods = mods_super_ctrl, key = "space", fn = spawn("rofi -show window") },
-    { id = "launcher.windows.alt", group = "launcher", label = "window switcher (alt)",
-      mods = mods_super, key = "Tab", fn = spawn("rofi -show window") },
     { id = "launcher.clipboard", group = "launcher", label = "clipboard history",
       mods = mods_super, key = "/",
       fn = spawn("qs ipc call clipboard toggle") },
@@ -175,6 +290,10 @@ M.registry = {
     -- a reboot do not. See the bar IpcHandler in shell.qml.
     { id = "shell.barrecreate", group = "misc", label = "rebuild bar",
       mods = mods_super, key = "b", fn = ipc("bar", "recreate") },
+    { id = "shell.overview",    group = "misc", label = "window overview",
+      mods = mods_super, key = "Tab", fn = ipc("overview", "toggle") },
+    { id = "shell.perf",        group = "misc", label = "toggle performance mode",
+      mods = { modkey, "Mod1" }, key = "g", fn = ipc("perf", "toggle") },
     { id = "shell.media",       group = "media", label = "media player panel",
       mods = mods_super, key = "a", fn = ipc("media", "toggle") },
 
@@ -206,6 +325,23 @@ M.registry = {
       mods = mods_super_shift, key = "k",
       fn = function() awful.client.swap.global_bydirection("up") end },
 
+    -- ── Window switcher (hold the modifier, Tab cycles) ──────────────────
+    -- One entry: Shift added to whatever chord this is cycles backwards. See
+    -- switcher_open. If it is rebound to a chord with no modifier to hold
+    -- there is nothing whose release could end the grab, so it falls back to
+    -- sticky mode: Tab/arrows move, Return or Space accepts, Escape cancels.
+    { id = "client.switcher",   group = "client", label = "window switcher (hold to cycle)",
+      mods = { "Mod1" }, key = "Tab",
+      fn = function(chord) switcher_open(false, chord) end,
+      shift_fn = function(chord) switcher_open(true, chord) end,
+      wants_chord = true },
+
+    -- ── Scratchpad ───────────────────────────────────────────────────────
+    { id = "scratchpad.toggle", group = "client", label = "scratchpad show/hide",
+      mods = mods_super, key = "grave", fn = scratchpad.toggle },
+    { id = "scratchpad.send",   group = "client", label = "send to / take out of scratchpad",
+      mods = mods_super_shift, key = "grave", fn = scratchpad.send },
+
     -- ── Master sizing ────────────────────────────────────────────────────
     { id = "layout.master.shrink", group = "layout", label = "shrink master",
       mods = mods_super_ctrl, key = "h",
@@ -215,6 +351,8 @@ M.registry = {
       fn = function() awful.tag.incmwfact(0.05) end },
 
     -- ── Layout cycling ───────────────────────────────────────────────────
+    { id = "layout.tagfloat", group = "layout", label = "float / tile this tag",
+      mods = mods_super_ctrl, key = "f", fn = function() tag_float.toggle() end },
     { id = "layout.next", group = "layout", label = "next layout",
       mods = mods_super, key = "\\",
       fn = function() awful.layout.inc(1) end },
@@ -399,14 +537,35 @@ end
 -- shortcut and nothing else — but malformed input further in does, and losing
 -- one shortcut to a bad chord beats losing every shortcut after it.
 local function build_key(entry)
-    local mods, key = M.parse(entry_chord(entry))
+    local chord = entry_chord(entry)
+    local mods, key = M.parse(chord)
     if not mods or key == "" then
         return nil
     end
-    local ok, k = pcall(awful.key, mods, key, entry.fn,
+    -- Entries that need to know which chord fired them (the switcher works
+    -- out its hold modifier from it) get it as their only argument.
+    local fn = entry.fn
+    if entry.wants_chord then
+        fn = function() entry.fn(chord) end
+    end
+    local ok, k = pcall(awful.key, mods, key, fn,
         { description = entry.label, group = entry.group })
     if not ok then
         return nil
+    end
+    -- A companion binding with Shift added (reverse direction), unless the
+    -- chord already uses Shift, in which case there is no free variant.
+    if entry.shift_fn then
+        local has = false
+        for _, m in ipairs(mods) do if m == "Shift" then has = true end end
+        if not has then
+            local smods = { "Shift" }
+            for _, m in ipairs(mods) do smods[#smods + 1] = m end
+            local ok2, k2 = pcall(awful.key, smods, key,
+                function() entry.shift_fn(chord) end,
+                { description = entry.label .. " (reverse)", group = entry.group })
+            if ok2 then k = gears.table.join(k, k2) end
+        end
     end
     return k
 end
@@ -531,13 +690,40 @@ function M.apply(payload, custom)
     end
 end
 
-_G.apply_shortcuts = function(payload, custom) M.apply(payload, custom) end
+_G.apply_shortcuts = function(payload, custom)
+    M.apply(payload, custom)
+    M.write_registry()
+end
+
+-- Run a registry shortcut by id, as if its chord had been pressed. Client
+-- shortcuts act on the focused client. For the shell (overview buttons etc.).
+_G.shortcut_run = function(id)
+    for _, entry in ipairs(M.registry) do
+        if entry.id == id then
+            if entry.client then
+                local c = client.focus
+                if not c then return false end
+                entry.fn(c)
+            elseif entry.wants_chord then
+                entry.fn(entry_chord(entry))
+            else
+                entry.fn()
+            end
+            return true
+        end
+    end
+    return false
+end
 
 -- ── Publishing the registry ──────────────────────────────────────────────
 -- Written where quickshell can read it, so Settings -> Keyboard generates
 -- its shortcut list from this file rather than from a copy that would drift.
--- Rewritten on every awesome start, which is also every time this list can
--- have changed.
+-- Rewritten on every awesome start, and again after every apply.
+--
+-- "chord" is the DEFAULT, on purpose: Shortcuts.qml diffs the overrides it
+-- holds against it, so writing the live chord there would make a rebound key
+-- look like its own default and the override would be dropped. The chord
+-- actually bound after overrides goes in "bound" instead.
 local registry_path =
     (os.getenv("XDG_RUNTIME_DIR") or "/tmp") .. "/awesomewm-shortcuts.json"
 
@@ -550,9 +736,10 @@ function M.write_registry()
     local parts = {}
     for _, entry in ipairs(M.registry) do
         parts[#parts + 1] = string.format(
-            '{"id":"%s","group":"%s","label":"%s","chord":"%s","client":%s}',
+            '{"id":"%s","group":"%s","label":"%s","chord":"%s","bound":"%s","client":%s}',
             esc(entry.id), esc(entry.group), esc(entry.label),
-            esc(M.chord(entry.mods, entry.key)), tostring(entry.client == true))
+            esc(M.chord(entry.mods, entry.key)), esc(entry_chord(entry)),
+            tostring(entry.client == true))
     end
     local f = io.open(registry_path, "w")
     if not f then

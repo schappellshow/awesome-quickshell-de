@@ -128,17 +128,23 @@ local pending_until = 0
 local pending_bin   = nil
 local FALLBACK_WINDOW = 8   -- seconds
 
+-- Deferred: both callers run inside the manage signal, before awesome and the
+-- later rules/handlers have finished placing the client.
 local function adopt_new(c)
     pending_until = 0
-    M.adopt(c, false)
-    M.show(c)
+    require("gears").timer.delayed_call(function()
+        if c.valid then
+            M.adopt(c, false)
+            M.show(c)
+        end
+    end)
 end
 
 local function spawn_terminal()
     local cmd = terminal
     pending_bin = (cmd:match("^%S+") or ""):match("[^/]+$"):lower()
     pending_until = os.time() + FALLBACK_WINDOW
-    awful.spawn(cmd, { callback = adopt_new })
+    awful.spawn(cmd, { floating = true }, adopt_new)
 end
 
 client.connect_signal("manage", function(c)
