@@ -74,8 +74,10 @@ Singleton {
         }
     }
 
+    // Performance mode polls a third as often. Reading PerformanceMode here
+    // also brings that singleton to life wherever the monitor is alive.
     Timer {
-        interval: 3000
+        interval: PerformanceMode.active ? 10000 : 3000
         running: true
         repeat: true
         triggeredOnStart: true
