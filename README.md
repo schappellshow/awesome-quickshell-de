@@ -129,9 +129,10 @@ rebinds any of it — the table below is the defaults.
 | `Super+Shift+Space` / `Super+Ctrl+Space` | Run command / window switcher (rofi) |
 | `Alt+Tab` / `Alt+Shift+Tab` | Window switcher: hold Alt, Tab cycles, release to switch, `Esc` cancels. A quick tap flips between the last two windows |
 | `Super+Tab` | Window overview (was the rofi switcher) |
-| `Super+grave` (the backtick key) | Scratchpad: summon a floating window over the current tag, same key hides it; starts a terminal if empty |
-| `Super+Shift+grave` | Send the focused window to the scratchpad; on the scratchpad itself, take it back out as a tiled window |
+| `Super+'` (apostrophe) | Scratchpad: summon a floating window over the current tag, same key hides it; starts a terminal if empty |
+| `Super+Shift+'` | Send the focused window to the scratchpad; on the scratchpad itself, take it back out as a tiled window |
 | `Super+Ctrl+F` | Float / tile just this tag (windows keep their positions) |
+| `Super+left-drag` · `Super+right-drag` | Move · resize the window under the pointer (floating windows) |
 | `Super+Alt+G` | Performance mode |
 | `Super+/` · `Super+.` | Clipboard history · emoji picker |
 | `Super+H/J/K/L` | Focus left/down/up/right (crosses monitors) |

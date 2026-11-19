@@ -338,9 +338,9 @@ M.registry = {
 
     -- ── Scratchpad ───────────────────────────────────────────────────────
     { id = "scratchpad.toggle", group = "client", label = "scratchpad show/hide",
-      mods = mods_super, key = "grave", fn = scratchpad.toggle },
+      mods = mods_super, key = "apostrophe", fn = scratchpad.toggle },
     { id = "scratchpad.send",   group = "client", label = "send to / take out of scratchpad",
-      mods = mods_super_shift, key = "grave", fn = scratchpad.send },
+      mods = mods_super_shift, key = "apostrophe", fn = scratchpad.send },
 
     -- ── Master sizing ────────────────────────────────────────────────────
     { id = "layout.master.shrink", group = "layout", label = "shrink master",
