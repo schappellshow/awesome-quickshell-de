@@ -196,6 +196,8 @@ Scope {
                 }
             }
         }
+        // Dropped on nothing: catch up on whatever changed while frozen.
+        root.refresh();
     }
 
     function moveWindow(id, screenIndex, tagIndex) {
@@ -498,7 +500,6 @@ Scope {
                                         root.dragging = false;
                                         root.dragId = -1;
                                         root.drop(id, g.x, g.y);
-                                        root.refresh();
                                     } else {
                                         root.focusWindow(box.w.id);
                                     }

@@ -66,9 +66,12 @@ PanelWindow {
         const out = [];
         for (const g of Shortcuts.groups()) {
             for (const e of Shortcuts.inGroup(g)) {
+                // `bound` is what awesome has live after overrides; `chord`
+                // is only the default (Settings -> Keyboard diffs against
+                // it). Older registry files have no `bound`.
+                const live = e.bound !== undefined ? e.bound : Shortcuts.chordFor(e.id);
                 out.push({ id: e.id, group: win.groupTitle(g), label: e.label,
-                           raw: Shortcuts.chordFor(e.id),
-                           chord: Shortcuts.pretty(Shortcuts.chordFor(e.id)) });
+                           raw: live, chord: Shortcuts.pretty(live) });
             }
         }
         for (const c of Shortcuts.custom) {
