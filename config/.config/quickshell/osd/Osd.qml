@@ -8,7 +8,11 @@ import "../common"
 Scope {
     id: root
 
+    // "volume", "brightness" or "text". Text shows `message` in place of the
+    // level bar — `qs ipc call osd text "..."`, for anything that wants to
+    // say a short thing without a notification (performance mode, ...).
     property string mode: "volume"
+    property string message: ""
     property bool shown: false
 
     readonly property real level: mode === "volume"
@@ -20,6 +24,10 @@ Scope {
 
     function showVolume() { pop("volume"); }
     function showBrightness() { pop("brightness"); }
+    function showText(msg) {
+        message = msg;
+        pop("text");
+    }
 
     function pop(newMode) {
         mode = newMode;
@@ -37,6 +45,7 @@ Scope {
         model: Quickshell.screens
 
         PanelWindow {
+            id: win
             required property var modelData
 
             screen: modelData
@@ -47,7 +56,11 @@ Scope {
 
             anchors.bottom: true
             margins.bottom: 48
-            implicitWidth: 280
+            // The level pill is a fixed width so it does not jump between
+            // 9% and 100%; a message is as wide as it needs to be.
+            implicitWidth: root.mode === "text"
+                ? Math.max(280, Math.min(win.screen.width - 80, msgMetrics.width + 48))
+                : 280
             implicitHeight: 48
 
             Rectangle {
@@ -57,7 +70,27 @@ Scope {
                 border.width: 1
                 border.color: Theme.surface
 
+                TextMetrics {
+                    id: msgMetrics
+                    text: root.message
+                    font.family: Theme.fontFamily
+                    font.pointSize: 10
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    width: parent.width - 32
+                    visible: root.mode === "text"
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
+                    text: root.message
+                    font.family: Theme.fontFamily
+                    font.pointSize: 10
+                    color: Theme.text
+                }
+
                 Row {
+                    visible: root.mode !== "text"
                     anchors.centerIn: parent
                     spacing: 12
 
