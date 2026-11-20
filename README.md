@@ -251,6 +251,7 @@ AwesomeWM ──┬─ tags/layout state ────▶ $XDG_RUNTIME_DIR/awesom
 | `config/` | `~/.config` | awesome, quickshell, picom, rofi, portal routing, systemd user units |
 | `bin/` | `~/.local` | session scripts + the Settings `.desktop` entry |
 | `session/` | `~` | `.xprofile` (session environment) |
+| `tests/` | not stowed | display tests and the nested test session |
 
 ---
 
@@ -379,3 +380,23 @@ Run `python3 tests/display-integration.py` for offscreen QML pointer-drag
 tests, apply/confirmation/rollback checks and login replay, with a fake
 `xrandr` and isolated settings (requires Quickshell and QtTest). These tests
 never change the real monitor layout.
+
+## Trying a branch in a nested session
+
+`tests/nested-session` runs a checkout's awesome, picom and quickshell on
+a separate X display with its own D-Bus, home and runtime directories and a
+clean environment, so nothing it does reaches the running desktop. Commands
+with system-wide effects (systemctl, nmcli, pactl, lockers, theme writers,
+pkill, ...) are replaced by stubs that only log the call.
+
+```sh
+tests/nested-session start ~/path/to/worktree --xephyr   # visible window
+tests/nested-session run <name> -- awesome-client 'return #client.get()'
+tests/nested-session stop <name>
+```
+
+Without `--xephyr` the display is an invisible Xvfb, useful for scripted
+checks (`run <name> -- xdotool ...`, `run <name> -- import -window root
+shot.png`). Inside Xephyr, Ctrl+Shift grabs the keyboard and mouse. picom
+may repaint stale frames in a nested display, so judge animations and blur on
+the real desktop.

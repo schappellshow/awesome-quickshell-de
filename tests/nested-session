@@ -1,0 +1,283 @@
+#!/usr/bin/env bash
+# nested-session — run a checkout's awesome + picom + quickshell in an
+# isolated nested X session that cannot touch the live desktop. Use it to
+# try a branch or worktree before merging; it is not installed by stow.
+#
+#   tests/nested-session start <worktree> [--name N] [--display :N] [--xvfb|--xephyr]
+#                              [--size WxH] [--no-picom] [--no-qs] [--seed-settings]
+#   tests/nested-session run    <name> -- <command...>
+#   tests/nested-session stop   <name>
+#   tests/nested-session env    <name>   # prints the path of env.sh to `source`
+#   tests/nested-session status
+#
+# Isolation:
+#   * clean environment: the script re-executes itself under `env -i` with a
+#     short whitelist (locale, user, Qt/GTK look-and-feel), so nothing from the
+#     calling shell leaks in: no live DBUS_SESSION_BUS_ADDRESS, SSH agent,
+#     XAUTHORITY, input-method variables, API tokens or tool settings
+#   * own X display (Xvfb by default, invisible; --xephyr opens a window on
+#     your desktop you can use with mouse and keyboard)
+#   * own session D-Bus, own XDG_RUNTIME_DIR (0700), own HOME/XDG_* dirs,
+#     so awesome-client, `qs ipc`, pactl, systemctl --user cannot reach the
+#     live session
+#   * PATH stubs for anything with system-wide or live-session effects
+#     (logind, rfkill, nmcli, systemctl, theme writers, lock, pkill, ...):
+#     they only log to <session>/stub-calls.log and exit 0
+#   * modules/autostart.lua is replaced by an empty module
+#   * `run` refuses unless the command will hit the nested display and the
+#     isolated D-Bus, so xdotool / import / awesome-client cannot land on :0
+#
+# Sessions live under $NESTED_BASE (default /tmp/aqs-nested-<uid>).
+# Xephyr grabs the keyboard and mouse with Ctrl+Shift. picom's GL backend
+# may repaint stale frames in a nested display; judge animation and blur on
+# real hardware.
+set -euo pipefail
+
+# ── clean environment ──
+if [ -z "${NESTED_CLEAN_ENV:-}" ]; then
+    keep=(NESTED_CLEAN_ENV=1 "HOME=$HOME" "USER=${USER:-$(id -un)}"
+          "LOGNAME=${LOGNAME:-$(id -un)}" "PATH=/usr/local/bin:/usr/bin:/bin")
+    for v in SHELL TERM TZ LANG LANGUAGE NESTED_BASE \
+             QT_QPA_PLATFORMTHEME QT_QUICK_CONTROLS_STYLE QT_STYLE_OVERRIDE \
+             GTK_THEME XCURSOR_THEME XCURSOR_SIZE XDG_DATA_DIRS \
+             XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DESKTOP_SESSION; do
+        [ -n "${!v:-}" ] && keep+=("$v=${!v}")
+    done
+    while IFS= read -r v; do keep+=("$v=${!v}"); done < <(compgen -e | grep '^LC_' || true)
+    exec env -i "${keep[@]}" bash "$0" "$@"
+fi
+
+BASE="${NESTED_BASE:-/tmp/aqs-nested-$(id -u)}"
+REAL_HOME="$HOME"
+
+STUBS=(systemctl loginctl rfkill nmcli pactl wpctl pw-metadata gsettings dconf
+       kwriteconfig5 kwriteconfig6 xdg-mime xdg-settings brightnessctl ddcutil
+       gdbus busctl qdbus qdbus6 sudo pkexec espanso backup-plan color-scheme
+       system-theme-apply cursor-theme-apply icon-theme-apply
+       ensure-secret-service autostart-xdg lock-screen lock-image xss-lock
+       xsecurelock i3lock screensaver-inhibitor spectacle pkill killall
+       systemd-inhibit udisksctl bluetoothctl super-tap xcape)
+
+die() { echo "nested-session: $*" >&2; exit 1; }
+
+free_display() {
+    local n=90
+    while [ -e "/tmp/.X11-unix/X$n" ] || [ -e "/tmp/.X$n-lock" ]; do n=$((n+1)); done
+    echo ":$n"
+}
+
+cmd_start() {
+    local wt="" name="" disp="" server="xvfb" size="1600x900" picom=1 qs=1 seed=0
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --name) name="$2"; shift 2 ;;
+            --display) disp="$2"; shift 2 ;;
+            --xvfb) server=xvfb; shift ;;
+            --xephyr) server=xephyr; shift ;;
+            --size) size="$2"; shift 2 ;;
+            --no-picom) picom=0; shift ;;
+            --no-qs) qs=0; shift ;;
+            --seed-settings) seed=1; shift ;;
+            -*) die "unknown option $1" ;;
+            *) wt="$1"; shift ;;
+        esac
+    done
+    [ -n "$wt" ] || die "usage: start <worktree>"
+    wt="$(cd "$wt" && pwd)"
+    local cfg="$wt/config/.config"
+    [ -f "$cfg/awesome/rc.lua" ] || die "$cfg/awesome/rc.lua not found"
+    [ "$(cd "$wt" && pwd)" != "$REAL_HOME/projects/awesome-quickshell-de" ] \
+        || echo "warning: testing the MAIN checkout (live config). Prefer a worktree." >&2
+    name="${name:-$(basename "$wt")}"
+    disp="${disp:-$(free_display)}"
+    local S="$BASE/$name"
+    [ -e "$S/pids" ] && die "session $name already exists; stop it first"
+    mkdir -p "$BASE"; chmod 700 "$BASE"
+    mkdir -p "$S"/{home,config,data,state,cache,stubs,log}
+    # Unix sockets cap at 108 bytes; a long NESTED_BASE would break
+    # quickshell's IPC socket, so the runtime dir lives at a short path.
+    local RUN; RUN="/tmp/aqs-ns-$(id -u)-$name"
+    [ -e "$RUN" ] && die "$RUN exists; stop/clean the old session"
+    mkdir -p "$RUN"; chmod 700 "$RUN"; ln -sfn "$RUN" "$S/run"
+
+    # ── stubs ──
+    for c in "${STUBS[@]}"; do
+        cat > "$S/stubs/$c" <<EOF
+#!/bin/sh
+printf '%s %s\n' "\$(date +%T)" "$c \$*" >> "$S/stub-calls.log"
+exit 0
+EOF
+        chmod +x "$S/stubs/$c"
+    done
+
+    # ── isolated config: worktree code, copies of look-and-feel files ──
+    # awesome: a real dir whose rc.lua is the wrapper, every other entry a
+    # symlink into the worktree, so get_configuration_dir() finds theme.lua
+    mkdir -p "$S/config/awesome"
+    for e in "$cfg/awesome"/* "$cfg/awesome"/.[!.]*; do
+        [ -e "$e" ] || continue
+        [ "$(basename "$e")" = rc.lua ] && continue
+        ln -sfn "$e" "$S/config/awesome/$(basename "$e")"
+    done
+    ln -sfn "$cfg/quickshell" "$S/config/quickshell"
+    ln -sfn "$cfg/picom"      "$S/config/picom"
+    ln -sfn "$cfg/rofi"       "$S/config/rofi"
+    for f in kdeglobals qt6ct qt5ct gtk-3.0 gtk-4.0 fontconfig; do
+        [ -e "$REAL_HOME/.config/$f" ] && cp -rL "$REAL_HOME/.config/$f" "$S/config/" 2>/dev/null || true
+    done
+    # read-mostly assets so fonts/icons/apps render as on the real desktop
+    mkdir -p "$S/data"
+    for d in fonts icons applications; do
+        [ -e "$REAL_HOME/.local/share/$d" ] && ln -sfn "$REAL_HOME/.local/share/$d" "$S/data/$d"
+    done
+    [ -e "$REAL_HOME/.icons" ] && ln -sfn "$REAL_HOME/.icons" "$S/home/.icons"
+    mkdir -p "$S/home/.local"
+    ln -sfn "$S/data"  "$S/home/.local/share"
+    ln -sfn "$S/state" "$S/home/.local/state"
+    ln -sfn "$S/config" "$S/home/.config"
+    ln -sfn "$S/cache" "$S/home/.cache"
+
+    # awesome wrapper: drop autostart, then run the worktree rc.lua
+    cat > "$S/config/awesome/rc.lua" <<EOF
+package.loaded["modules.autostart"] = {}
+package.path = "$cfg/awesome/?.lua;$cfg/awesome/?/init.lua;" .. package.path
+dofile("$cfg/awesome/rc.lua")
+EOF
+
+    # ── env file ──
+    cat > "$S/env.sh" <<EOF
+# source me: isolated nested session '$name' on $disp
+export NESTED_SESSION="$name"
+export DISPLAY="$disp"
+export HOME="$S/home"
+export XDG_CONFIG_HOME="$S/config"
+export XDG_DATA_HOME="$S/data"
+export XDG_STATE_HOME="$S/state"
+export XDG_CACHE_HOME="$S/cache"
+export XDG_RUNTIME_DIR="$RUN"
+export PATH="$S/stubs:$wt/bin/.local/bin:/usr/local/bin:/usr/bin:/bin"
+export AWESOME_SESSION=nested-test
+EOF
+
+    : > "$S/pids"
+    # ── X server ──
+    if [ "$server" = xephyr ]; then
+        Xephyr "$disp" -screen "$size" -resizeable -title "nested: $name ($disp)" \
+            -ac -br -noreset >"$S/log/x.log" 2>&1 &
+    else
+        Xvfb "$disp" -screen 0 "${size}x24" -ac -nolisten tcp \
+            >"$S/log/x.log" 2>&1 &
+    fi
+    echo "x $!" >> "$S/pids"
+    for _ in $(seq 50); do [ -e "/tmp/.X11-unix/X${disp#:}" ] && break; sleep 0.1; done
+    [ -e "/tmp/.X11-unix/X${disp#:}" ] || die "X server did not start (see $S/log/x.log)"
+    if [ "$server" = xvfb ]; then
+        # Xvfb's RandR output defaults to 1280x1024 whatever -screen says;
+        # awesome sizes screens from RandR, so add and select the real mode.
+        local w="${size%x*}" h="${size#*x}"
+        DISPLAY="$disp" xrandr --newmode "$size" 0 "$w" "$w" "$w" "$w" "$h" "$h" "$h" "$h" 2>/dev/null || true
+        DISPLAY="$disp" xrandr --addmode screen "$size" 2>/dev/null || true
+        DISPLAY="$disp" xrandr --output screen --mode "$size" 2>/dev/null || true
+    fi
+
+    # ── everything else runs in the isolated env ──
+    (
+        # shellcheck disable=SC1091
+        . "$S/env.sh"
+        cd "$S/home"
+        eval "$(dbus-daemon --session --fork --print-address=1 --print-pid=1 \
+            | { read -r a; read -r p; echo "export DBUS_SESSION_BUS_ADDRESS='$a'; echo \"dbus $p\" >> '$S/pids'"; })"
+        echo "export DBUS_SESSION_BUS_ADDRESS='$DBUS_SESSION_BUS_ADDRESS'" >> "$S/env.sh"
+
+        awesome -c "$S/config/awesome/rc.lua" >"$S/log/awesome.log" 2>&1 &
+        echo "awesome $!" >> "$S/pids"
+        sleep 1.5
+        if [ "$picom" = 1 ]; then
+            picom --config "$cfg/picom/picom.conf" >"$S/log/picom.log" 2>&1 &
+            echo "picom $!" >> "$S/pids"
+            sleep 1
+            if ! kill -0 $! 2>/dev/null; then
+                echo "picom (glx) exited; retrying with --backend xrender" >> "$S/log/picom.log"
+                picom --config "$cfg/picom/picom.conf" --backend xrender >>"$S/log/picom.log" 2>&1 &
+                echo "picom $!" >> "$S/pids"
+            fi
+        fi
+        if [ "$qs" = 1 ]; then
+            qs >"$S/log/qs.log" 2>&1 &
+            echo "qs $!" >> "$S/pids"
+            if [ "$seed" = 1 ]; then
+                sleep 3
+                local real
+                real="$(ls -t "$REAL_HOME"/.local/state/quickshell/by-shell/*/settings.json 2>/dev/null | head -1 || true)"
+                local mine
+                mine="$(ls -d "$S"/state/quickshell/by-shell/*/ 2>/dev/null | head -1 || true)"
+                if [ -n "$real" ] && [ -n "$mine" ]; then
+                    cp "$real" "$mine/settings.json"   # COPY of the real file; real one untouched
+                    touch "$cfg/quickshell/shell.qml" 2>/dev/null || true
+                    echo "seeded settings from $real" >> "$S/log/qs.log"
+                fi
+            fi
+        fi
+    )
+    echo "$disp" > "$S/display"
+    echo "started '$name' on $disp ($server). source: $S/env.sh"
+    echo "logs: $S/log/  stub calls: $S/stub-calls.log"
+}
+
+cmd_stop() {
+    local name="${1:?usage: stop <name>}" S="$BASE/$1"
+    [ -f "$S/pids" ] || die "no session $name"
+    tac "$S/pids" | while read -r what pid; do
+        # only kill what this harness started (pid recorded at launch)
+        kill "$pid" 2>/dev/null || true
+    done
+    # qs/awesome children (rofi, conky, gammastep...) on this display only
+    local disp; disp="$(cat "$S/display" 2>/dev/null || true)"
+    if [ -n "$disp" ]; then
+        for p in $(pgrep -u "$USER" 2>/dev/null); do
+            if { tr "\\0" "\\n" < "/proc/$p/environ"; } 2>/dev/null | grep -qx "NESTED_SESSION=$name"; then
+                kill "$p" 2>/dev/null || true
+            fi
+        done
+    fi
+    rm -f "$S/pids"
+    rm -rf "/tmp/aqs-ns-$(id -u)-$name"
+    echo "stopped '$name' (files kept in $S)"
+}
+
+cmd_env() { local S="$BASE/${1:?usage: env <name>}"; [ -f "$S/env.sh" ] || die "no session $1"; echo "$S/env.sh"; }
+
+cmd_status() {
+    for S in "$BASE"/*/; do
+        [ -f "$S/pids" ] || continue
+        echo "== $(basename "$S") on $(cat "$S/display" 2>/dev/null)"
+        while read -r what pid; do
+            printf '  %-8s %-7s %s\n' "$what" "$pid" "$(kill -0 "$pid" 2>/dev/null && echo running || echo gone)"
+        done < "$S/pids"
+    done
+}
+
+# run <name> -- cmd...   execute a command inside the session's isolated env.
+# Refuses unless DISPLAY is the session's own nested display, so xdotool /
+# import / awesome-client / qs ipc can never land on the live :0.
+cmd_run() {
+    local name="${1:?usage: run <name> -- cmd...}"; shift
+    [ "${1:-}" = "--" ] && shift
+    local S="$BASE/$name"
+    [ -f "$S/pids" ] || die "session $name is not running"
+    # shellcheck disable=SC1091
+    . "$S/env.sh"
+    [ "$DISPLAY" = "$(cat "$S/display")" ] && [ "$DISPLAY" != ":0" ] \
+        || die "refusing: DISPLAY=$DISPLAY is not the nested display"
+    [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || die "refusing: no isolated D-Bus"
+    exec "$@"
+}
+
+case "${1:-}" in
+    start) shift; cmd_start "$@" ;;
+    stop) shift; cmd_stop "$@" ;;
+    env) shift; cmd_env "$@" ;;
+    run) shift; cmd_run "$@" ;;
+    status) cmd_status ;;
+    *) sed -n '2,32p' "$0"; exit 1 ;;
+esac
