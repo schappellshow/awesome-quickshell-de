@@ -60,6 +60,13 @@ Singleton {
     // The performance-mode indicator; it only appears while the mode is on
     property alias showPerfIndicator: adapter.showPerfIndicator
 
+    // CPU/RAM readout: "busy" shows each figure only while it is high,
+    // "always" is the permanent readout. Thresholds are percentages; the
+    // readout goes away again 15 points below them (see common/SysMon.qml).
+    property alias sysmonMode: adapter.sysmonMode
+    property alias sysmonCpuThreshold: adapter.sysmonCpuThreshold
+    property alias sysmonRamThreshold: adapter.sysmonRamThreshold
+
     // System monitor popout (conky)
     property alias conkyConfig: adapter.conkyConfig
 
@@ -280,6 +287,11 @@ Singleton {
             property bool showNightLight: true
             property bool showPerfIndicator: true
             property string conkyConfig: ""
+            // "busy" | "always". New key, so an existing settings.json gets
+            // the default (busy) without a migration.
+            property string sysmonMode: "busy"
+            property int sysmonCpuThreshold: 80
+            property int sysmonRamThreshold: 85
 
             property int notifTimeoutMs: 6000
             property bool doNotDisturb: false
