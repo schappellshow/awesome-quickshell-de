@@ -59,6 +59,25 @@ SettingsPage {
         }
     }
 
+    ToggleRow {
+        label: "Auto-hide the bar"
+        checked: Settings.barAutoHide
+        onToggled: value => Settings.barAutoHide = value
+    }
+
+    Text {
+        width: parent.width
+        text: "The bar slides out of view and windows use its space. Move "
+            + "the pointer to the screen edge to bring it back; it stays "
+            + "while the pointer is on it or one of its menus is open. "
+            + "Over a fullscreen window the pointer has to rest on the edge "
+            + "for a moment first."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
     SectionLabel { text: "SECTIONS" }
 
     Text {

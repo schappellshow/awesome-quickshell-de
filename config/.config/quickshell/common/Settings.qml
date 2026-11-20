@@ -34,6 +34,9 @@ Singleton {
     property alias barPosition: adapter.barPosition
     property alias barWidth: adapter.barWidth
     property alias barScreen: adapter.barScreen
+    // Slide the bar out of the way until the pointer hits its screen edge;
+    // windows then get the strip it used to reserve (see bar/Bar.qml)
+    property alias barAutoHide: adapter.barAutoHide
     property alias barOpacity: adapter.barOpacity
     property alias barBlur: adapter.barBlur
     // "" = follow Theme.fontFamily
@@ -244,6 +247,9 @@ Singleton {
             // Output name (e.g. "DisplayPort-2") for a single bar;
             // "" or an unplugged output falls back to bars on every screen
             property string barScreen: ""
+            // Off by default: the bar reserves its strip and stays put,
+            // exactly as before this setting existed.
+            property bool barAutoHide: false
             // Bar background opacity, 0-100. 0 = the stock look: an
             // invisible bar with opaque pills floating on the desktop.
             // 100 = a solid bar, where the pills share its colour and read
