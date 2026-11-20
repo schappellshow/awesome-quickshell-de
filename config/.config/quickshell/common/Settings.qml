@@ -102,6 +102,13 @@ Singleton {
     // An unset defaultLayout deliberately leaves awesome alone, which keeps
     // rc.lua's orientation heuristic (portrait monitors get tile.bottom).
     property alias windowMode: adapter.windowMode
+    // Window animations: "off" | "subtle" | "lively" — the picom preset
+    // (see common/PerformanceMode.qml, config/.config/picom/anim-*.conf).
+    property alias windowAnimations: adapter.windowAnimations
+    // Performance mode switches itself on while GameMode reports a game.
+    // Whether it is ON is deliberately not stored: it never survives a
+    // restart.
+    property alias perfAutoGame: adapter.perfAutoGame
     property alias borderWidth: adapter.borderWidth
     property alias borderRadius: adapter.borderRadius
     property alias defaultLayout: adapter.defaultLayout
@@ -321,6 +328,8 @@ Singleton {
             // layout everywhere and disables the per-monitor choices.
             property string windowMode: "tiling"
             property string defaultLayout: ""
+            property string windowAnimations: "subtle"
+            property bool perfAutoGame: true
             property var monitorLayouts: ({})
 
             // Window outline. Colours are not stored here — they follow the

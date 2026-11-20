@@ -150,6 +150,63 @@ SettingsPage {
         color: Theme.muted
     }
 
+    SectionLabel { text: "ANIMATION" }
+
+    ComboRow {
+        label: "Window animations"
+        options: [
+            { label: "Off",    value: "off" },
+            { label: "Subtle", value: "subtle" },
+            { label: "Lively", value: "lively" }
+        ]
+        current: Settings.windowAnimations
+        onSelected: value => Settings.windowAnimations = value
+    }
+
+    Text {
+        width: parent.width
+        text: "Windows grow and fade in when they open, shrink and fade out "
+            + "when they close or a tag switch hides them, and glide when "
+            + "the layout moves or resizes them. Subtle is short with a "
+            + "small scale; Lively is longer with more movement. The bar, "
+            + "popups, rofi, notifications and fullscreen windows are never "
+            + "animated. Applies immediately."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
+    SectionLabel { text: "PERFORMANCE" }
+
+    ToggleRow {
+        label: "Performance mode"
+        checked: PerformanceMode.active
+        onToggled: value => PerformanceMode.set(value)
+    }
+
+    ToggleRow {
+        label: "Turn on automatically while a game runs"
+        checked: Settings.perfAutoGame
+        onToggled: value => Settings.perfAutoGame = value
+    }
+
+    Text {
+        width: parent.width
+        text: "Performance mode turns off blur, shadows, fades, animations "
+            + "and inactive-window transparency, lets fullscreen windows "
+            + "bypass the compositor, and makes the system monitor poll "
+            + "less often. Super+Alt+G toggles it. The automatic option "
+            + "follows Feral GameMode: it switches on when a game starts "
+            + "under gamemoderun and off when the last one ends, unless you "
+            + "turned it on yourself. Whether it is on is never remembered "
+            + "across a restart; your animation choice above is."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
     SectionLabel { text: "NOTE" }
 
     Text {
