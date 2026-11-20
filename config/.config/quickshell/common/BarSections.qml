@@ -34,6 +34,7 @@ Singleton {
         { id: "clock",         label: "Clock",              slot: "center" },
         { id: "media",         label: "Media button",       slot: "end"    },
         { id: "tray",          label: "System tray",        slot: "end"    },
+        { id: "drives",        label: "Removable drives",   slot: "end"    },
         { id: "notifications", label: "Notification bell",  slot: "end"    },
         { id: "volume",        label: "Volume",             slot: "end"    },
         { id: "network",       label: "Network",            slot: "end"    },
@@ -58,6 +59,7 @@ Singleton {
         "clock":         Settings.showClock,
         "media":         Settings.showMediaPill,
         "tray":          Settings.showTray,
+        "drives":        Settings.showDrives,
         "notifications": Settings.showNotifBell,
         "volume":        Settings.showVolume,
         "network":       Settings.showNetwork,
@@ -236,6 +238,7 @@ Singleton {
         case "clock":         Settings.showClock      = value; break;
         case "media":         Settings.showMediaPill  = value; break;
         case "tray":          Settings.showTray       = value; break;
+        case "drives":        Settings.showDrives     = value; break;
         case "notifications": Settings.showNotifBell  = value; break;
         case "volume":        Settings.showVolume     = value; break;
         case "network":       Settings.showNetwork    = value; break;

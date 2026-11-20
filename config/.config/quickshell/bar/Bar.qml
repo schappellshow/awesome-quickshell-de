@@ -270,6 +270,7 @@ PanelWindow {
             visible: Settings.showTray
         }
 
+        DrivesWidget { id: drivesWidget; barWindow: bar }
         NotifBell { id: notifBell }
         VolumeWidget { id: volumeWidget }
         NetworkWidget { id: networkWidget }
@@ -300,6 +301,7 @@ PanelWindow {
         "clock":         clockGroup,
         "media":         mediaButton,
         "tray":          traySection,
+        "drives":        drivesWidget,
         "notifications": notifBell,
         "volume":        volumeWidget,
         "network":       networkWidget,
@@ -382,6 +384,13 @@ PanelWindow {
         anchorItem: networkWidget
         shown: networkWidget.panelOpen
         onDismiss: networkWidget.panelOpen = false
+    }
+
+    DrivesPanel {
+        barWindow: bar
+        anchorItem: drivesWidget
+        shown: drivesWidget.panelOpen && drivesWidget.visible
+        onDismiss: drivesWidget.panelOpen = false
     }
 
     BluetoothPanel {

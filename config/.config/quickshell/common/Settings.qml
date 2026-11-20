@@ -59,6 +59,8 @@ Singleton {
     property alias showNightLight: adapter.showNightLight
     // The performance-mode indicator; it only appears while the mode is on
     property alias showPerfIndicator: adapter.showPerfIndicator
+    // The removable-drives pill; it only appears while a drive is plugged in
+    property alias showDrives: adapter.showDrives
 
     // CPU/RAM readout: "busy" shows each figure only while it is high,
     // "always" is the permanent readout. Thresholds are percentages; the
@@ -286,6 +288,7 @@ Singleton {
             property bool showScreenLock: true
             property bool showNightLight: true
             property bool showPerfIndicator: true
+            property bool showDrives: true
             property string conkyConfig: ""
             // "busy" | "always". New key, so an existing settings.json gets
             // the default (busy) without a migration.
