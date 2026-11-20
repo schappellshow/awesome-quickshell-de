@@ -57,6 +57,8 @@ Singleton {
     property alias showSysMon: adapter.showSysMon
     property alias showScreenLock: adapter.showScreenLock
     property alias showNightLight: adapter.showNightLight
+    // The performance-mode indicator; it only appears while the mode is on
+    property alias showPerfIndicator: adapter.showPerfIndicator
 
     // System monitor popout (conky)
     property alias conkyConfig: adapter.conkyConfig
@@ -276,6 +278,7 @@ Singleton {
             property bool showSysMon: true
             property bool showScreenLock: true
             property bool showNightLight: true
+            property bool showPerfIndicator: true
             property string conkyConfig: ""
 
             property int notifTimeoutMs: 6000

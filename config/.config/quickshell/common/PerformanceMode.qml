@@ -46,6 +46,11 @@ Singleton {
         Settings.perfAutoGame && gameCount > 0 && !gameSuppressed
     readonly property bool active: manual || gameDriven
 
+    // Why it is on, for the bar indicator's tooltip: "manual" (by hand,
+    // even if a game is also running), "game" (only because GameMode
+    // reports one) or "" (off).
+    readonly property string reason: manual ? "manual" : gameDriven ? "game" : ""
+
     // Called from shell.qml's startup chain, if it chooses to: singletons
     // are lazy. SysMon also touches `active`, which brings this to life
     // wherever the system monitor is alive.

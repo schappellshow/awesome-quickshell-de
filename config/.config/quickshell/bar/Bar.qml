@@ -281,6 +281,7 @@ PanelWindow {
         NightLightWidget { id: nightLightWidget }
 
         ScreenLockWidget { id: screenLockWidget }
+        PerfWidget { id: perfWidget; barWindow: bar }
         Battery { id: batteryWidget }
 
         LayoutBox {
@@ -306,6 +307,7 @@ PanelWindow {
         "sysmon":        sysMonWidget,
         "nightlight":    nightLightWidget,
         "lock":          screenLockWidget,
+        "perf":          perfWidget,
         "battery":       batteryWidget,
         "layout":        layoutBox
     })
