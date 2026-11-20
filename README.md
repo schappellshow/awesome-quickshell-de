@@ -152,9 +152,40 @@ rebinds any of it — the table below is the defaults.
 | `Super+Shift+T` · `Super+Shift+N` | Dark/light mode · night light |
 | `Super+Shift+M` | System monitor popout (conky, optional) |
 | `Super+BackSpace` · `Ctrl+Alt+L` | Power menu · lock now |
-| `Print` · `Shift+Print` | Screenshot region · full |
+| `Print` · `Shift+Print` | Screenshot region (spectacle) · full |
+| `Alt+Print` | Screenshot menu — see [Screenshots](#screenshots) |
 | `Super+Ctrl+R` · `Super+Ctrl+Q` | Reload awesome · quit |
 | `Super` (tap alone) | Start menu — off by default, Settings → Apps |
+
+---
+
+## Screenshots
+
+`Alt+Print` opens the screenshot menu (`Print` and `Shift+Print` still run
+spectacle, unchanged). On a 60% board where Print is `Fn+K`, hold Right Alt:
+X receives `Alt_R` + `Sys_Req`, so the menu is bound to both `Alt+Sys_Req`
+and `Alt+Print`; either is rebindable in Settings → Keyboard.
+
+Menu (keys, mouse, or `Up`/`Down` + `Enter`; `Esc` or a click outside closes):
+**R**egion, **W**indow (the one focused when the menu opened), **S**creen
+(monitor under the pointer), **A**ll screens, **T**ext (OCR), **C**olour
+picker, and a delay of none / 3 / 5 / 10 s (`Left`/`Right`/`D`) for the four
+captures, with a countdown pill (click it to cancel). The menu is gone
+before the grab. Captures go to `~/Pictures/Screenshots/` as PNG, onto the
+clipboard as an image (kept alive by an `xclip` holder until something else
+is copied), and a notification offers *Open* / *Show in folder*. Text
+recognition copies the text and shows its first lines; the colour picker
+shows a magnifier, copies `#rrggbb` and shows a swatch.
+
+All of it runs on one frozen grab of the screen, so a region is cut from
+exactly the pixels you dragged over, across monitors. Scripting:
+`qs ipc call screenshot capture region|window|screen|all|ocr|color [delay]`,
+or `screenshot now screen` outside the shell. Needs ImageMagick, `xclip`,
+`xdotool`, `notify-send`; OCR needs `tesseract` with English data.
+
+Note: tesseract 5.5.4 as packaged on OpenMandriva crashes (SIGFPE in
+`compute_block_xheight`) unless `-c textord_old_xheight=1` is passed, which
+the script does.
 
 ---
 

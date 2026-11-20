@@ -69,6 +69,47 @@ local function power_menu_open()
 end
 
 
+-- ── Screenshot menu keyboard ─────────────────────────────────────────────
+-- Same arrangement as the power menu: the menu and the region / colour
+-- overlays are override-redirect windows that never see a key, so awesome
+-- holds the keyboard while they are up and forwards keysyms to
+-- `qs ipc call screenshot key`. Unlike the power menu the grab comes and
+-- goes WITHIN one session: it is released for the capture delay (that time
+-- is for arranging the scene, so the keyboard must work) and taken again
+-- for the overlay. Screenshot.qml drives that through awesome-client; the
+-- two globals below are its API. Escape also releases here, so a dead
+-- quickshell cannot strand the keyboard.
+local screenshot_grabber = nil
+
+local function screenshot_release()
+    if screenshot_grabber then
+        awful.keygrabber.stop(screenshot_grabber)
+        screenshot_grabber = nil
+    end
+end
+
+local function screenshot_grab()
+    screenshot_release()
+    screenshot_grabber = awful.keygrabber.run(function(_, key, event)
+        if event ~= "press" then
+            return
+        end
+        if key == "Escape" then
+            screenshot_release()
+        end
+        awful.spawn({ "qs", "ipc", "call", "screenshot", "key", key }, false)
+    end)
+end
+
+_G.screenshot_grab    = screenshot_grab
+_G.screenshot_release = screenshot_release
+
+local function screenshot_menu()
+    screenshot_grab()
+    awful.spawn({ "qs", "ipc", "call", "screenshot", "menu" }, false)
+end
+
+
 -- ── Alt+Tab switcher keyboard ────────────────────────────────────────────
 -- Same reason as the power menu: the popup is an override-redirect window and
 -- never sees a key. Awesome grabs the keyboard while the chord's modifier is
@@ -421,6 +462,22 @@ else
     scrot '%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/Pictures/Screenshots/'
 fi]])
       end },
+
+    -- Screenshot menu (region, window, screen, text, colour; delay).
+    -- Two entries because of how a 60% board delivers the key: Print is
+    -- Fn+K, and with Right Alt held X sees Alt_R + the keysym `Sys_Req`
+    -- (the Print key's Alt level, "PC_ALT_LEVEL2" in the pc105 map), not
+    -- Print. The kernel's magic-SysRq filter (kernel.sysrq) also holds
+    -- Alt+SysRq back and re-injects it on release, so the press reaches X
+    -- when the keys are let go. A full keyboard sends plain Alt+Print.
+    -- Both are ordinary registry entries: rebind or clear either in
+    -- Settings -> Keyboard. The Print / Shift+Print spectacle bindings
+    -- above are untouched.
+    { id = "misc.screenshot.menu", group = "misc", label = "screenshot menu",
+      mods = { "Mod1" }, key = "Sys_Req", fn = screenshot_menu },
+    { id = "misc.screenshot.menu.print", group = "misc",
+      label = "screenshot menu (Alt+Print)",
+      mods = { "Mod1" }, key = "Print", fn = screenshot_menu },
 
     -- ── Media controls ───────────────────────────────────────────────────
     { id = "media.playpause", group = "media", label = "play/pause",

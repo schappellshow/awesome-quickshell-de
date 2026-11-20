@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+# screenshot — capture helper behind the quickshell screenshot menu
+# (config/.config/quickshell/screenshot/). Alt+Print opens the menu; the
+# menu and its overlays call this for everything that touches pixels,
+# files, the clipboard or notifications, so each step can also be run and
+# tested by hand.
+#
+#   screenshot freeze                 grab every screen into the work dir,
+#                                     print the file's path
+#   screenshot geometry <what>        print WxH+X+Y for: all | screen |
+#                                     window <xid>   (screen = monitor under
+#                                     the pointer)
+#   screenshot save <WxH+X+Y>         crop the frozen grab, save it under
+#                                     ~/Pictures/Screenshots, copy the image
+#                                     to the clipboard, notify
+#   screenshot ocr <WxH+X+Y>          recognise text in the region, copy it
+#                                     as text, notify with the first lines
+#   screenshot color <X> <Y>          copy the pixel's #rrggbb, notify with
+#                                     a swatch
+#   screenshot now <what> [xid]       freeze + geometry + save in one go
+#
+# Everything works on ONE frozen grab of the root window, so the region
+# the user dragged is cropped from exactly the pixels they saw, however
+# long they took and whatever moved meanwhile. Coordinates are the X
+# screen's, which is what quickshell reports for each screen and what
+# `xrandr --listmonitors` prints, so rotated and scaled layouts need no
+# special handling here.
+#
+# The clipboard: an X11 selection is served by the process that owns it
+# and vanishes when that process exits. xclip forks into the background
+# after being handed the data and stays until somebody else takes the
+# selection, which is the holder this needs; it is detached with setsid so
+# it outlives the menu, quickshell and this script.
+set -u
+
+work="${XDG_RUNTIME_DIR:-/tmp}/screenshot"
+frozen="$work/frozen.png"
+shots="${SCREENSHOT_DIR:-$HOME/Pictures/Screenshots}"
+mkdir -p "$work"
+
+die() { echo "screenshot: $*" >&2; exit 1; }
+
+notify() {  # notify <title> <body> [icon]
+    local args=(-a Screenshot)
+    [ -n "${3:-}" ] && args+=(-i "$3")
+    notify-send "${args[@]}" "$1" "$2" >/dev/null 2>&1 || true
+}
+
+# Put stdin-less data on the clipboard and leave a holder running.
+# clip_image <png>   clip_text <string>
+clip_image() {
+    setsid -f xclip -selection clipboard -t image/png -i "$1" >/dev/null 2>&1 </dev/null
+}
+clip_text() {
+    printf '%s' "$1" | setsid -f xclip -selection clipboard -i >/dev/null 2>&1
+}
+
+freeze() {
+    import -window root "$frozen" 2>/dev/null || die "could not grab the screen"
+    echo "$frozen"
+}
+
+# Monitors as "name x y w h", from RandR monitors so a split-up screen
+# (xrandr --setmonitor) is seen the way awesome sees it.
+monitors() {
+    xrandr --listmonitors 2>/dev/null | awk '
+        NR > 1 {
+            # 800/211x900/238+0+0 -> w, mm, h, mm, x, y
+            split($3, g, /[\/x+]/)
+            sub(/^[+*]+/, "", $2)
+            printf "%s %d %d %d %d\n", $2, g[5], g[6], g[1], g[3]
+        }'
+}
+
+root_geometry() {
+    xdpyinfo 2>/dev/null | awk '/dimensions:/ { split($2, d, "x"); print d[1] "x" d[2] "+0+0"; exit }'
+}
+
+geometry() {
+    case "$1" in
+    all)
+        local g; g=$(root_geometry)
+        [ -n "$g" ] || g=$(magick identify -format '%wx%h+0+0' "$frozen" 2>/dev/null)
+        echo "$g" ;;
+    screen)
+        eval "$(xdotool getmouselocation --shell 2>/dev/null)"
+        local _name x y w h found=""
+        while read -r _name x y w h; do
+            if [ "${X:-0}" -ge "$x" ] && [ "${X:-0}" -lt $((x + w)) ] \
+               && [ "${Y:-0}" -ge "$y" ] && [ "${Y:-0}" -lt $((y + h)) ]; then
+                found="${w}x${h}+${x}+${y}"; break
+            fi
+        done < <(monitors)
+        [ -n "$found" ] || found=$(geometry all)
+        echo "$found" ;;
+    window)
+        [ -n "${2:-}" ] || die "window needs an id"
+        # xwininfo reports the client area's absolute corner; the border
+        # sits outside it, so widen the crop by it.
+        xwininfo -id "$2" 2>/dev/null | awk '
+            /Absolute upper-left X/ { x = $NF }
+            /Absolute upper-left Y/ { y = $NF }
+            /Width:/                { w = $NF }
+            /Height:/               { h = $NF }
+            /Border width:/         { b = $NF }
+            END {
+                if (w == "") exit 1
+                printf "%dx%d+%d+%d\n", w + 2*b, h + 2*b, x - b, y - b
+            }' ;;
+    *) die "unknown geometry: $1" ;;
+    esac
+}
+
+# Clamp a WxH+X+Y to the grab, so a drag that ran off an edge still works.
+clamp() {
+    local g="$1" iw ih
+    read -r iw ih < <(magick identify -format '%w %h' "$frozen" 2>/dev/null)
+    [[ "$g" =~ ^([0-9]+)x([0-9]+)\+(-?[0-9]+)\+(-?[0-9]+)$ ]] || die "bad geometry: $g"
+    local w=${BASH_REMATCH[1]} h=${BASH_REMATCH[2]} x=${BASH_REMATCH[3]} y=${BASH_REMATCH[4]}
+    [ "$x" -lt 0 ] && { w=$((w + x)); x=0; }
+    [ "$y" -lt 0 ] && { h=$((h + y)); y=0; }
+    [ $((x + w)) -gt "$iw" ] && w=$((iw - x))
+    [ $((y + h)) -gt "$ih" ] && h=$((ih - y))
+    [ "$w" -gt 0 ] && [ "$h" -gt 0 ] || die "empty region"
+    echo "${w}x${h}+${x}+${y}"
+}
+
+# A free name; two shots in one second get -2, -3, ...
+newfile() {
+    mkdir -p "$shots"
+    local base f n=1
+    base="$shots/Screenshot_$(date +%Y-%m-%d_%H-%M-%S)"
+    f="$base.png"
+    while [ -e "$f" ]; do n=$((n + 1)); f="$base-$n.png"; done
+    echo "$f"
+}
+
+# Notification with Open / Folder buttons. notify-send -A has to wait for
+# the answer, so it runs detached and does the opening itself.
+notify_saved() {  # <file> <title>
+    local file="$1" title="$2"
+    (
+        ans=$(notify-send -a Screenshot -i "$file" -A open=Open -A folder="Show in folder" \
+              -w "$title" "${file/#$HOME/\~}" 2>/dev/null)
+        case "$ans" in
+            open)   xdg-open "$file" >/dev/null 2>&1 ;;
+            folder) xdg-open "$(dirname "$file")" >/dev/null 2>&1 ;;
+        esac
+    ) >/dev/null 2>&1 </dev/null &
+    disown 2>/dev/null || true
+}
+
+save() {
+    [ -f "$frozen" ] || die "nothing frozen; run 'screenshot freeze' first"
+    local g; g=$(clamp "$1") || exit 1
+    local out; out=$(newfile)
+    magick "$frozen" -crop "$g" +repage "$out" || die "could not write $out"
+    clip_image "$out"
+    notify_saved "$out" "Screenshot saved"
+    echo "$out"
+}
+
+find_tessdata() {
+    local d
+    for d in "${TESSDATA_PREFIX:-}" /usr/share/tessdata /usr/share/tessdata/tessdata \
+             /usr/share/tesseract-ocr/*/tessdata /usr/local/share/tessdata; do
+        [ -n "$d" ] && [ -f "$d/eng.traineddata" ] && { echo "$d"; return; }
+    done
+}
+
+ocr() {
+    [ -f "$frozen" ] || die "nothing frozen; run 'screenshot freeze' first"
+    command -v tesseract >/dev/null 2>&1 || {
+        notify "Text capture unavailable" "tesseract is not installed"; die "no tesseract"; }
+    local g; g=$(clamp "$1") || exit 1
+    local img="$work/ocr.png" tess=(tesseract "$work/ocr.png" stdout) data
+    # Small text reads far better enlarged; light-on-dark reads better
+    # inverted (tesseract is trained on dark text on light paper).
+    magick "$frozen" -crop "$g" +repage -colorspace Gray -resize 250% -normalize "$img"
+    local mean; mean=$(magick "$img" -format '%[fx:mean]' info: 2>/dev/null)
+    awk -v m="${mean:-1}" 'BEGIN { exit !(m < 0.5) }' && magick "$img" -negate "$img"
+    # A white margin (the image is dark-on-light by now): tesseract
+    # misreads glyphs that touch the image edge, and a tight drag usually
+    # does.
+    magick "$img" -bordercolor white -border 24 "$img"
+    data=$(find_tessdata)
+    [ -n "$data" ] && tess+=(--tessdata-dir "$data")
+    # textord_old_xheight=1: tesseract 5.5.4 as packaged here dies with
+    # SIGFPE in Textord::compute_block_xheight on every image with the
+    # default x-height code (psm 3/6/7/13 alike, with or without
+    # --tessdata-dir). The older algorithm does not hit it and reads the
+    # same text. Harmless on a build without the bug.
+    tess+=(-l eng --psm 6 -c textord_old_xheight=1)
+    local text
+    text=$("${tess[@]}" 2>/dev/null) || text=""
+    # Trim blank lines and trailing space.
+    text=$(printf '%s\n' "$text" | sed -e 's/[[:space:]]*$//' | sed -e :a -e '/./,$!d' | sed -e :b -e '/^\n*$/{$d;N;bb}')
+    if [ -z "${text//[[:space:]]/}" ]; then
+        notify "No text recognised" "${data:+Nothing legible in the selection.}${data:-No OCR language data found for tesseract (eng.traineddata).}"
+        echo "" ; exit 2
+    fi
+    clip_text "$text"
+    notify "Text copied" "$(printf '%s\n' "$text" | head -n 2)"
+    printf '%s\n' "$text"
+}
+
+color() {
+    [ -f "$frozen" ] || die "nothing frozen; run 'screenshot freeze' first"
+    local x="$1" y="$2" hex iw ih
+    [[ "$x" =~ ^[0-9]+$ && "$y" =~ ^[0-9]+$ ]] || die "bad pixel: $x,$y"
+    read -r iw ih < <(magick identify -format '%w %h' "$frozen" 2>/dev/null)
+    [ "$x" -lt "${iw:-0}" ] && [ "$y" -lt "${ih:-0}" ] || die "no pixel at $x,$y"
+    hex=$(magick "$frozen" -format "%[hex:u.p{$x,$y}]" info: 2>/dev/null | cut -c1-6)
+    [[ "$hex" =~ ^[0-9A-Fa-f]{6}$ ]] || die "no pixel at $x,$y"
+    hex="#$(printf '%s' "$hex" | tr 'A-F' 'a-f')"
+    local sw="$work/swatch.png"
+    magick -size 64x64 "xc:$hex" "$sw" 2>/dev/null
+    clip_text "$hex"
+    notify "Colour $hex" "Copied to the clipboard" "$sw"
+    echo "$hex"
+}
+
+case "${1:-}" in
+    freeze)   freeze ;;
+    geometry) shift; geometry "$@" ;;
+    save)     save "${2:?geometry}" ;;
+    ocr)      ocr "${2:?geometry}" ;;
+    color)    color "${2:?x}" "${3:?y}" ;;
+    now)
+        what="${2:?all|screen|window}"
+        # Geometry first: it reads the pointer / window, and is cheap.
+        g=$(geometry "$what" "${3:-}") || die "no geometry for $what"
+        freeze >/dev/null
+        save "$g" ;;
+    *) sed -n '2,/^set -u/p' "$0" | sed 's/^# \{0,1\}//; /^set -u/d' >&2; exit 64 ;;
+esac
