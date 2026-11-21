@@ -69,6 +69,32 @@ SettingsPage {
         color: Theme.muted
     }
 
+    SectionLabel { text: "QUICK-ACTIONS RING" }
+
+    ToggleRow {
+        label: "Quick-actions ring"
+        checked: Settings.ringEnabled
+        onToggled: value => Settings.ringEnabled = value
+    }
+
+    Text {
+        width: parent.width
+        text: "Super + middle-click opens a ring of actions around the "
+            + "pointer. Click one, or hold the button, move toward an "
+            + "action and let go over it; letting go in the middle or "
+            + "outside the ring cancels. Escape or a click outside also "
+            + "cancels. Window actions apply to the window under the "
+            + "pointer and are grayed out over the bare desktop. Up to "
+            + RingActions.maxItems + " actions; bind a key to open it "
+            + "at the pointer under Keyboard."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
+    RingActionsEditor { visible: Settings.ringEnabled }
+
     SectionLabel { text: "CURSOR" }
 
     ComboRow {

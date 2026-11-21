@@ -39,3 +39,4 @@ singleton PerformanceMode PerformanceMode.qml
 singleton Drives Drives.qml
 singleton WallpaperPalette WallpaperPalette.qml
 singleton RofiColors RofiColors.qml
+singleton RingActions RingActions.qml

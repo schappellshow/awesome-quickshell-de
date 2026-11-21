@@ -17,6 +17,7 @@ import "./keyhints"
 import "./switcher"
 import "./overview"
 import "./screenshot"
+import "./ring"
 
 ShellRoot {
     // Startup apply chain: settings.json is the source of truth, but X11
@@ -140,6 +141,10 @@ ShellRoot {
     // Screenshot menu — `qs ipc call screenshot menu`, Alt+Print. Also
     // `capture <mode> [delay]` for scripting; the work is bin/screenshot.
     Screenshot {}
+
+    // Quick-actions ring — `qs ipc call ring open <x> <y> <win>`; awesome
+    // opens it on Super+middle-click (modules/ring.lua).
+    Ring {}
 
     // Volume/brightness pill, driven by the audio/brightness handlers below
     Osd { id: osd }
