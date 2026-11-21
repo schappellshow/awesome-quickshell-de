@@ -49,8 +49,17 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
 - Polkit agent, Secret Service, XDG autostart, automounting
 - System-wide dark/light theming across GTK, Qt and portal-consuming apps,
   plus icon and mouse cursor themes
-- Every shell colour is editable and saveable as a named scheme — one
+- Every shell color is editable and saveable as a named scheme — one
   self-contained JSON file, so a theme is something you can send someone
+- Colors from the wallpaper: Settings → Appearance derives an accent, the
+  eight palette colors and a gentle background tint from the current
+  wallpaper, shows a preview, and saves it as a scheme only when you press
+  Apply (or follows wallpaper changes, off by default). Text stays neutral and
+  every color is lightness-adjusted to a stated contrast ratio
+  (`bin/.local/bin/wallpaper-palette --report <image>` prints the numbers).
+  The active scheme, wallpaper-derived or not, also colors rofi, through a
+  generated `~/.cache/quickshell/rofi-colors.rasi` that falls back to the
+  OpenMandriva colors when absent
 - Monitor hotplug: restores your saved layout *and* returns windows to the
   screen and tag they came from
 - Audio follows what you plug in: connect a TV over HDMI, a bluetooth
@@ -67,8 +76,8 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
 **Window management (AwesomeWM)**
 - Tiling with per-orientation defaults (portrait monitors stack vertically),
   a global tiling/floating mode, and per-monitor layout overrides
-- Window outline (width, corner radius) is configurable, and its colours
-  follow the active colour scheme
+- Window outline (width, corner radius) is configurable, and its colors
+  follow the active color scheme
 - Directional focus/swap that crosses monitor boundaries
 - 4 tags per screen, rofi launcher, spectacle screenshots
 
@@ -108,12 +117,12 @@ source builds).
 ### First run
 
 1. `Super+Shift+S` → **Settings**
-2. **Appearance** — dark/light, then any colour you like: edit the palette
+2. **Appearance** — dark/light, then any color you like: edit the palette
    directly and save it as a named scheme
 3. **Wallpaper** — a distro-shipped wallpaper is adopted automatically;
    pick another here (it lists `~/Pictures/Wallpapers` and the system dirs)
-4. **Displays** — drag the labelled screens to match your desk (edges and
-   centres snap), choose the primary display, then **Apply** and **Keep**.
+4. **Displays** — drag the labeled screens to match your desk (edges and
+   centers snap), choose the primary display, then **Apply** and **Keep**.
    Unconfirmed changes revert after 20 seconds; only Keep saves the layout
    for login and hotplug. Pixel coordinates are editable below the preview;
    press Enter to stage each value. Refresh / Reset discards pending edits.
@@ -146,7 +155,7 @@ rebinds any of it — the table below is the defaults.
 | `Super+Ctrl+H/L` | Shrink / expand master |
 | `Super+1..4` | Switch tag (`Super+Shift+N` move window, `Super+Ctrl+N` toggle) |
 | `Super+O` | Move window to next screen |
-| `Super+Q` · `Super+F` · `Super+M` · `Super+N` | Close · fullscreen · maximise · minimise |
+| `Super+Q` · `Super+F` · `Super+M` · `Super+N` | Close · fullscreen · maximize · minimize |
 | `Super+Shift+F` · `Super+T` | Toggle floating · keep on top |
 | `Super+\` | Cycle layout |
 | `Super+S` · `Super+F1` | Shortcut list · awesome's cheatsheet |
@@ -180,7 +189,7 @@ captures, with a countdown pill (click it to cancel). The menu is gone
 before the grab. Captures go to `~/Pictures/Screenshots/` as PNG, onto the
 clipboard as an image (kept alive by an `xclip` holder until something else
 is copied), and a notification offers *Open* / *Show in folder*. Text
-recognition copies the text and shows its first lines; the colour picker
+recognition copies the text and shows its first lines; the color picker
 shows a magnifier, copies `#rrggbb` and shows a swatch.
 
 All of it runs on one frozen grab of the screen, so a region is cut from
@@ -280,6 +289,7 @@ AwesomeWM ──┬─ tags/layout state ────▶ $XDG_RUNTIME_DIR/awesom
    xrandr · feh · xset · setxkbmap · xinput            systemd user units
    system-theme-apply · icon-theme-apply               autostart · secrets
    cursor-theme-apply · color-scheme · super-tap
+   wallpaper-palette · rofi-colors
 ```
 
 - **AwesomeWM** owns windows and publishes tag/layout state to a JSON file.
@@ -312,7 +322,7 @@ never dirty git:
 | Qt theme config (rewritten on dark/light toggle) | `~/.config/qt6ct/qt6ct.conf` |
 | Chosen cursor theme (what X falls back on) | `~/.icons/default/index.theme` |
 | Cursor theme previews (built by `cursor-preview`) | `~/.cache/cursor-previews/` |
-| Saved colour schemes (drop a file here to install one) | `~/.local/share/quickshell/color-schemes/` |
+| Saved color schemes (drop a file here to install one) | `~/.local/share/quickshell/color-schemes/` |
 | Lock screen image cache (built by `lock-image`) | `~/.cache/lock-screen/` |
 | Backup result + last run log | `~/.local/state/backup-plan/` |
 | Backup run time (written from Settings) | `~/.config/systemd/user/backup-plan.timer.d/` |
@@ -337,7 +347,7 @@ run. Corrections to the package maps in `install.sh` are welcome.
 ## Troubleshooting
 
 **Monitor positions are wrong** — open Settings → Displays and drag the
-labelled rectangles into their physical arrangement. Portrait previews
+labeled rectangles into their physical arrangement. Portrait previews
 follow the Rotation setting. Screens must not overlap; negative coordinates
 are allowed while editing and are shifted together to start at 0,0 on Apply.
 Apply tests the layout, and **Keep** saves it; **Revert** restores the previous
@@ -352,7 +362,7 @@ terminal shows the error; `qs -vv` is more verbose.
 
 **Qt menus or dialogs look light in a dark session** — tray right-click
 menus are native Qt menus, so they follow Qt's platform theme rather than
-this shell's colours. Two causes:
+this shell's colors. Two causes:
 
 *`~/.xprofile` isn't being sourced.* Confirm with
 `echo $QT_QPA_PLATFORMTHEME` — empty means it never ran. Some display

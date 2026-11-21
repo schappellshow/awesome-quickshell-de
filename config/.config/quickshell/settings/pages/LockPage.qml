@@ -213,7 +213,7 @@ SettingsPage {
         width: parent.width
         text: "Everything above is passed to i3lock when the screen locks, so "
             + "it takes effect on the next lock with nothing to rebuild. Text "
-            + "is positioned from these sizes, so the block stays centred in "
+            + "is positioned from these sizes, so the block stays centered in "
             + "the panel whatever you choose."
         wrapMode: Text.Wrap
         font.family: Theme.fontFamily
@@ -253,7 +253,7 @@ SettingsPage {
     }
 
     TextFieldRow {
-        label: "Panel colour (rrggbbaa, Enter to apply)"
+        label: "Panel color (rrggbbaa, Enter to apply)"
         text: Settings.lockPanelColor
         placeholder: "232627cc"
         onAccepted: value => {

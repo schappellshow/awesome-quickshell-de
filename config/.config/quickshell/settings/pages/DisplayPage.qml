@@ -43,7 +43,7 @@ SettingsPage {
     }
     Text {
         width: parent.width
-        text: "Drag the screens to match your desk. Edges and centres snap "
+        text: "Drag the screens to match your desk. Edges and centers snap "
             + "into alignment. Changes take effect only after Apply; choose "
             + "Keep within 20 seconds or the previous layout returns."
         wrapMode: Text.Wrap

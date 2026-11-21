@@ -39,6 +39,8 @@ ShellRoot {
         BarSpace.init();
         WindowMode.init();
         WindowBorders.init();
+        RofiColors.init();
+        WallpaperPalette.init();
         SuperTap.init();
         Shortcuts.init();
         PerformanceMode.init();

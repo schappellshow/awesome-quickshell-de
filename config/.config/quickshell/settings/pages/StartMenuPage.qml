@@ -227,7 +227,7 @@ SettingsPage {
     Text {
         width: parent.width
         text: "Click an application to pin it. Already-pinned entries are "
-            + "greyed out."
+            + "grayed out."
             + (Settings.showWindowList
                 ? " Right-clicking a running window in the bar pins it too, "
                   + "without coming here."

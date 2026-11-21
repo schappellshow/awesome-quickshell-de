@@ -62,7 +62,7 @@ Scope {
           hint: "every monitor" },
         { id: "ocr",    label: "Text (OCR)",   key: "t", color: Theme.purple,
           hint: "drag over text, copy it" },
-        { id: "color",  label: "Colour picker", key: "c", color: Theme.red,
+        { id: "color",  label: "Color picker", key: "c", color: Theme.red,
           hint: "click any pixel" }
     ]
 

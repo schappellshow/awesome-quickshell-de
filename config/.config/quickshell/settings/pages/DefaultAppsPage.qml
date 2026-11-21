@@ -32,7 +32,7 @@ SettingsPage {
     Text {
         width: parent.width
         text: "Written to ~/.config/mimeapps.list with xdg-mime, the shared "
-            + "freedesktop standard — so other apps and file managers honour "
+            + "freedesktop standard — so other apps and file managers honor "
             + "these too. Picking a browser also claims https and HTML files; "
             + "images, video and audio each cover the common sibling formats."
         wrapMode: Text.Wrap

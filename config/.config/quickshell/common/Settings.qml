@@ -22,6 +22,8 @@ Singleton {
 
     // Wallpaper
     property alias wallpaperPath: adapter.wallpaperPath
+    property alias followWallpaper: adapter.followWallpaper
+    property alias paletteSource: adapter.paletteSource
 
     // Night light
     property alias nightLightEnabled: adapter.nightLightEnabled
@@ -197,12 +199,21 @@ Singleton {
 
     readonly property string path: Quickshell.statePath("settings.json")
 
+    Timer {
+        id: writeSettle
+        interval: 40
+        onTriggered: file.writeAdapter()
+    }
+
     FileView {
         id: file
         path: root.path
         watchChanges: true
         onFileChanged: reload()
-        onAdapterUpdated: writeAdapter()
+        // Coalesced: a scheme change assigns the palette and the accent as two
+        // properties in one go. Written separately, the file watch re-read
+        // the first write between them and put the OLD accent back.
+        onAdapterUpdated: writeSettle.restart()
         onLoadFailed: error => {
             if (error === FileViewError.FileNotFound)
                 writeAdapter();
@@ -230,6 +241,16 @@ Singleton {
             // distro-shipped wallpaper and writes the path back here.
             // "~" in a user-set path expands against $HOME at apply time.
             property string wallpaperPath: ""
+
+            // "Follow wallpaper changes" (Settings -> Appearance): when on,
+            // a new wallpaper re-derives the palette (WallpaperPalette.qml).
+            // Off by default; turning it off keeps the colours as they are.
+            property bool followWallpaper: false
+
+            // The wallpaper the current colours were derived from, so the
+            // follow logic reacts to a CHANGE of wallpaper and not to the
+            // path simply being read back at shell start.
+            property string paletteSource: ""
 
             property bool nightLightEnabled: false
             property int nightLightTemp: 3000
