@@ -268,6 +268,23 @@ awful.rules.rules = {
         }
     },
 
+    -- The screenshot editor: floating, centered on the screen the pointer is
+    -- on (not wherever the previous focus was), and focused so its Ctrl+Z /
+    -- Ctrl+C / Escape keys work at once. Matched on title as well as class
+    -- for the same class=nil reason as the settings window. Its size is its
+    -- own: the editor fits itself to the image.
+    {
+        rule_any = { name = { "Screenshot Editor" } },
+        properties = {
+            floating          = true,
+            screen            = function() return awful.screen.focused() end,
+            placement         = awful.placement.centered,
+            focus             = true,
+            raise             = true,
+            titlebars_enabled = false,
+        }
+    },
+
     -- Quickshell shell surfaces (bar, popups) sometimes map before their
     -- WM_CLASS/dock type is set, so awesome manages them as ordinary
     -- clients: bordered, focusable on hover — the "outline around the

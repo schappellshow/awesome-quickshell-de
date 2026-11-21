@@ -19,6 +19,17 @@
 #                                     a swatch
 #   screenshot now <what> [xid]       freeze + geometry + save in one go
 #
+# Editor support (the annotation editor, quickshell/screenshot/Editor.qml):
+#   screenshot crop <WxH+X+Y>         crop the frozen grab to $work/edit.png
+#                                     (no save, no clipboard), print its path
+#   screenshot cropnow <what> [xid]   freeze + geometry + crop in one go
+#   screenshot newpath                print a free ~/Pictures/Screenshots name
+#   screenshot pickpath               "Save as" dialog (kdialog / zenity);
+#                                     prints the chosen path, empty = canceled
+#   screenshot copy <png>             copy that image to the clipboard, notify
+#   screenshot saved <png>            "saved" notification for a file the
+#                                     editor wrote
+#
 # Everything works on ONE frozen grab of the root window, so the region
 # the user dragged is cropped from exactly the pixels they saw, however
 # long they took and whatever moved meanwhile. Coordinates are the X
@@ -160,6 +171,27 @@ save() {
     echo "$out"
 }
 
+# The editor's input: a crop of the frozen grab that is neither saved nor
+# copied, so canceling the editor leaves nothing behind but this temp file.
+crop() {
+    [ -f "$frozen" ] || die "nothing frozen; run 'screenshot freeze' first"
+    local g; g=$(clamp "$1") || exit 1
+    local out="$work/edit.png"
+    magick "$frozen" -crop "$g" +repage "$out" || die "could not write $out"
+    echo "$out"
+}
+
+pickpath() {
+    local def; def=$(newfile)
+    if command -v kdialog >/dev/null 2>&1; then
+        kdialog --getsavefilename "$def" "image/png" 2>/dev/null
+    elif command -v zenity >/dev/null 2>&1; then
+        zenity --file-selection --save --confirm-overwrite --filename="$def" 2>/dev/null
+    else
+        notify "Save as unavailable" "Install kdialog or zenity"
+    fi
+}
+
 find_tessdata() {
     local d
     for d in "${TESSDATA_PREFIX:-}" /usr/share/tessdata /usr/share/tessdata/tessdata \
@@ -226,6 +258,20 @@ case "${1:-}" in
     save)     save "${2:?geometry}" ;;
     ocr)      ocr "${2:?geometry}" ;;
     color)    color "${2:?x}" "${3:?y}" ;;
+    crop)     crop "${2:?geometry}" ;;
+    cropnow)
+        g=$(geometry "${2:?all|screen|window}" "${3:-}") || die "no geometry for $2"
+        freeze >/dev/null
+        crop "$g" ;;
+    newpath)  newfile ;;
+    pickpath) pickpath ;;
+    copy)
+        [ -f "${2:-}" ] || die "no such image: ${2:-}"
+        clip_image "$2"
+        notify "Copied to clipboard" "" "$2" ;;
+    saved)
+        [ -f "${2:-}" ] || die "no such image: ${2:-}"
+        notify_saved "$2" "Screenshot saved" ;;
     now)
         what="${2:?all|screen|window}"
         # Geometry first: it reads the pointer / window, and is cheap.
