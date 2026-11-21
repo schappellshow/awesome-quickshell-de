@@ -106,6 +106,12 @@ Singleton {
     property alias cursorTheme: adapter.cursorTheme
     property alias cursorSize: adapter.cursorSize
 
+    // Quick-actions ring (Super+middle-click; ring/Ring.qml). ringActions is
+    // the ordered list of RingActions ids that appear, clockwise from the
+    // top; ids the catalog no longer knows are skipped when it is drawn.
+    property alias ringEnabled: adapter.ringEnabled
+    property alias ringActions: adapter.ringActions
+
     // Power (0 = never)
     property alias keepAwake: adapter.keepAwake
     property alias blankMinutes: adapter.blankMinutes
@@ -374,6 +380,9 @@ Singleton {
             property string windowMode: "tiling"
             property string defaultLayout: ""
             property string windowAnimations: "subtle"
+            property bool ringEnabled: true
+            property var ringActions: ["screenshot", "scratchpad", "float",
+                "close", "overview", "launcher", "lock", "perf"]
             property bool perfAutoGame: true
             property var monitorLayouts: ({})
 

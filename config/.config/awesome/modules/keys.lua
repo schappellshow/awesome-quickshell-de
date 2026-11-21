@@ -25,6 +25,7 @@ end
 
 local scratchpad = require("modules.scratchpad")
 local tag_float  = require("modules.tag_float")
+local ring       = require("modules.ring")
 
 local modkey = "Mod4"
 local unpack = table.unpack or unpack
@@ -337,6 +338,11 @@ M.registry = {
       mods = { modkey, "Mod1" }, key = "g", fn = ipc("perf", "toggle") },
     { id = "shell.media",       group = "media", label = "media player panel",
       mods = mods_super, key = "a", fn = ipc("media", "toggle") },
+    -- Unbound by default: Super+middle-click is the way in (see the button
+    -- tables below). An empty key is how a shortcut ships without a chord;
+    -- bind one in Settings -> Keyboard to open the ring at the pointer.
+    { id = "shell.ring",        group = "misc", label = "quick-actions ring (at pointer)",
+      mods = {}, key = "", fn = ring.open_kbd },
 
     -- ── Focus (directional, vim-style; crosses monitor edges) ────────────
     { id = "client.focus.left",  group = "client", label = "focus left",
@@ -860,7 +866,10 @@ M.clientbuttons = gears.table.join(
     awful.button({ modkey }, 3, function(c)
         c:emit_signal("request::activate", "mouse_click", { raise = true })
         awful.mouse.client.resize(c)
-    end)
+    end),
+    -- Quick-actions ring: no activate/raise here, the ring acts on THIS
+    -- window and must not change which one has focus.
+    awful.button({ modkey }, 2, ring.press, ring.release)
 )
 
 -- Desktop right-click menu (styled by theme.lua's menu_* settings)
@@ -960,6 +969,7 @@ end
 -- Scroll down (button 5) = next tag, matching the bar taglist direction.
 M.rootbuttons = gears.table.join(
     awful.button({ }, 3, function() M.mainmenu:toggle() end),
+    awful.button({ modkey }, 2, function() ring.press(nil) end, ring.release),
     awful.button({ }, 4, awful.tag.viewprev),
     awful.button({ }, 5, awful.tag.viewnext)
 )

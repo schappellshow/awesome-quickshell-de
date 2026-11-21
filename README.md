@@ -33,6 +33,16 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
   and a bare `Super` tap can open the start menu, the way a floating desktop
   does, without disturbing any `Super+` shortcut. It opens at the pointer or
   beside the button, whichever you prefer
+- **Quick-actions ring** — `Super`+middle-click anywhere (desktop or over a
+  window) opens a ring of round buttons around the pointer: screenshot menu,
+  scratchpad, float/close the window under the pointer, overview, app
+  launcher, lock, performance mode. Click one, or hold the button, move toward
+  an action and let go over it (let go in the middle or outside to cancel;
+  `Escape` or a click outside also cancels). Window actions act on the window
+  that was under the pointer, not the focused one, and are grayed out over the
+  bare desktop. Which actions appear, and in what order, is Settings → Mouse;
+  there is also an unbound-by-default keyboard shortcut (Settings → Keyboard)
+  and `qs ipc call ring open <x> <y> <window-id>`
 - **Settings app** (`Super+Shift+S`) — 19 pages: appearance, wallpaper,
   bar, apps, windows, night light, notifications, displays, audio, network
   (incl. Wi-Fi scan/connect), bluetooth, power, lock screen,
@@ -148,6 +158,7 @@ rebinds any of it — the table below is the defaults.
 | `Super+Shift+'` | Send the focused window to the scratchpad; on the scratchpad itself, take it back out as a tiled window |
 | `Super+Ctrl+F` | Float / tile just this tag (windows keep their positions) |
 | `Super+left-drag` · `Super+right-drag` | Move · resize the window under the pointer (floating windows) |
+| `Super+middle-click` | Quick-actions ring at the pointer: click an action, or hold, move and release over one (Settings → Mouse) |
 | `Super+Alt+G` | Performance mode |
 | `Super+/` · `Super+.` | Clipboard history · emoji picker |
 | `Super+H/J/K/L` | Focus left/down/up/right (crosses monitors) |
