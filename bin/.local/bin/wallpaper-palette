@@ -11,7 +11,7 @@ How it works
 ------------
 1. ImageMagick shrinks the image to at most 96x96 and hands back raw RGB, so
    a 4K wallpaper costs the same as a thumbnail (about 0.15 s).
-2. Pixels that carry no color information (greys, near-black, near-white)
+2. Pixels that carry no color information (grays, near-black, near-white)
    are ignored. The rest vote for a hue, weighted by chroma, into a 10-degree
    histogram; the winning hue is the circular mean of the pixels around the
    peak. "Colorfulness" is the share of the image that voted, and from it a

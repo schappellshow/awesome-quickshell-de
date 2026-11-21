@@ -19,7 +19,7 @@ SettingsPage {
         { label: "Tile left",          value: "tileleft" },
         { label: "Tile bottom",        value: "tilebottom" },
         { label: "Fair",               value: "fairv" },
-        { label: "Maximised",          value: "max" }
+        { label: "Maximized",          value: "max" }
     ]
 
     SectionLabel { text: "MODE" }
@@ -62,7 +62,7 @@ SettingsPage {
     Text {
         width: parent.width
         visible: Settings.windowMode !== "floating" && Settings.defaultLayout === ""
-        text: "Automatic keeps the shipped behaviour: portrait monitors stack "
+        text: "Automatic keeps the shipped behavior: portrait monitors stack "
             + "windows top to bottom, landscape monitors use dwindle. Choosing "
             + "a layout here replaces that on every monitor."
         wrapMode: Text.Wrap

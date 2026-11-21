@@ -121,8 +121,8 @@ source builds).
    directly and save it as a named scheme
 3. **Wallpaper** — a distro-shipped wallpaper is adopted automatically;
    pick another here (it lists `~/Pictures/Wallpapers` and the system dirs)
-4. **Displays** — drag the labelled screens to match your desk (edges and
-   centres snap), choose the primary display, then **Apply** and **Keep**.
+4. **Displays** — drag the labeled screens to match your desk (edges and
+   centers snap), choose the primary display, then **Apply** and **Keep**.
    Unconfirmed changes revert after 20 seconds; only Keep saves the layout
    for login and hotplug. Pixel coordinates are editable below the preview;
    press Enter to stage each value. Refresh / Reset discards pending edits.
@@ -155,7 +155,7 @@ rebinds any of it — the table below is the defaults.
 | `Super+Ctrl+H/L` | Shrink / expand master |
 | `Super+1..4` | Switch tag (`Super+Shift+N` move window, `Super+Ctrl+N` toggle) |
 | `Super+O` | Move window to next screen |
-| `Super+Q` · `Super+F` · `Super+M` · `Super+N` | Close · fullscreen · maximise · minimise |
+| `Super+Q` · `Super+F` · `Super+M` · `Super+N` | Close · fullscreen · maximize · minimize |
 | `Super+Shift+F` · `Super+T` | Toggle floating · keep on top |
 | `Super+\` | Cycle layout |
 | `Super+S` · `Super+F1` | Shortcut list · awesome's cheatsheet |
@@ -347,7 +347,7 @@ run. Corrections to the package maps in `install.sh` are welcome.
 ## Troubleshooting
 
 **Monitor positions are wrong** — open Settings → Displays and drag the
-labelled rectangles into their physical arrangement. Portrait previews
+labeled rectangles into their physical arrangement. Portrait previews
 follow the Rotation setting. Screens must not overlap; negative coordinates
 are allowed while editing and are shifted together to start at 0,0 on Apply.
 Apply tests the layout, and **Keep** saves it; **Revert** restores the previous

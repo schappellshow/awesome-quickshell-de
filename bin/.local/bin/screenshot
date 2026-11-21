@@ -196,7 +196,7 @@ ocr() {
     # Trim blank lines and trailing space.
     text=$(printf '%s\n' "$text" | sed -e 's/[[:space:]]*$//' | sed -e :a -e '/./,$!d' | sed -e :b -e '/^\n*$/{$d;N;bb}')
     if [ -z "${text//[[:space:]]/}" ]; then
-        notify "No text recognised" "${data:+Nothing legible in the selection.}${data:-No OCR language data found for tesseract (eng.traineddata).}"
+        notify "No text recognized" "${data:+Nothing legible in the selection.}${data:-No OCR language data found for tesseract (eng.traineddata).}"
         echo "" ; exit 2
     fi
     clip_text "$text"
