@@ -118,7 +118,7 @@ Singleton {
         }
         onExited: (code, status) => {
             if (code !== 0 && root.busy) {
-                root.error = "Colour extraction failed.";
+                root.error = "Color extraction failed.";
                 root.busy = false;
             }
         }

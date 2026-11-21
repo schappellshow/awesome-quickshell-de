@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""rofi-colors — write the colours rofi should use, from the shell's palette.
+"""rofi-colors — write the colors rofi should use, from the shell's palette.
 
-    rofi-colors base=#232627 surface=#444444 ...   write the colours file
+    rofi-colors base=#232627 surface=#444444 ...   write the colors file
     rofi-colors path                               print where it lives
 
 Keys: base surface muted text subtext blue bright-blue red. rofi's
 openmandriva.rasi imports the file this writes, after its own defaults, so
 whatever is written here wins and a missing file leaves the OpenMandriva
-colours in force. quickshell's RofiColors.qml calls this whenever the live
-palette changes, which makes rofi follow every colour scheme and light/dark
+colors in force. quickshell's RofiColors.qml calls this whenever the live
+palette changes, which makes rofi follow every color scheme and light/dark
 mode, not just wallpaper-derived ones.
 
 Values are validated as #rrggbb: they are pasted into a rasi file, and a

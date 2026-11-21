@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""color-scheme — store and retrieve the shell's named colour schemes.
+"""color-scheme — store and retrieve the shell's named color schemes.
 
     color-scheme dir
     color-scheme list                 JSON array of every saved scheme
@@ -19,9 +19,9 @@ writing files is clumsy from QML.
       "palette": { "red": "#cc241d", ... }
     }
 
-Every colour is validated against #rrggbb on the way in and on the way out.
+Every color is validated against #rrggbb on the way in and on the way out.
 A downloaded scheme is a file from a stranger, and these values end up as
-live QML colour bindings across the whole shell — one junk string would
+live QML color bindings across the whole shell — one junk string would
 otherwise leave part of the bar drawing transparent with no clue why.
 """
 

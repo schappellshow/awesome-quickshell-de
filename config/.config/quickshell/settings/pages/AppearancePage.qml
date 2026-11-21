@@ -82,7 +82,7 @@ SettingsPage {
     }
 
     // ---- Colours from wallpaper ----------------------------------------
-    SectionLabel { text: "COLOURS FROM WALLPAPER" }
+    SectionLabel { text: "COLORS FROM WALLPAPER" }
 
     ButtonRow {
         label: WallpaperPalette.busy ? "Reading the wallpaper…"
@@ -282,7 +282,7 @@ SettingsPage {
             width: parent.width
             text: preview.scheme === null ? "" :
                 (preview.scheme.meta.fallback
-                    ? "No usable colour in this wallpaper — the default palette is kept."
+                    ? "No usable color in this wallpaper — the default palette is kept."
                     : "Hue " + Math.round(preview.scheme.meta.hue) + "°, strength "
                       + Math.round(preview.scheme.meta.strength * 100) + "%. "
                       + "Text and accents are lightness-adjusted to stay readable.")
@@ -304,7 +304,7 @@ SettingsPage {
 
     ButtonRow {
         visible: WallpaperPalette.preview !== null
-        label: "Leave the colours as they are"
+        label: "Leave the colors as they are"
         buttonText: "Cancel"
         onClicked: WallpaperPalette.cancel()
     }

@@ -253,7 +253,7 @@ SettingsPage {
     }
 
     TextFieldRow {
-        label: "Panel colour (rrggbbaa, Enter to apply)"
+        label: "Panel color (rrggbbaa, Enter to apply)"
         text: Settings.lockPanelColor
         placeholder: "232627cc"
         onAccepted: value => {

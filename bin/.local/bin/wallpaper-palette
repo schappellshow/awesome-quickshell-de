@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""wallpaper-palette — derive a shell colour scheme from an image.
+"""wallpaper-palette — derive a shell color scheme from an image.
 
     wallpaper-palette <image>             scheme JSON on stdout
     wallpaper-palette --report <image>    human-readable contrast table
@@ -11,27 +11,27 @@ How it works
 ------------
 1. ImageMagick shrinks the image to at most 96x96 and hands back raw RGB, so
    a 4K wallpaper costs the same as a thumbnail (about 0.15 s).
-2. Pixels that carry no colour information (greys, near-black, near-white)
+2. Pixels that carry no color information (greys, near-black, near-white)
    are ignored. The rest vote for a hue, weighted by chroma, into a 10-degree
    histogram; the winning hue is the circular mean of the pixels around the
-   peak. "Colourfulness" is the share of the image that voted, and from it a
+   peak. "Colorfulness" is the share of the image that voted, and from it a
    strength 0..1 says how much the wallpaper may move the palette. An image
-   with no usable colour has strength 0 and returns the built-in OpenMandriva
-   palette untouched; a weakly coloured one moves part of the way.
+   with no usable color has strength 0 and returns the built-in OpenMandriva
+   palette untouched; a weakly colored one moves part of the way.
 3. Backgrounds keep the default lightness and take a gentle tint toward the
    wallpaper hue (low saturation, in both modes). Text and subtext stay the
    neutral defaults.
 4. The accent takes the wallpaper hue outright. Each named slot moves only a
    fraction of the way toward it and never outside a hue band that keeps its name,
-   so red still reads as red, green as green, gold as a warning colour.
+   so red still reads as red, green as green, gold as a warning color.
 5. Readability is then enforced by moving LIGHTNESS only (hue and saturation
    survive):
      text, subtext on base / surface / surfaceAlt   >= 4.5:1  (WCAG AA body)
      muted on base                                   >= 3.0:1
-     accent and every palette colour on both modes'
+     accent and every palette color on both modes'
        base                                          >= 3.0:1  (WCAG 1.4.11)
    Text is never adjusted: a background that would break it is moved instead.
-   Palette colours are shared between the modes, which squeezes them into a
+   Palette colors are shared between the modes, which squeezes them into a
    mid-lightness band (roughly relative luminance 0.15-0.26); that is the
    price of one accent that is legible on both the dark and the light base.
 """
