@@ -16,6 +16,7 @@ import "./osd"
 import "./keyhints"
 import "./switcher"
 import "./overview"
+import "./screenshot"
 
 ShellRoot {
     // Startup apply chain: settings.json is the source of truth, but X11
@@ -133,6 +134,10 @@ ShellRoot {
 
     // Workspace overview — `qs ipc call overview toggle`, Super+Tab
     Overview {}
+
+    // Screenshot menu — `qs ipc call screenshot menu`, Alt+Print. Also
+    // `capture <mode> [delay]` for scripting; the work is bin/screenshot.
+    Screenshot {}
 
     // Volume/brightness pill, driven by the audio/brightness handlers below
     Osd { id: osd }
