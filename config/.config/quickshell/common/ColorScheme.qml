@@ -89,6 +89,18 @@ Singleton {
         Settings.colorScheme = name.trim();
     }
 
+    // Save a scheme built elsewhere (wallpaper-palette's output) under
+    // `name`, and make it the live one. The file goes through the same
+    // helper, so it is validated and shows up in the scheme list exactly like
+    // one saved from the page.
+    function saveAndApply(name, scheme) {
+        saveProc.command = [root.helper, "save", name, JSON.stringify(scheme)];
+        saveProc.running = true;
+        const live = JSON.parse(JSON.stringify(scheme));
+        live.name = name;
+        apply(live);
+    }
+
     function remove(name) {
         removeProc.command = [root.helper, "delete", name];
         removeProc.running = true;

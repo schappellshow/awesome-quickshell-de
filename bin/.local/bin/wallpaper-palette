@@ -1,0 +1,278 @@
+#!/usr/bin/env python3
+"""wallpaper-palette — derive a shell colour scheme from an image.
+
+    wallpaper-palette <image>             scheme JSON on stdout
+    wallpaper-palette --report <image>    human-readable contrast table
+
+The output has the shape bin/color-scheme stores ({accent, dark, light,
+palette}) plus "meta" and "report" keys, which color-scheme drops on save.
+
+How it works
+------------
+1. ImageMagick shrinks the image to at most 96x96 and hands back raw RGB, so
+   a 4K wallpaper costs the same as a thumbnail (about 0.15 s).
+2. Pixels that carry no colour information (greys, near-black, near-white)
+   are ignored. The rest vote for a hue, weighted by chroma, into a 10-degree
+   histogram; the winning hue is the circular mean of the pixels around the
+   peak. "Colourfulness" is the share of the image that voted, and from it a
+   strength 0..1 says how much the wallpaper may move the palette. An image
+   with no usable colour has strength 0 and returns the built-in OpenMandriva
+   palette untouched; a weakly coloured one moves part of the way.
+3. Backgrounds keep the default lightness and take a gentle tint toward the
+   wallpaper hue (low saturation, in both modes). Text and subtext stay the
+   neutral defaults.
+4. The accent takes the wallpaper hue outright. Each named slot moves only a
+   fraction of the way toward it and never outside a hue band that keeps its name,
+   so red still reads as red, green as green, gold as a warning colour.
+5. Readability is then enforced by moving LIGHTNESS only (hue and saturation
+   survive):
+     text, subtext on base / surface / surfaceAlt   >= 4.5:1  (WCAG AA body)
+     muted on base                                   >= 3.0:1
+     accent and every palette colour on both modes'
+       base                                          >= 3.0:1  (WCAG 1.4.11)
+   Text is never adjusted: a background that would break it is moved instead.
+   Palette colours are shared between the modes, which squeezes them into a
+   mid-lightness band (roughly relative luminance 0.15-0.26); that is the
+   price of one accent that is legible on both the dark and the light base.
+"""
+
+import colorsys
+import json
+import math
+import subprocess
+import sys
+
+DEFAULTS = {
+    "dark": {"base": "#232627", "surface": "#444444", "surfaceAlt": "#333637",
+             "text": "#ffffff", "subtext": "#afb3bd", "muted": "#767676"},
+    "light": {"base": "#ecf2ff", "surface": "#d6dce8", "surfaceAlt": "#e1e6f2",
+              "text": "#232627", "subtext": "#4a5158", "muted": "#8f96a3"},
+    "palette": {"red": "#cc2263", "green": "#40da76", "orange": "#da7340",
+                "blue": "#2080bb", "purple": "#a740da", "teal": "#61c583",
+                "gold": "#dac040", "brightBlue": "#40a5da"},
+}
+DEFAULT_ACCENT = "#2080bb"
+
+# How far each named slot may follow the wallpaper hue: the fraction of the
+# angular gap it moves, and the hue band (degrees, unwrapped so red can sit
+# either side of 0) it must stay inside so that it still reads as its name.
+DRIFT = {"red": (0.20, 335, 365), "green": (0.25, 100, 160),
+         "orange": (0.30, 12, 40), "gold": (0.30, 42, 62),
+         "teal": (0.40, 130, 190), "blue": (0.50, 190, 245),
+         "brightBlue": (0.50, 185, 235), "purple": (0.50, 265, 310)}
+
+BODY, UI = 4.5, 3.0
+
+
+# ---------------------------------------------------------------- colour maths
+def parse(hexs):
+    return tuple(int(hexs[i:i + 2], 16) / 255 for i in (1, 3, 5))
+
+
+def fmt(rgb):
+    return "#%02x%02x%02x" % tuple(
+        max(0, min(255, int(round(c * 255)))) for c in rgb)
+
+
+def hls(hexs):
+    r, g, b = parse(hexs)
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    return h * 360.0, l, s
+
+
+def from_hls(h, l, s):
+    return fmt(colorsys.hls_to_rgb((h % 360.0) / 360.0,
+                                   max(0.0, min(1.0, l)),
+                                   max(0.0, min(1.0, s))))
+
+
+def luminance(hexs):
+    def lin(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (lin(c) for c in parse(hexs))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(a, b):
+    la, lb = luminance(a), luminance(b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def angdiff(to, frm):
+    """Signed shortest rotation frm -> to, in (-180, 180]."""
+    d = (to - frm) % 360.0
+    return d - 360.0 if d > 180.0 else d
+
+
+def lightness_for(hexs, against, thr):
+    """hexs re-lit (hue/saturation kept) to clear `thr` against every colour
+    in `against`, choosing the lightness closest to the original; if none
+    clears it, the best achievable. Returns the new hex."""
+    h, l0, s = hls(hexs)
+    best, best_score = hexs, -1.0
+    ok = []
+    for i in range(0, 201):
+        l = i / 200.0
+        cand = from_hls(h, l, s)
+        score = min(contrast(cand, b) for b in against)
+        if score >= thr:
+            ok.append((abs(l - l0), cand))
+        if score > best_score:
+            best, best_score = cand, score
+    return min(ok)[1] if ok else best
+
+
+# ---------------------------------------------------------------- extraction
+def read_pixels(path):
+    out = subprocess.run(
+        ["magick", path + "[0]", "-auto-orient", "-resize", "96x96",
+         "-background", "black", "-alpha", "remove", "-alpha", "off",
+         "-colorspace", "sRGB", "-depth", "8", "rgb:-"],
+        capture_output=True, check=True, timeout=30).stdout
+    return [(out[i] / 255, out[i + 1] / 255, out[i + 2] / 255)
+            for i in range(0, len(out) - 2, 3)]
+
+
+def analyse(pixels):
+    """-> (hue, mood_saturation, colourfulness)"""
+    bins = [0.0] * 36
+    votes = []
+    for r, g, b in pixels:
+        h, l, s = colorsys.rgb_to_hls(r, g, b)
+        if l < 0.08 or l > 0.95:
+            continue
+        chroma = s * (1 - abs(2 * l - 1))
+        if chroma < 0.12:
+            continue
+        votes.append((h * 360.0, chroma, s))
+        bins[int(h * 36) % 36] += chroma
+    if not votes:
+        return 0.0, 0.0, 0.0
+    total = len(pixels)
+    smooth = [bins[i] + 0.5 * (bins[i - 1] + bins[(i + 1) % 36])
+              for i in range(36)]
+    peak = (smooth.index(max(smooth)) + 0.5) * 10.0
+    x = y = wsum = ssum = 0.0
+    for h, c, s in votes:
+        if abs(angdiff(h, peak)) <= 30.0:
+            x += c * math.cos(math.radians(h))
+            y += c * math.sin(math.radians(h))
+            ssum += c * s
+            wsum += c
+    hue = math.degrees(math.atan2(y, x)) % 360.0 if wsum else peak
+    mood = ssum / wsum if wsum else 0.0
+    colourful = sum(c for _, c, _ in votes) / total
+    return hue, mood, colourful
+
+
+# ---------------------------------------------------------------- derivation
+def derive(pixels):
+    hue, mood, colourful = analyse(pixels)
+    t = max(0.0, min(1.0, (colourful - 0.02) / 0.10))
+    meta = {"hue": round(hue, 1), "mood": round(mood, 3),
+            "colourfulness": round(colourful, 4), "strength": round(t, 3),
+            "fallback": t <= 0.0}
+    scheme = {"accent": DEFAULT_ACCENT,
+              "dark": dict(DEFAULTS["dark"]),
+              "light": dict(DEFAULTS["light"]),
+              "palette": dict(DEFAULTS["palette"]), "meta": meta}
+    if t <= 0.0:
+        scheme["report"] = check(scheme)
+        return scheme
+
+    # Backgrounds: a gentle tint, saturation by mode and slot.
+    tint = {"dark": {"base": 0.16, "surfaceAlt": 0.14, "surface": 0.12},
+            "light": {"base": 0.55, "surfaceAlt": 0.40, "surface": 0.30}}
+    for mode in ("dark", "light"):
+        for key, target_s in tint[mode].items():
+            h0, l0, s0 = hls(DEFAULTS[mode][key])
+            h = h0 + t * angdiff(hue, h0)
+            s = s0 + (target_s - s0) * t
+            scheme[mode][key] = from_hls(h, l0, s)
+
+    # Text stays put; move a background that would break it.
+    for mode in ("dark", "light"):
+        d = scheme[mode]
+        for key in ("base", "surface", "surfaceAlt"):
+            fgs = [d["text"], d["subtext"]]
+            for _ in range(60):
+                if all(contrast(d[key], f) >= BODY for f in fgs):
+                    break
+                h, l, s = hls(d[key])
+                d[key] = from_hls(h, l + (-0.005 if mode == "dark" else 0.005), s)
+        # muted is a de-emphasised foreground: lift it off the base instead.
+        d["muted"] = lightness_for(d["muted"], [d["base"]], UI)
+
+    bases = [scheme["dark"]["base"], scheme["light"]["base"]]
+    mood_s = max(0.35, min(0.9, mood))
+
+    # Named slots drift part-way, then are re-lit for readability.
+    for key, default in DEFAULTS["palette"].items():
+        h0, l0, s0 = hls(default)
+        frac, lo, hi = DRIFT[key]
+        h = max(lo, min(hi, h0 + frac * angdiff(hue, h0) * t))
+        s = s0 + (mood_s - s0) * 0.5 * t
+        scheme["palette"][key] = lightness_for(from_hls(h, l0, s),
+                                               bases, UI)
+
+    # Accent: the wallpaper hue itself (blended toward the default blue when
+    # the image is only weakly coloured).
+    bh, bl, bs = hls(DEFAULT_ACCENT)
+    ah = bh + t * angdiff(hue, bh)
+    asat = bs + (max(0.5, min(0.8, mood)) - bs) * t
+    scheme["accent"] = lightness_for(from_hls(ah, 0.45, asat), bases, UI)
+
+    scheme["report"] = check(scheme)
+    return scheme
+
+
+def check(scheme):
+    rows = []
+
+    def add(name, a, b, thr):
+        r = contrast(a, b)
+        rows.append({"pair": name, "ratio": round(r, 2), "min": thr,
+                     "pass": r >= thr})
+
+    for mode in ("dark", "light"):
+        d = scheme[mode]
+        for fg in ("text", "subtext"):
+            for bg in ("base", "surface", "surfaceAlt"):
+                add("%s: %s on %s" % (mode, fg, bg), d[fg], d[bg], BODY)
+        add("%s: muted on base" % mode, d["muted"], d["base"], UI)
+        for name, col in [("accent", scheme["accent"])] + \
+                sorted(scheme["palette"].items()):
+            add("%s: %s on base" % (mode, name), col, d["base"], UI)
+    return rows
+
+
+def main():
+    args = sys.argv[1:]
+    report = False
+    if args and args[0] == "--report":
+        report, args = True, args[1:]
+    if len(args) != 1:
+        sys.exit(__doc__)
+    try:
+        scheme = derive(read_pixels(args[0]))
+    except (OSError, subprocess.SubprocessError) as exc:
+        sys.exit("wallpaper-palette: %s" % exc)
+    if not report:
+        json.dump(scheme, sys.stdout)
+        sys.stdout.write("\n")
+        return
+    print("meta   ", scheme["meta"])
+    print("accent ", scheme["accent"])
+    for g in ("dark", "light", "palette"):
+        print("%-7s" % g, scheme[g])
+    fails = [r for r in scheme["report"] if not r["pass"]]
+    print("contrast: %d checks, %d below threshold" %
+          (len(scheme["report"]), len(fails)))
+    for r in scheme["report"]:
+        print("  %-28s %6.2f  (min %.1f)  %s" %
+              (r["pair"], r["ratio"], r["min"], "ok" if r["pass"] else "FAIL"))
+
+
+if __name__ == "__main__":
+    main()

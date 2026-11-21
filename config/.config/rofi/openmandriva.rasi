@@ -14,6 +14,10 @@
     text-color:       @text;
 }
 
+/* The shell regenerates this from the active colour scheme (bin/rofi-colors),
+   overriding the values above. Missing file: the OpenMandriva colours stay. */
+@import "~/.cache/quickshell/rofi-colors.rasi"
+
 window {
     background-color: @base;
     border:           2px solid;

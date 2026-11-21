@@ -51,6 +51,15 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
   plus icon and mouse cursor themes
 - Every shell colour is editable and saveable as a named scheme — one
   self-contained JSON file, so a theme is something you can send someone
+- Colours from the wallpaper: Settings → Appearance derives an accent, the
+  eight palette colours and a gentle background tint from the current
+  wallpaper, shows a preview, and saves it as a scheme only when you press
+  Apply (or follows wallpaper changes, off by default). Text stays neutral and
+  every colour is lightness-adjusted to a stated contrast ratio
+  (`bin/.local/bin/wallpaper-palette --report <image>` prints the numbers).
+  The active scheme, wallpaper-derived or not, also colours rofi, through a
+  generated `~/.cache/quickshell/rofi-colors.rasi` that falls back to the
+  OpenMandriva colours when absent
 - Monitor hotplug: restores your saved layout *and* returns windows to the
   screen and tag they came from
 - Audio follows what you plug in: connect a TV over HDMI, a bluetooth
@@ -280,6 +289,7 @@ AwesomeWM ──┬─ tags/layout state ────▶ $XDG_RUNTIME_DIR/awesom
    xrandr · feh · xset · setxkbmap · xinput            systemd user units
    system-theme-apply · icon-theme-apply               autostart · secrets
    cursor-theme-apply · color-scheme · super-tap
+   wallpaper-palette · rofi-colors
 ```
 
 - **AwesomeWM** owns windows and publishes tag/layout state to a JSON file.

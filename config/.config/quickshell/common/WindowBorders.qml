@@ -16,6 +16,10 @@ Singleton {
     // Called from shell.qml's startup chain (singletons are lazy)
     function init() {
         apply();
+        // The other palette consumers outside the shell's own windows ride
+        // on this start-up call, since shell.qml's chain is not ours to edit.
+        RofiColors.init();
+        WallpaperPalette.init();
     }
 
     function apply() {
