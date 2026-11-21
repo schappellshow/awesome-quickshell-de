@@ -28,6 +28,12 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
   chooses *Always* or *Only when busy* and the thresholds), and **DRV** while
   a removable drive (USB stick, SD card, external disk) is plugged in — its
   popup opens, mounts, unmounts or safely ejects each one via `udisksctl`
+- **System dashboard** (the CPU/RAM pill or `Super+Shift+M`): a native
+  replacement for the conky popout — cards for system, processors (per-core
+  bars, top processes), memory, drives (I/O graphs), network (default-route
+  interface) and GPU (amdgpu sysfs), with sparklines. Settings → Bar picks
+  Quickshell or conky, *Popout* or *Pinned on desktop*, and which cards show.
+  It samples only while visible. See [System dashboard](#system-dashboard)
 - Notification daemon with popups, history center, and do-not-disturb
 - Optional desktop-style bar: start button, pinned apps, open-window list —
   and a bare `Super` tap can open the start menu, the way a floating desktop
@@ -165,7 +171,7 @@ rebinds any of it — the table below is the defaults.
 | `Super+Z` | Keep awake (inhibit auto-lock) |
 | `Super+B` | Rebuild the bar — recovers a section that draws blank, or a bar left on the wrong screen |
 | `Super+Shift+T` · `Super+Shift+N` | Dark/light mode · night light |
-| `Super+Shift+M` | System monitor popout (conky, optional) |
+| `Super+Shift+M` | System dashboard: native Quickshell popout (default), or lifts the pinned one above windows; conky if chosen in Settings → Bar |
 | `Super+BackSpace` · `Ctrl+Alt+L` | Power menu · lock now |
 | `Print` · `Shift+Print` | Screenshot region (spectacle) · full |
 | `Alt+Print` | Screenshot menu — see [Screenshots](#screenshots) |
@@ -173,6 +179,25 @@ rebinds any of it — the table below is the defaults.
 | `Super` (tap alone) | Start menu — off by default, Settings → Apps |
 
 ---
+
+## System dashboard
+
+Settings → Bar → System monitor. **Dashboard** chooses Quickshell (default)
+or conky; conky behaves exactly as before and keeps its config field.
+
+- **Popout** (default): hidden until the pill / `Super+Shift+M` toggles it.
+  It sits beside the bar on whichever edge the bar is on, on the bar's
+  screen, above windows, never focused, no space reserved.
+- **Pinned on desktop**: always shown beside the bar, *below* every window
+  (so fullscreen covers it), not focusable. The pill / key then lifts it
+  above the windows to peek; press again to put it back.
+
+Nothing is sampled or running while it is closed; open, one small script runs
+every 2 s (6 s in performance mode). Pinned mode is "always open", so it keeps
+sampling. Readings: `/proc`, `df`, `ip`, and sysfs for the CPU temperature
+(k10temp/coretemp hwmon) and the GPU (`/sys/class/drm/card*/device`
+`gpu_busy_percent`, `mem_info_vram_*`, hwmon `temp1_input`) — all readable
+without root. `qs ipc call sysmon status` reports the state.
 
 ## Screenshots
 

@@ -254,7 +254,65 @@ SettingsPage {
         color: Theme.muted
     }
 
+    CycleRow {
+        label: "Dashboard"
+        value: Settings.sysmonDashboard === "conky" ? "Conky" : "Quickshell"
+        onCycle: Settings.sysmonDashboard =
+            Settings.sysmonDashboard === "conky" ? "native" : "conky"
+    }
+
+    CycleRow {
+        visible: Settings.sysmonDashboard !== "conky"
+        label: "Display"
+        value: Settings.dashboardMode === "pinned" ? "Pinned on desktop" : "Popout"
+        onCycle: Settings.dashboardMode =
+            Settings.dashboardMode === "pinned" ? "popout" : "pinned"
+    }
+
+    ToggleRow {
+        visible: Settings.sysmonDashboard !== "conky"
+        label: "System card"
+        checked: Settings.dashSectionSystem
+        onToggled: value => Settings.dashSectionSystem = value
+    }
+
+    ToggleRow {
+        visible: Settings.sysmonDashboard !== "conky"
+        label: "Processors card"
+        checked: Settings.dashSectionCpu
+        onToggled: value => Settings.dashSectionCpu = value
+    }
+
+    ToggleRow {
+        visible: Settings.sysmonDashboard !== "conky"
+        label: "Memory card"
+        checked: Settings.dashSectionMemory
+        onToggled: value => Settings.dashSectionMemory = value
+    }
+
+    ToggleRow {
+        visible: Settings.sysmonDashboard !== "conky"
+        label: "Drives card"
+        checked: Settings.dashSectionDrives
+        onToggled: value => Settings.dashSectionDrives = value
+    }
+
+    ToggleRow {
+        visible: Settings.sysmonDashboard !== "conky"
+        label: "Network card"
+        checked: Settings.dashSectionNetwork
+        onToggled: value => Settings.dashSectionNetwork = value
+    }
+
+    ToggleRow {
+        visible: Settings.sysmonDashboard !== "conky"
+        label: "GPU card"
+        checked: Settings.dashSectionGpu
+        onToggled: value => Settings.dashSectionGpu = value
+    }
+
     TextFieldRow {
+        visible: Settings.sysmonDashboard === "conky"
         label: "Conky config for the popout (Enter to apply)"
         text: Settings.conkyConfig
         placeholder: "~/.conky/my.conkyrc (optional)"
@@ -266,9 +324,19 @@ SettingsPage {
 
     Text {
         width: parent.width
-        text: "Click the CPU/RAM pill (or Super+Shift+M) to toggle the "
-            + "conky dashboard — it pops out beside the bar, above your "
-            + "windows, and toggles away again. Right-click opens htop."
+        text: Settings.sysmonDashboard === "conky"
+            ? "Click the CPU/RAM pill (or Super+Shift+M) to toggle the "
+              + "conky dashboard — it pops out beside the bar, above your "
+              + "windows, and toggles away again. Right-click opens htop."
+            : Settings.dashboardMode === "pinned"
+            ? "Pinned: the dashboard stays on the desktop beside the bar, "
+              + "under your windows, and keeps sampling while it is there. "
+              + "The CPU/RAM pill (or Super+Shift+M) lifts it above the "
+              + "windows; press again to put it back. Right-click opens htop."
+            : "Click the CPU/RAM pill (or Super+Shift+M) to toggle the "
+              + "dashboard — it pops out beside the bar, above your "
+              + "windows, and only samples while it is open. Right-click "
+              + "opens htop."
         wrapMode: Text.Wrap
         font.family: Theme.fontFamily
         font.pointSize: 8

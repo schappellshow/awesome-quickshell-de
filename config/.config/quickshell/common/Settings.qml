@@ -77,6 +77,19 @@ Singleton {
     // System monitor popout (conky)
     property alias conkyConfig: adapter.conkyConfig
 
+    // Which dashboard the SYS pill / Super+Shift+M opens: "native" (the
+    // Quickshell one, dashboard/Dashboard.qml) or "conky". The native one is
+    // either a "popout" beside the bar or "pinned" to the desktop below the
+    // windows; the dashSection* switches choose its cards.
+    property alias sysmonDashboard: adapter.sysmonDashboard
+    property alias dashboardMode: adapter.dashboardMode
+    property alias dashSectionSystem: adapter.dashSectionSystem
+    property alias dashSectionCpu: adapter.dashSectionCpu
+    property alias dashSectionMemory: adapter.dashSectionMemory
+    property alias dashSectionDrives: adapter.dashSectionDrives
+    property alias dashSectionNetwork: adapter.dashSectionNetwork
+    property alias dashSectionGpu: adapter.dashSectionGpu
+
     // Notifications
     property alias notifTimeoutMs: adapter.notifTimeoutMs
     property alias doNotDisturb: adapter.doNotDisturb
@@ -317,6 +330,14 @@ Singleton {
             property bool showPerfIndicator: true
             property bool showDrives: true
             property string conkyConfig: ""
+            property string sysmonDashboard: "native"
+            property string dashboardMode: "popout"
+            property bool dashSectionSystem: true
+            property bool dashSectionCpu: true
+            property bool dashSectionMemory: true
+            property bool dashSectionDrives: true
+            property bool dashSectionNetwork: true
+            property bool dashSectionGpu: true
             // "busy" | "always". New key, so an existing settings.json gets
             // the default (busy) without a migration.
             property string sysmonMode: "busy"

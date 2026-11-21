@@ -17,6 +17,7 @@ import "./keyhints"
 import "./switcher"
 import "./overview"
 import "./screenshot"
+import "./dashboard"
 
 ShellRoot {
     // Startup apply chain: settings.json is the source of truth, but X11
@@ -141,6 +142,10 @@ ShellRoot {
     // `capture <mode> [delay]` for scripting; the work is bin/screenshot.
     Screenshot {}
 
+    // System dashboard (native conky replacement) — `qs ipc call sysmon
+    // toggle`, Super+Shift+M. Exists only while shown.
+    Dashboard {}
+
     // Volume/brightness pill, driven by the audio/brightness handlers below
     Osd { id: osd }
 
@@ -221,12 +226,23 @@ ShellRoot {
         }
     }
 
-    // `qs ipc call sysmon toggle` — Super+Shift+m in awesome (conky popout)
+    // `qs ipc call sysmon toggle` — Super+Shift+m in awesome (the system
+    // dashboard: native popout/pinned, or conky, per Settings)
     IpcHandler {
         target: "sysmon"
 
         function toggle(): void {
-            SysMon.toggleConky();
+            SysMon.toggleDashboard();
+        }
+
+        // Which dashboard is up, for scripts and tests
+        function status(): string {
+            if (Settings.sysmonDashboard === "conky")
+                return SysMon.conkyRunning ? "conky" : "closed";
+            return !DashboardState.visible ? "closed"
+                 : DashboardState.pinned
+                   ? (DashboardState.raised ? "pinned-raised" : "pinned")
+                   : "popout";
         }
     }
 
