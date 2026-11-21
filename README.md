@@ -79,7 +79,7 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
 - Window outline (width, corner radius) is configurable, and its colors
   follow the active color scheme
 - Directional focus/swap that crosses monitor boundaries
-- 4 tags per screen, rofi launcher, spectacle screenshots
+- 4 tags per screen, rofi launcher, screenshots with an annotation editor
 
 ---
 
@@ -167,7 +167,7 @@ rebinds any of it — the table below is the defaults.
 | `Super+Shift+T` · `Super+Shift+N` | Dark/light mode · night light |
 | `Super+Shift+M` | System monitor popout (conky, optional) |
 | `Super+BackSpace` · `Ctrl+Alt+L` | Power menu · lock now |
-| `Print` · `Shift+Print` | Screenshot region (spectacle) · full |
+| `Print` · `Shift+Print` | Screenshot region → annotation editor · full screen straight to disk |
 | `Alt+Print` | Screenshot menu — see [Screenshots](#screenshots) |
 | `Super+Ctrl+R` · `Super+Ctrl+Q` | Reload awesome · quit |
 | `Super` (tap alone) | Start menu — off by default, Settings → Apps |
@@ -176,17 +176,21 @@ rebinds any of it — the table below is the defaults.
 
 ## Screenshots
 
-`Alt+Print` opens the screenshot menu (`Print` and `Shift+Print` still run
-spectacle, unchanged). On a 60% board where Print is `Fn+K`, hold Right Alt:
+`Print` freezes the screen, lets you drag a region and opens the annotation
+editor on it (see below); `Esc` at any point cancels with nothing saved.
+`Shift+Print` saves the whole screen to `~/Pictures/Screenshots/`, copies it
+and notifies, with no editor. Spectacle is only a fallback now, used when
+quickshell is not running. `Alt+Print` opens the screenshot menu. On a 60% board where Print is `Fn+K`, hold Right Alt:
 X receives `Alt_R` + `Sys_Req`, so the menu is bound to both `Alt+Sys_Req`
 and `Alt+Print`; either is rebindable in Settings → Keyboard.
 
 Menu (keys, mouse, or `Up`/`Down` + `Enter`; `Esc` or a click outside closes):
 **R**egion, **W**indow (the one focused when the menu opened), **S**creen
-(monitor under the pointer), **A**ll screens, **T**ext (OCR), **C**olour
+(monitor under the pointer), **A**ll screens, **T**ext (OCR), **C**olor
 picker, and a delay of none / 3 / 5 / 10 s (`Left`/`Right`/`D`) for the four
 captures, with a countdown pill (click it to cancel). The menu is gone
-before the grab. Captures go to `~/Pictures/Screenshots/` as PNG, onto the
+before the grab. **E** (or the *Open in editor* chip) sends a Region, Window,
+Screen or All-screens capture to the editor instead of saving it. Captures go to `~/Pictures/Screenshots/` as PNG, onto the
 clipboard as an image (kept alive by an `xclip` holder until something else
 is copied), and a notification offers *Open* / *Show in folder*. Text
 recognition copies the text and shows its first lines; the color picker
@@ -197,6 +201,28 @@ exactly the pixels you dragged over, across monitors. Scripting:
 `qs ipc call screenshot capture region|window|screen|all|ocr|color [delay]`,
 or `screenshot now screen` outside the shell. Needs ImageMagick, `xclip`,
 `xdotool`, `notify-send`; OCR needs `tesseract` with English data.
+
+### Annotation editor
+
+A window showing the capture at a fitting zoom (never enlarged past 100%),
+floated, centered and focused on the screen the pointer is on. Tools, by
+click or key: **V** select, **A** arrow, **R** rectangle, **P** pen,
+**H** highlighter (wide, translucent), **T** text (`Enter` places it,
+`Shift+Enter` is a new line), **B** redact (pixelates the box). Seven colors
+(Theme red/orange/gold/green/accent, white, black) and three widths S/M/L.
+`Ctrl+Z` / `Ctrl+Shift+Z` undo and redo; `Delete` removes the selected
+shape (the last one placed, or the one clicked with the select tool).
+`Ctrl+C` copies, `Ctrl+S` saves to `~/Pictures/Screenshots/` under the usual
+timestamp name, `Ctrl+Shift+S` is *Save as…* (kdialog, else zenity).
+`Esc` closes; if there are annotations you have not saved or copied it asks
+first (`Esc` again discards). The clipboard survives the editor closing, and
+the saved file is the original resolution with the annotations burned in,
+whatever the on-screen zoom.
+
+Scripting: `qs ipc call shoteditor open <png>` opens any PNG, and
+`drag`, `text`, `undo`, `redo`, `exportPng <path>`, `status` drive it without
+a pointer (`tests/screenshot-editor-nested.sh` uses them). The capture can
+also be started directly: `qs ipc call screenshot captureEdit region|window|screen|all [delay]`.
 
 Note: tesseract 5.5.4 as packaged on OpenMandriva crashes (SIGFPE in
 `compute_block_xheight`) unless `-c textord_old_xheight=1` is passed, which

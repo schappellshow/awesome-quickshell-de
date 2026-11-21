@@ -39,6 +39,7 @@ Scope {
     property string frozen: ""         // path of the frozen grab while picking
     property point pointer: Qt.point(0, 0)      // pointer, X screen coordinates
     property string menuScreen: ""     // output the menu card is drawn on
+    property bool toEditor: false      // open the capture in the editor instead of saving it
 
     // Selection while dragging (X screen coordinates).
     property bool dragging: false
@@ -85,6 +86,8 @@ Scope {
             case "Left":
                 delay = delays[(delays.indexOf(delay) + delays.length - 1) % delays.length]; return;
             case "Right":
+            case "e":
+                toEditor = !toEditor; return;
             case "d":
                 delay = delays[(delays.indexOf(delay) + 1) % delays.length]; return;
             case "Return":
@@ -104,6 +107,7 @@ Scope {
         if (phase !== "idle")
             finish();
         selected = 0;
+        toEditor = false;
         activeWin = "";
         winProbe.running = true;
         ptrProbe.running = true;
@@ -164,6 +168,10 @@ Scope {
             root.phase = "freeze";
             if (root.needsPick(root.mode)) {
                 freezer.running = true;
+            } else if (root.toEditor) {
+                cropper.command = ["screenshot", "cropnow", root.mode, root.activeWin];
+                cropper.running = true;
+                root.finish();
             } else {
                 run(["screenshot", "now", root.mode, root.activeWin]);
                 root.finish();
@@ -191,6 +199,16 @@ Scope {
             }
         }
     }
+
+    // A capture headed for the editor: crop it, then hand the file over.
+    Process {
+        id: cropper
+        stdout: StdioCollector {
+            onStreamFinished: if (text.trim() !== "") editor.edit(text.trim())
+        }
+    }
+
+    Editor { id: editor }
 
     Process {
         id: winProbe
@@ -224,14 +242,31 @@ Scope {
         }
     }
 
+    function startCapture(what: string, secs: int, edit: bool): void {
+        if (["region", "window", "screen", "all", "ocr", "color"].indexOf(what) < 0)
+            return;
+        if (phase !== "idle")
+            finish();
+        toEditor = edit && what !== "ocr" && what !== "color";
+        activeWin = "";
+        winProbe.running = true;
+        begin(what, secs);
+    }
+
     // Fire-and-forget: the result arrives as a notification.
     function run(cmd) { Quickshell.execDetached(cmd); }
 
     // The overlay reports the finished drag / click here.
     function pickDone(r, px, py) {
         const m = mode;
+        const ed = toEditor && m === "region";
         finish();
-        if (m === "color") {
+        if (ed) {
+            const g = Math.round(r.width) + "x" + Math.round(r.height)
+                + "+" + Math.round(r.x) + "+" + Math.round(r.y);
+            cropper.command = ["screenshot", "crop", g];
+            cropper.running = true;
+        } else if (m === "color") {
             run(["screenshot", "color", String(Math.round(px)), String(Math.round(py))]);
         } else {
             const g = Math.round(r.width) + "x" + Math.round(r.height)
@@ -251,15 +286,10 @@ Scope {
 
         // Direct capture without the menu, for scripting and tests:
         //   qs ipc call screenshot capture region|window|screen|all|ocr|color [delay]
-        function capture(what: string, secs: int): void {
-            if (["region", "window", "screen", "all", "ocr", "color"].indexOf(what) < 0)
-                return;
-            if (root.phase !== "idle")
-                root.finish();
-            root.activeWin = "";
-            winProbe.running = true;
-            root.begin(what, secs);
-        }
+        function capture(what: string, secs: int): void { root.startCapture(what, secs, false); }
+
+        // The same, but the result opens in the annotation editor (Print).
+        function captureEdit(what: string, secs: int): void { root.startCapture(what, secs, true); }
 
         function status(): string { return root.phase; }
     }
@@ -373,6 +403,28 @@ Scope {
                                     anchors.fill: parent
                                     onClicked: root.begin(row.modelData.id, root.delay)
                                 }
+                            }
+                        }
+
+                        // Open the result in the annotation editor (E).
+                        Rectangle {
+                            id: editChip
+                            readonly property bool on: root.toEditor
+                            width: col.width; height: 32; radius: 8
+                            color: on ? Theme.accent : (editHover.hovered ? Theme.surface : "transparent")
+                            border.width: on ? 0 : 1
+                            border.color: Theme.surface
+                            Text {
+                                anchors.centerIn: parent
+                                text: (editChip.on ? "✓ " : "") + "Open in editor  (E)"
+                                font.family: Theme.fontFamily
+                                font.pointSize: 9
+                                color: editChip.on ? Theme.base : Theme.text
+                            }
+                            HoverHandler { id: editHover }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: root.toEditor = !root.toEditor
                             }
                         }
 

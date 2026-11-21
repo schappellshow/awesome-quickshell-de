@@ -424,39 +424,35 @@ M.registry = {
     -- keycode. If your 60% sends a different keycode, rebind it in
     -- Settings -> Keyboard rather than editing this file.
     --
-    -- The fallback is chosen on whether spectacle EXISTS, never on how it
-    -- exits. `cmd && spectacle -r || scrot` looks equivalent but is not:
-    -- these tools return non-zero when a selection is cancelled with Escape,
-    -- so that form silently saved a full-screen scrot every time you changed
-    -- your mind — and, if the capture tool is broken, on every keypress,
-    -- which looks exactly like the key doing nothing at all.
+    -- Print freezes the screen, lets you drag a region, and opens our own
+    -- annotation editor on it (quickshell/screenshot/Editor.qml); Escape
+    -- cancels with nothing saved. Shift+Print saves the whole screen
+    -- straight to ~/Pictures/Screenshots, copies it and notifies.
     --
-    -- `spectacle -r` deliberately runs in GUI mode rather than background
-    -- (-b) mode. On X11 a clipboard selection is served on demand by the
-    -- process holding it, so it dies the instant that process exits: `-b`
-    -- copies and quits, leaving Ctrl+V pasting whatever came before. In GUI
-    -- mode the editor stays open after Copy (install.sh pins
-    -- quitAfterSaveCopyExport=false) and keeps serving the image, so paste
-    -- into a doc/message works for as long as that window is open.
-    { id = "misc.screenshot.region", group = "misc", label = "screenshot (region)",
+    -- Spectacle is only the fallback for a session where quickshell or the
+    -- `screenshot` script is missing. The choice is made on whether the tool
+    -- is DELIVERABLE (`qs ipc call` fails when no shell is running), never on
+    -- how a capture exits: `a && b || scrot` looks equivalent but silently
+    -- saved a full-screen scrot every time a selection was canceled.
+    { id = "misc.screenshot.region", group = "misc", label = "screenshot (region, editor)",
       mods = {}, key = "Print",
       fn = function()
           awful.spawn.with_shell([[
-if command -v spectacle >/dev/null 2>&1; then
+if qs ipc call screenshot captureEdit region 0 >/dev/null 2>&1; then
+    :
+elif command -v spectacle >/dev/null 2>&1; then
     spectacle -r
 else
     scrot -s '%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/Pictures/Screenshots/'
 fi]])
       end },
-    -- Full screen straight to disk: no editor, no clipboard, so background
-    -- mode is the right call here. -n suppresses the "saved" notification
-    -- (the file lands where you expect); spectacle needs an explicit -o or
-    -- it uses its own configured directory.
     { id = "misc.screenshot.full", group = "misc", label = "screenshot (full)",
       mods = { "Shift" }, key = "Print",
       fn = function()
           awful.spawn.with_shell([[
-if command -v spectacle >/dev/null 2>&1; then
+if command -v screenshot >/dev/null 2>&1; then
+    screenshot now all
+elif command -v spectacle >/dev/null 2>&1; then
     spectacle -f -b -n -o ~/Pictures/Screenshots/"$(date +%Y-%m-%d_%H-%M-%S)".png
 else
     scrot '%Y-%m-%d_%H-%M-%S.png' -e 'mv $f ~/Pictures/Screenshots/'
@@ -471,8 +467,7 @@ fi]])
     -- Alt+SysRq back and re-injects it on release, so the press reaches X
     -- when the keys are let go. A full keyboard sends plain Alt+Print.
     -- Both are ordinary registry entries: rebind or clear either in
-    -- Settings -> Keyboard. The Print / Shift+Print spectacle bindings
-    -- above are untouched.
+    -- Settings -> Keyboard.
     { id = "misc.screenshot.menu", group = "misc", label = "screenshot menu",
       mods = { "Mod1" }, key = "Sys_Req", fn = screenshot_menu },
     { id = "misc.screenshot.menu.print", group = "misc",
