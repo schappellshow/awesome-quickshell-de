@@ -65,6 +65,14 @@ Singleton {
     property real lastTotal: 0
     property real lastIdle: 0
 
+    // What the pill and `sysmon toggle` call: the dashboard Settings picks.
+    function toggleDashboard() {
+        if (Settings.sysmonDashboard === "conky")
+            toggleConky();
+        else
+            DashboardState.toggle();
+    }
+
     function toggleConky() {
         const cfg = Wallpaper.expand(Settings.conkyConfig);
         // Pop out hugging the bar: -a/-x/-y override the conkyrc's

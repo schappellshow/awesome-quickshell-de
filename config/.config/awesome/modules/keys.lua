@@ -321,7 +321,7 @@ M.registry = {
       mods = mods_super_shift, key = "x", fn = ipc("notifs", "clearAll") },
     { id = "shell.dnd",         group = "misc", label = "toggle do not disturb",
       mods = mods_super, key = "d", fn = ipc("notifs", "dnd") },
-    { id = "shell.sysmon",      group = "misc", label = "system monitor (conky)",
+    { id = "shell.sysmon",      group = "misc", label = "system dashboard",
       mods = mods_super_shift, key = "m", fn = ipc("sysmon", "toggle") },
     { id = "shell.calendar",    group = "misc", label = "calendar",
       mods = mods_super, key = "v", fn = ipc("calendar", "toggle") },

@@ -19,6 +19,8 @@ singleton Autostart Autostart.qml
 singleton EventSounds EventSounds.qml
 singleton NotifHistory NotifHistory.qml
 singleton SysMon SysMon.qml
+singleton SysStats SysStats.qml
+singleton DashboardState DashboardState.qml
 singleton BarState BarState.qml
 singleton DefaultApps DefaultApps.qml
 singleton BarSpace BarSpace.qml

@@ -18,6 +18,7 @@ import "./switcher"
 import "./overview"
 import "./screenshot"
 import "./ring"
+import "./dashboard"
 
 ShellRoot {
     // Startup apply chain: settings.json is the source of truth, but X11
@@ -145,6 +146,9 @@ ShellRoot {
     // Quick-actions ring — `qs ipc call ring open <x> <y> <win>`; awesome
     // opens it on Super+middle-click (modules/ring.lua).
     Ring {}
+    // System dashboard (native conky replacement) — `qs ipc call sysmon
+    // toggle`, Super+Shift+M. Exists only while shown.
+    Dashboard {}
 
     // Volume/brightness pill, driven by the audio/brightness handlers below
     Osd { id: osd }
@@ -226,12 +230,23 @@ ShellRoot {
         }
     }
 
-    // `qs ipc call sysmon toggle` — Super+Shift+m in awesome (conky popout)
+    // `qs ipc call sysmon toggle` — Super+Shift+m in awesome (the system
+    // dashboard: native popout/pinned, or conky, per Settings)
     IpcHandler {
         target: "sysmon"
 
         function toggle(): void {
-            SysMon.toggleConky();
+            SysMon.toggleDashboard();
+        }
+
+        // Which dashboard is up, for scripts and tests
+        function status(): string {
+            if (Settings.sysmonDashboard === "conky")
+                return SysMon.conkyRunning ? "conky" : "closed";
+            return !DashboardState.visible ? "closed"
+                 : DashboardState.pinned
+                   ? (DashboardState.raised ? "pinned-raised" : "pinned")
+                   : "popout";
         }
     }
 

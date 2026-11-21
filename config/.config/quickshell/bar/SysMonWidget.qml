@@ -3,7 +3,7 @@ import Quickshell
 import "../common"
 
 // SYS pill: CPU and RAM percentages. Left-click (or Super+Shift+M) toggles
-// the conky dashboard; right-click opens htop in a terminal.
+// the dashboard (native or conky, per Settings); right-click opens htop in a terminal.
 Item {
     id: root
 
@@ -26,7 +26,7 @@ Item {
 
     // Accent hints that the conky dashboard is open; a warning shows its
     // label in the warning colour too.
-    readonly property color labelColor: SysMon.conkyRunning ? Theme.accentBright
+    readonly property color labelColor: (SysMon.conkyRunning || DashboardState.above) ? Theme.accentBright
                                        : root.always ? Theme.muted : Theme.gold
 
     // Label over value on a vertical bar, label beside it on a horizontal
@@ -83,7 +83,7 @@ Item {
                     "command -v ghostty >/dev/null && ghostty -e htop || " +
                     "kitty htop || xterm -e htop"]);
             else
-                SysMon.toggleConky();
+                SysMon.toggleDashboard();
         }
     }
 }
