@@ -55,8 +55,145 @@ PanelWindow {
         top: BarEdge.edge !== "bottom"
         bottom: BarEdge.edge !== "top"
     }
-    implicitWidth: Settings.barWidth
-    implicitHeight: Settings.barWidth
+    // While auto-hidden the window shrinks to a thin strip on the screen
+    // edge. It is what the pointer lands on to bring the bar back, and it
+    // keeps the window mapped so no re-creation is needed.
+    implicitWidth: bar.thickness
+    implicitHeight: bar.thickness
+
+    // ── Auto-hide ───────────────────────────────────────────────────────
+    // Settings.barAutoHide off (the default): wantShown is always true, the
+    // window is always barWidth thick and nothing below changes anything.
+    //
+    // On: awesome stops reserving the strip (common/BarSpace.qml), so the bar
+    // has to be over the windows when it is shown. It is shown while
+    //   * the pointer has been on its edge for a moment (`pointerRevealed`),
+    //   * any popup or menu hanging off it is open (`popupOpen`), or
+    //   * something wants attention (`attention`: an urgent tag, for a few
+    //     seconds),
+    // and goes away `hideDelay` after the last of those lapses.
+    // Each screen's bar decides for itself.
+    readonly property int hotSize: 2
+    readonly property int hideDelay: 500
+    readonly property int revealDelay: 80
+    // Over a fullscreen window a stray flick must not pop the bar over a
+    // game or a video, so the pointer has to rest on the edge for longer.
+    readonly property int fullscreenRevealDelay: 700
+
+    property bool pointerRevealed: false
+    property bool attention: false
+
+    readonly property bool popupOpen: BarState.calendarOpen
+        || networkWidget.panelOpen || bluetoothWidget.panelOpen
+        || drivesWidget.panelOpen || traySection.openMenus > 0
+        || Media.openOn === bar.screen.name
+
+    readonly property bool wantShown: !Settings.barAutoHide
+        || pointerRevealed || popupOpen || attention
+
+    // 0 = fully out of view, 1 = fully in. The window stays full size for
+    // as long as any of the bar is still visible, and only shrinks to the
+    // hot strip once it has slid all the way out.
+    property real shown: wantShown ? 1 : 0
+    Behavior on shown {
+        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+    }
+    readonly property bool expanded: wantShown || shown > 0.001
+    readonly property int thickness: expanded ? Settings.barWidth : bar.hotSize
+
+    // How far the bar's drawing is pushed off its edge, in the direction
+    // the bar's own edge is in.
+    readonly property real shiftX: !vertical ? 0
+        : (BarEdge.edge === "left" ? -1 : 1) * (1 - shown) * Settings.barWidth
+    readonly property real shiftY: vertical ? 0
+        : (BarEdge.edge === "top" ? -1 : 1) * (1 - shown) * Settings.barWidth
+
+    // Is a window covering this whole screen? awesome's state carries
+    // geometry but no fullscreen flag; a fullscreen client is the one kind
+    // that reaches the screen's own bounds (borders are outside a client's
+    // geometry, so a tiled or maximized one never does).
+    readonly property bool fullscreenHere: {
+        const tagsShown = {};
+        for (const t of (bar.awScreen ? bar.awScreen.tags || [] : []))
+            if (t.selected)
+                tagsShown[t.index] = true;
+        return AwesomeState.allClients.some(c =>
+            c.output === bar.screen.name && !c.minimized
+            && (c.tags || []).some(t => tagsShown[t])
+            && c.x <= bar.screen.x && c.y <= bar.screen.y
+            && c.width >= bar.screen.width && c.height >= bar.screen.height);
+    }
+
+    Timer {
+        id: revealTimer
+        interval: bar.fullscreenHere ? bar.fullscreenRevealDelay : bar.revealDelay
+        onTriggered: bar.pointerRevealed = true
+    }
+
+    Timer {
+        id: hideTimer
+        interval: bar.hideDelay
+        onTriggered: {
+            if (!edgeHover.hovered && !bar.popupOpen)
+                bar.pointerRevealed = false;
+        }
+    }
+
+    // A popup that closes with the pointer already away starts the clock.
+    onPopupOpenChanged: if (!popupOpen && !edgeHover.hovered) hideTimer.restart()
+
+    // Turning auto-hide off drops any left-over reveal so that turning it
+    // on again starts out of view.
+    Connections {
+        target: Settings
+        function onBarAutoHideChanged() {
+            bar.pointerRevealed = false;
+            bar.attention = false;
+        }
+    }
+
+    // Urgent tags on this screen: reveal briefly when a new one appears.
+    // (Notifications pop up by themselves and don't need the bar too.)
+    readonly property int urgentCount: {
+        let n = 0;
+        for (const t of (bar.awScreen ? bar.awScreen.tags || [] : []))
+            if (t.urgent)
+                n++;
+        return n;
+    }
+    onUrgentCountChanged: {
+        if (Settings.barAutoHide && urgentCount > 0) {
+            attention = true;
+            attentionTimer.restart();
+        }
+    }
+    Timer {
+        id: attentionTimer
+        interval: 3000
+        onTriggered: bar.attention = false
+    }
+
+    // Always as big as the window, so the pointer is noticed on the hot
+    // strip as well as on the full bar.
+    Item {
+        anchors.fill: parent
+
+        HoverHandler {
+            id: edgeHover
+            onHoveredChanged: {
+                if (!Settings.barAutoHide)
+                    return;
+                if (hovered) {
+                    hideTimer.stop();
+                    if (!bar.pointerRevealed)
+                        revealTimer.restart();
+                } else {
+                    revealTimer.stop();
+                    hideTimer.restart();
+                }
+            }
+        }
+    }
 
     // Background is built up in layers below (blur, then tint), so the
     // window itself contributes nothing.
@@ -73,7 +210,9 @@ PanelWindow {
     Item {
         anchors.fill: parent
         visible: Settings.barBlur > 0 && wallCopy.status === Image.Ready
+            && bar.shown > 0
         clip: true
+        transform: Translate { x: bar.shiftX; y: bar.shiftY }
 
         Image {
             id: wallCopy
@@ -118,6 +257,8 @@ PanelWindow {
     // solid and the blur beneath it stops mattering.
     Rectangle {
         anchors.fill: parent
+        visible: bar.shown > 0
+        transform: Translate { x: bar.shiftX; y: bar.shiftY }
         color: Qt.rgba(Theme.base.r, Theme.base.g, Theme.base.b,
                        Settings.barOpacity / 100)
     }
@@ -270,6 +411,7 @@ PanelWindow {
             visible: Settings.showTray
         }
 
+        DrivesWidget { id: drivesWidget; barWindow: bar }
         NotifBell { id: notifBell }
         VolumeWidget { id: volumeWidget }
         NetworkWidget { id: networkWidget }
@@ -281,6 +423,7 @@ PanelWindow {
         NightLightWidget { id: nightLightWidget }
 
         ScreenLockWidget { id: screenLockWidget }
+        PerfWidget { id: perfWidget; barWindow: bar }
         Battery { id: batteryWidget }
 
         LayoutBox {
@@ -299,6 +442,7 @@ PanelWindow {
         "clock":         clockGroup,
         "media":         mediaButton,
         "tray":          traySection,
+        "drives":        drivesWidget,
         "notifications": notifBell,
         "volume":        volumeWidget,
         "network":       networkWidget,
@@ -306,6 +450,7 @@ PanelWindow {
         "sysmon":        sysMonWidget,
         "nightlight":    nightLightWidget,
         "lock":          screenLockWidget,
+        "perf":          perfWidget,
         "battery":       batteryWidget,
         "layout":        layoutBox
     })
@@ -338,6 +483,8 @@ PanelWindow {
 
     Item {
         anchors.fill: parent
+        visible: bar.shown > 0
+        transform: Translate { x: bar.shiftX; y: bar.shiftY }
 
         // Placed by x/y rather than anchors. Flipping a set of anchors as
         // the bar changes edge goes through a moment where left and
@@ -380,6 +527,13 @@ PanelWindow {
         anchorItem: networkWidget
         shown: networkWidget.panelOpen
         onDismiss: networkWidget.panelOpen = false
+    }
+
+    DrivesPanel {
+        barWindow: bar
+        anchorItem: drivesWidget
+        shown: drivesWidget.panelOpen && drivesWidget.visible
+        onDismiss: drivesWidget.panelOpen = false
     }
 
     BluetoothPanel {

@@ -22,6 +22,12 @@ dnf/apt/pacman/zypper, though only dnf is regularly tested (see
 - Vertical bar: per-screen tags, media controls, clock + calendar popup,
   system tray, volume, network, bluetooth, CPU/RAM, screen-lock state,
   battery, layout indicator — every element toggleable
+- Bar indicators that appear only when relevant: **PRF** while performance
+  mode is on (hover says whether by hand or because a game is running; click
+  turns it off), **CPU/RAM** only while one of them is high (Settings → Bar
+  chooses *Always* or *Only when busy* and the thresholds), and **DRV** while
+  a removable drive (USB stick, SD card, external disk) is plugged in — its
+  popup opens, mounts, unmounts or safely ejects each one via `udisksctl`
 - Notification daemon with popups, history center, and do-not-disturb
 - Optional desktop-style bar: start button, pinned apps, open-window list —
   and a bare `Super` tap can open the start menu, the way a floating desktop

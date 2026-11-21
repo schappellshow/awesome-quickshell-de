@@ -16,7 +16,9 @@ Singleton {
         const known = Quickshell.screens.some(
             s => s.name === Settings.barScreen);
         const target = known ? Settings.barScreen : "";
-        const w = Settings.barWidth + 3;
+        // An auto-hiding bar reserves nothing: windows take the whole screen
+        // and the bar slides in over them (bar/Bar.qml).
+        const w = Settings.barAutoHide ? 0 : Settings.barWidth + 3;
         // Every side is written on every push, so moving the bar from one
         // edge to another clears the padding it used to reserve.
         const lua =
@@ -36,6 +38,7 @@ Singleton {
         function onBarWidthChanged() { debounce.restart(); }
         function onBarScreenChanged() { root.push(); }
         function onBarPositionChanged() { root.push(); }
+        function onBarAutoHideChanged() { root.push(); }
     }
 
     Timer {

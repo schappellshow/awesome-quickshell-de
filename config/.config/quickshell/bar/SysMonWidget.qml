@@ -7,15 +7,27 @@ import "../common"
 Item {
     id: root
 
-    visible: Settings.showSysMon
+    // "busy" mode: each figure is there only while SysMon says it is high.
+    readonly property bool always: Settings.sysmonMode === "always"
+    readonly property bool showCpu: always || SysMon.cpuBusy
+    readonly property bool showRam: always || SysMon.memBusy
+
+    visible: Settings.showSysMon && (showCpu || showRam)
     implicitWidth: col.implicitWidth
     implicitHeight: col.implicitHeight
 
+    // In "busy" mode a visible figure is by definition a warning, so it is
+    // never the quiet subtext colour.
     function pctColor(p) {
         return p >= 90 ? Theme.urgent
-             : p >= 70 ? Theme.gold
+             : (p >= 70 || !root.always) ? Theme.gold
              : Theme.subtext;
     }
+
+    // Accent hints that the conky dashboard is open; a warning shows its
+    // label in the warning colour too.
+    readonly property color labelColor: SysMon.conkyRunning ? Theme.accentBright
+                                       : root.always ? Theme.muted : Theme.gold
 
     // Label over value on a vertical bar, label beside it on a horizontal
     // one — a two-line stack is taller than a horizontal bar is thick.
@@ -28,15 +40,16 @@ Item {
         spacing: BarEdge.vertical ? 1 : 4
 
         Text {
+            visible: root.showCpu
             text: "CPU"
             font.family: Theme.labelFont
             font.bold: true
             font.pointSize: 7
-            // Accent hints that the conky dashboard is open
-            color: SysMon.conkyRunning ? Theme.accentBright : Theme.muted
+            color: root.labelColor
         }
 
         Text {
+            visible: root.showCpu
             text: SysMon.cpuPct + "%"
             font.family: Theme.labelFont
             font.pointSize: 9
@@ -44,14 +57,16 @@ Item {
         }
 
         Text {
+            visible: root.showRam
             text: "RAM"
             font.family: Theme.labelFont
             font.bold: true
             font.pointSize: 7
-            color: SysMon.conkyRunning ? Theme.accentBright : Theme.muted
+            color: root.labelColor
         }
 
         Text {
+            visible: root.showRam
             text: SysMon.memPct + "%"
             font.family: Theme.labelFont
             font.pointSize: 9

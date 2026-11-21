@@ -14,6 +14,53 @@ Singleton {
     property int memPct: 0
     property bool conkyRunning: false
 
+    // ── "Only when busy" ──────────────────────────────────────────────
+    // cpuBusy / memBusy say whether the bar should be showing that figure
+    // in "busy" mode. A figure turns busy once it has been at or above its
+    // threshold for showAfterMs, and turns idle again once it has been
+    // `hysteresis` points below it for hideAfterMs, so a figure hovering
+    // around the threshold doesn't flicker.
+    //
+    // Time is measured between samples, not counted in samples, because the
+    // sample period changes (3 s normally, 10 s in performance mode). A
+    // sample stands for the interval since the previous one, so at 10 s a
+    // single high reading already covers more than showAfterMs and counts;
+    // at 3 s it takes two.
+    readonly property int showAfterMs: 5000
+    readonly property int hideAfterMs: 10000
+    readonly property int hysteresis: 15
+    property bool cpuBusy: false
+    property bool memBusy: false
+    property real lastSampleAt: 0
+    property real cpuSince: 0   // start of the current run above (or below)
+    property real memSince: 0
+
+    // Pure state step for one figure, so tests can drive it with fixtures:
+    // returns { busy, since } after a reading `pct` at time `now`.
+    function step(busy, since, pct, threshold, now, prev) {
+        const crossing = busy ? pct < threshold - hysteresis : pct >= threshold;
+        if (!crossing)
+            return { busy: busy, since: 0 };
+        // A run starts where the previous sample ended.
+        const start = since > 0 ? since : (prev > 0 ? prev : now);
+        const need = busy ? hideAfterMs : showAfterMs;
+        return now - start >= need
+            ? { busy: !busy, since: 0 }
+            : { busy: busy, since: start };
+    }
+
+    function judge(now) {
+        const c = step(cpuBusy, cpuSince, cpuPct,
+                       Settings.sysmonCpuThreshold, now, lastSampleAt);
+        const m = step(memBusy, memSince, memPct,
+                       Settings.sysmonRamThreshold, now, lastSampleAt);
+        cpuBusy = c.busy;
+        cpuSince = c.since;
+        memBusy = m.busy;
+        memSince = m.since;
+        lastSampleAt = now;
+    }
+
     // Previous /proc/stat sample
     property real lastTotal: 0
     property real lastIdle: 0
@@ -97,6 +144,7 @@ Singleton {
         const f = lines[0].trim().split(/\s+/).slice(1).map(Number);
         const idle = f[3] + (f[4] || 0);
         const total = f.reduce((a, b) => a + b, 0);
+        const first = lastTotal === 0;
         if (lastTotal > 0 && total > lastTotal) {
             const dTotal = total - lastTotal;
             const dIdle = idle - lastIdle;
@@ -111,6 +159,10 @@ Singleton {
             if (memTotal > 0)
                 memPct = Math.round(100 * (1 - memAvail / memTotal));
         }
+        // The first sample has no CPU delta yet, so cpuPct is meaningless
+        // until the second.
+        if (!first)
+            judge(Date.now());
     }
 
     Component.onCompleted: checkProc.running = true

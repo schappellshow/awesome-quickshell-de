@@ -302,6 +302,8 @@ function M.apply_bar_padding()
     local target = content:match('"barScreen"%s*:%s*"([^"]*)"') or ""
     local edge   = content:match('"barPosition"%s*:%s*"([^"]*)"') or "left"
     if not BAR_EDGES[edge] then edge = "left" end
+    -- An auto-hiding bar reserves nothing (see common/BarSpace.qml)
+    local autohide = content:match('"barAutoHide"%s*:%s*true') ~= nil
 
     -- Unplugged/unknown output → quickshell falls back to bars on every
     -- screen; mirror that here
@@ -321,7 +323,7 @@ function M.apply_bar_padding()
         -- Write every side, so a bar that moved doesn't leave the padding
         -- it reserved on its old edge behind
         local pad = { left = 0, right = 0, top = 0, bottom = 0 }
-        if has_bar then pad[edge] = width + 3 end
+        if has_bar and not autohide then pad[edge] = width + 3 end
         s.padding = pad
     end
 end

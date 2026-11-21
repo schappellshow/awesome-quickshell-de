@@ -1,0 +1,231 @@
+{
+ "blockdevices": [
+  {
+   "name": "nvme0n1",
+   "path": "/dev/nvme0n1",
+   "model": "Internal SSD",
+   "size": 512000000000,
+   "type": "disk",
+   "rm": false,
+   "hotplug": false,
+   "tran": "nvme",
+   "ro": false,
+   "mountpoints": [
+    null
+   ],
+   "fstype": null,
+   "children": [
+    {
+     "name": "nvme0n1p1",
+     "path": "/dev/nvme0n1p1",
+     "type": "part",
+     "fstype": "vfat",
+     "size": 500000000,
+     "mountpoints": [
+      "/boot/efi"
+     ],
+     "label": null,
+     "fsused": null,
+     "fsavail": null
+    },
+    {
+     "name": "nvme0n1p2",
+     "path": "/dev/nvme0n1p2",
+     "type": "part",
+     "fstype": "ext4",
+     "size": 511000000000,
+     "mountpoints": [
+      "/",
+      "/home"
+     ],
+     "label": null,
+     "fsused": 100,
+     "fsavail": 100
+    }
+   ]
+  },
+  {
+   "name": "sda",
+   "path": "/dev/sda",
+   "model": "WDC Backup HDD",
+   "size": 1000204886016,
+   "type": "disk",
+   "rm": false,
+   "hotplug": false,
+   "tran": "sata",
+   "ro": false,
+   "mountpoints": [
+    null
+   ],
+   "fstype": null,
+   "children": [
+    {
+     "name": "sda1",
+     "path": "/dev/sda1",
+     "type": "part",
+     "fstype": "ext4",
+     "label": "HDD",
+     "size": 1000203091968,
+     "fsused": 228221755392,
+     "fsavail": 705100660736,
+     "mountpoints": [
+      "/mnt/backup"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sdb",
+   "path": "/dev/sdb",
+   "model": "Ultra Fit  ",
+   "size": 32015679488,
+   "type": "disk",
+   "rm": true,
+   "hotplug": true,
+   "tran": "usb",
+   "ro": false,
+   "mountpoints": [
+    null
+   ],
+   "fstype": null,
+   "children": [
+    {
+     "name": "sdb1",
+     "path": "/dev/sdb1",
+     "type": "part",
+     "fstype": "vfat",
+     "label": "PHOTOS",
+     "size": 32014630912,
+     "fsused": 12400000000,
+     "fsavail": 19600000000,
+     "mountpoints": [
+      "/run/media/mike/PHOTOS"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sdc",
+   "path": "/dev/sdc",
+   "model": "Portable SSD T7",
+   "size": 1000204886016,
+   "type": "disk",
+   "rm": false,
+   "hotplug": true,
+   "tran": "usb",
+   "ro": false,
+   "mountpoints": [
+    null
+   ],
+   "fstype": null,
+   "children": [
+    {
+     "name": "sdc1",
+     "path": "/dev/sdc1",
+     "type": "part",
+     "fstype": "exfat",
+     "label": "T7",
+     "size": 500000000000,
+     "fsused": null,
+     "fsavail": null,
+     "mountpoints": [
+      null
+     ]
+    },
+    {
+     "name": "sdc2",
+     "path": "/dev/sdc2",
+     "type": "part",
+     "fstype": "crypto_LUKS",
+     "label": null,
+     "size": 500000000000,
+     "mountpoints": [
+      null
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mmcblk0",
+   "path": "/dev/mmcblk0",
+   "model": null,
+   "size": 64000000000,
+   "type": "disk",
+   "rm": false,
+   "hotplug": false,
+   "tran": null,
+   "ro": false,
+   "mountpoints": [
+    null
+   ],
+   "fstype": null,
+   "children": [
+    {
+     "name": "mmcblk0p1",
+     "path": "/dev/mmcblk0p1",
+     "type": "part",
+     "fstype": "exfat",
+     "label": "CAMERA",
+     "size": 63900000000,
+     "fsused": 30000000000,
+     "fsavail": 33900000000,
+     "mountpoints": [
+      null
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mmcblk1",
+   "path": "/dev/mmcblk1",
+   "model": null,
+   "size": 32000000000,
+   "type": "disk",
+   "rm": false,
+   "hotplug": false,
+   "tran": null,
+   "ro": false,
+   "mountpoints": [
+    null
+   ],
+   "fstype": null,
+   "children": [
+    {
+     "name": "mmcblk1p1",
+     "path": "/dev/mmcblk1p1",
+     "type": "part",
+     "fstype": "ext4",
+     "label": "emmc-data",
+     "size": 31900000000,
+     "mountpoints": [
+      "/var/lib/data"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "loop0",
+   "path": "/dev/loop0",
+   "type": "loop",
+   "size": 100,
+   "rm": false,
+   "mountpoints": [
+    "/snap/x"
+   ],
+   "fstype": "squashfs"
+  },
+  {
+   "name": "sr0",
+   "path": "/dev/sr0",
+   "type": "rom",
+   "size": 100,
+   "rm": true,
+   "tran": "sata",
+   "mountpoints": [
+    null
+   ],
+   "fstype": null
+  }
+ ]
+}
+#SD mmcblk0

@@ -21,6 +21,10 @@ Grid {
 
     spacing: 6
 
+    // How many of the items' menus are open right now; the bar's auto-hide
+    // keeps itself shown while one is, since a menu hangs off the bar.
+    property int openMenus: 0
+
     Repeater {
         model: SystemTray.items
 
@@ -43,6 +47,9 @@ Grid {
                 id: menuAnchor
                 menu: trayItem.modelData.menu
                 anchor.window: root.barWindow
+
+                onVisibleChanged: root.openMenus += visible ? 1 : -1
+                Component.onDestruction: if (visible) root.openMenus -= 1
             }
 
             // Open off the icon's inward-facing edge, so the menu unfolds

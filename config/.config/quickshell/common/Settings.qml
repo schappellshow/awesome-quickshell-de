@@ -34,6 +34,9 @@ Singleton {
     property alias barPosition: adapter.barPosition
     property alias barWidth: adapter.barWidth
     property alias barScreen: adapter.barScreen
+    // Slide the bar out of the way until the pointer hits its screen edge;
+    // windows then get the strip it used to reserve (see bar/Bar.qml)
+    property alias barAutoHide: adapter.barAutoHide
     property alias barOpacity: adapter.barOpacity
     property alias barBlur: adapter.barBlur
     // "" = follow Theme.fontFamily
@@ -57,6 +60,17 @@ Singleton {
     property alias showSysMon: adapter.showSysMon
     property alias showScreenLock: adapter.showScreenLock
     property alias showNightLight: adapter.showNightLight
+    // The performance-mode indicator; it only appears while the mode is on
+    property alias showPerfIndicator: adapter.showPerfIndicator
+    // The removable-drives pill; it only appears while a drive is plugged in
+    property alias showDrives: adapter.showDrives
+
+    // CPU/RAM readout: "busy" shows each figure only while it is high,
+    // "always" is the permanent readout. Thresholds are percentages; the
+    // readout goes away again 15 points below them (see common/SysMon.qml).
+    property alias sysmonMode: adapter.sysmonMode
+    property alias sysmonCpuThreshold: adapter.sysmonCpuThreshold
+    property alias sysmonRamThreshold: adapter.sysmonRamThreshold
 
     // System monitor popout (conky)
     property alias conkyConfig: adapter.conkyConfig
@@ -233,6 +247,9 @@ Singleton {
             // Output name (e.g. "DisplayPort-2") for a single bar;
             // "" or an unplugged output falls back to bars on every screen
             property string barScreen: ""
+            // Off by default: the bar reserves its strip and stays put,
+            // exactly as before this setting existed.
+            property bool barAutoHide: false
             // Bar background opacity, 0-100. 0 = the stock look: an
             // invisible bar with opaque pills floating on the desktop.
             // 100 = a solid bar, where the pills share its colour and read
@@ -276,7 +293,14 @@ Singleton {
             property bool showSysMon: true
             property bool showScreenLock: true
             property bool showNightLight: true
+            property bool showPerfIndicator: true
+            property bool showDrives: true
             property string conkyConfig: ""
+            // "busy" | "always". New key, so an existing settings.json gets
+            // the default (busy) without a migration.
+            property string sysmonMode: "busy"
+            property int sysmonCpuThreshold: 80
+            property int sysmonRamThreshold: 85
 
             property int notifTimeoutMs: 6000
             property bool doNotDisturb: false

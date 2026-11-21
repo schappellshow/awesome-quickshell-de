@@ -59,6 +59,25 @@ SettingsPage {
         }
     }
 
+    ToggleRow {
+        label: "Auto-hide the bar"
+        checked: Settings.barAutoHide
+        onToggled: value => Settings.barAutoHide = value
+    }
+
+    Text {
+        width: parent.width
+        text: "The bar slides out of view and windows use its space. Move "
+            + "the pointer to the screen edge to bring it back; it stays "
+            + "while the pointer is on it or one of its menus is open. "
+            + "Over a fullscreen window the pointer has to rest on the edge "
+            + "for a moment first."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
+
     SectionLabel { text: "SECTIONS" }
 
     Text {
@@ -192,6 +211,48 @@ SettingsPage {
     }
 
     SectionLabel { text: "SYSTEM MONITOR" }
+
+    CycleRow {
+        label: "CPU/RAM readout"
+        value: Settings.sysmonMode === "always" ? "Always" : "Only when busy"
+        onCycle: Settings.sysmonMode =
+            Settings.sysmonMode === "always" ? "busy" : "always"
+    }
+
+    SliderRow {
+        visible: Settings.sysmonMode !== "always"
+        label: "CPU busy above"
+        from: 50
+        to: 100
+        step: 5
+        suffix: "%"
+        value: Settings.sysmonCpuThreshold
+        onMoved: value => Settings.sysmonCpuThreshold = value
+    }
+
+    SliderRow {
+        visible: Settings.sysmonMode !== "always"
+        label: "RAM busy above"
+        from: 50
+        to: 100
+        step: 5
+        suffix: "%"
+        value: Settings.sysmonRamThreshold
+        onMoved: value => Settings.sysmonRamThreshold = value
+    }
+
+    Text {
+        visible: Settings.sysmonMode !== "always"
+        width: parent.width
+        text: "Each figure appears when it stays above its limit for about "
+            + "five seconds, and goes away once it has stayed 15 points "
+            + "below it for ten. Super+Shift+M still opens the dashboard "
+            + "while the readout is hidden."
+        wrapMode: Text.Wrap
+        font.family: Theme.fontFamily
+        font.pointSize: 8
+        color: Theme.muted
+    }
 
     TextFieldRow {
         label: "Conky config for the popout (Enter to apply)"

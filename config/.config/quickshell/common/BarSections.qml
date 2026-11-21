@@ -34,6 +34,7 @@ Singleton {
         { id: "clock",         label: "Clock",              slot: "center" },
         { id: "media",         label: "Media button",       slot: "end"    },
         { id: "tray",          label: "System tray",        slot: "end"    },
+        { id: "drives",        label: "Removable drives",   slot: "end"    },
         { id: "notifications", label: "Notification bell",  slot: "end"    },
         { id: "volume",        label: "Volume",             slot: "end"    },
         { id: "network",       label: "Network",            slot: "end"    },
@@ -41,6 +42,7 @@ Singleton {
         { id: "sysmon",        label: "CPU/RAM",            slot: "end"    },
         { id: "nightlight",    label: "Night light",        slot: "end"    },
         { id: "lock",          label: "Screen lock",        slot: "end"    },
+        { id: "perf",          label: "Performance mode",   slot: "end"    },
         { id: "battery",       label: "Battery",            slot: "end"    },
         { id: "layout",        label: "Layout indicator",   slot: "end"    }
     ]
@@ -57,6 +59,7 @@ Singleton {
         "clock":         Settings.showClock,
         "media":         Settings.showMediaPill,
         "tray":          Settings.showTray,
+        "drives":        Settings.showDrives,
         "notifications": Settings.showNotifBell,
         "volume":        Settings.showVolume,
         "network":       Settings.showNetwork,
@@ -64,6 +67,7 @@ Singleton {
         "sysmon":        Settings.showSysMon,
         "nightlight":    Settings.showNightLight,
         "lock":          Settings.showScreenLock,
+        "perf":          Settings.showPerfIndicator,
         "battery":       Settings.showBattery,
         "layout":        Settings.showLayoutBox
     })
@@ -234,6 +238,7 @@ Singleton {
         case "clock":         Settings.showClock      = value; break;
         case "media":         Settings.showMediaPill  = value; break;
         case "tray":          Settings.showTray       = value; break;
+        case "drives":        Settings.showDrives     = value; break;
         case "notifications": Settings.showNotifBell  = value; break;
         case "volume":        Settings.showVolume     = value; break;
         case "network":       Settings.showNetwork    = value; break;
@@ -241,6 +246,7 @@ Singleton {
         case "sysmon":        Settings.showSysMon     = value; break;
         case "nightlight":    Settings.showNightLight = value; break;
         case "lock":          Settings.showScreenLock = value; break;
+        case "perf":          Settings.showPerfIndicator = value; break;
         case "battery":       Settings.showBattery    = value; break;
         case "layout":        Settings.showLayoutBox  = value; break;
         }
