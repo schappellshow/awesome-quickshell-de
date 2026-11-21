@@ -34,9 +34,6 @@ local M = {}
 -- action runs it, anywhere else cancels). Shorter is a click: the ring stays
 -- up so you can click an action.
 local HOLD = 0.25
--- Pointer must have travelled this far before hover updates are sent, so a
--- twitch while clicking does not spawn a process.
-local WOBBLE = 8
 local TICK = 0.06
 
 local function ipc(...)
@@ -73,6 +70,26 @@ _G.ring_grab = function()
     end)
 end
 _G.ring_release = release_keys
+
+-- Where the ring is (global center, entry count, center and outer hit radii),
+-- sent by the shell once it has clamped the ring. The hold-poll below uses it
+-- to work out which entry the pointer is over, mirroring Ring.qml's entryAt,
+-- so a hover is only sent when that changes.
+local geom = nil
+_G.ring_geom = function(x, y, n, inner, outer)
+    geom = { x = x, y = y, n = n, inner = inner, outer = outer }
+end
+
+local function sector(px, py)
+    if not geom then return nil end
+    local dx, dy = px - geom.x, py - geom.y
+    local d = math.sqrt(dx * dx + dy * dy)
+    if d <= geom.inner then return -2 end
+    if d > geom.outer then return -1 end
+    local ang = math.atan2(dx, -dy)
+    if ang < 0 then ang = ang + 2 * math.pi end
+    return math.floor(ang / (2 * math.pi / geom.n) + 0.5) % geom.n
+end
 
 -- ── Client actions ───────────────────────────────────────────────────────
 local function client_by_window(win)
@@ -122,6 +139,7 @@ end
 function M.open(c)
     local co = mouse.coords()
     c = under_pointer(c)
+    geom = nil   -- stale until the shell sends the clamped center
     ipc("open", co.x, co.y, c and c.window or 0)
     return co
 end
@@ -156,7 +174,7 @@ end
 function M.press(c)
     stop_press()
     local co = M.open(c)
-    local p = { x = co.x, y = co.y, held = false, lx = co.x, ly = co.y }
+    local p = { x = co.x, y = co.y, held = false }
     p.timer = gears.timer.start_new(HOLD, function()
         if press == p then p.held = true end
         return false
@@ -164,9 +182,9 @@ function M.press(c)
     p.poll = gears.timer.start_new(TICK, function()
         if press ~= p then return false end
         local now = mouse.coords()
-        if (now.x ~= p.lx or now.y ~= p.ly)
-            and math.abs(now.x - p.x) + math.abs(now.y - p.y) > WOBBLE then
-            p.lx, p.ly = now.x, now.y
+        local sec = sector(now.x, now.y)
+        if sec ~= nil and sec ~= p.sec then
+            p.sec = sec
             ipc("hover", now.x, now.y)
         end
         return true

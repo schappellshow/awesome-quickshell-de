@@ -72,8 +72,17 @@ Scope {
             return;
         const h = root.half;
         root.target = scr;
-        root.cx = Math.max(h, Math.min(scr.width - h, x - scr.x));
-        root.cy = Math.max(h, Math.min(scr.height - h - root.labelSpace, y - scr.y));
+        // Keep out of the space the bar reserves (none while it auto-hides,
+        // the same rule BarSpace applies to awesome's padding), on whichever
+        // edge it sits, and only on the screen that has a bar.
+        const known = screens.some(s => s.name === Settings.barScreen);
+        const hasBar = !known || scr.name === Settings.barScreen;
+        const bar = hasBar && !Settings.barAutoHide ? Settings.barWidth + 3 : 0;
+        const e = BarEdge.edge;
+        const l = e === "left" ? bar : 0, r = e === "right" ? bar : 0;
+        const t = e === "top" ? bar : 0, b = e === "bottom" ? bar : 0;
+        root.cx = Math.max(l + h, Math.min(scr.width - r - h, x - scr.x));
+        root.cy = Math.max(t + h, Math.min(scr.height - b - h - root.labelSpace, y - scr.y));
         root.win = /^[0-9]+$/.test(winId) ? winId : "0";
         root.hot = -1;
         root.shown = true;
@@ -87,7 +96,13 @@ Scope {
         // Awesome holds the keyboard for as long as the ring is up. Taken
         // here, once the ring has really opened, and dropped however it
         // closes (action, click, Escape) so it can never outlive the window.
-        AwesomeState.exec(shown ? "ring_grab()" : "ring_release()");
+        // The geometry goes with it so awesome can tell which entry the pointer
+        // is over and report hover only when that changes.
+        AwesomeState.exec(shown
+            ? `ring_grab(); ring_geom(${Math.round(root.target.x + root.cx)}, `
+              + `${Math.round(root.target.y + root.cy)}, ${root.items.length}, `
+              + `${root.centerSize / 2 + 6}, ${root.ringRadius + root.buttonSize / 2 + 14})`
+            : "ring_release()");
     }
 
     // Item under a global point: an index; -2 center; -1 nothing (outside
@@ -389,9 +404,9 @@ Scope {
                     scale: active ? 1.14 : 1
                     opacity: usable ? 1 : 0.35
                     color: active ? RingActions.toneColor(modelData.tone)
-                                  : Theme.surface
+                                  : Theme.surfaceAlt
                     border.width: 1
-                    border.color: active ? Theme.text : Theme.surfaceAlt
+                    border.color: active ? Theme.text : Theme.subtext
 
                     Behavior on scale {
                         enabled: root.animated
