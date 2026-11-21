@@ -37,6 +37,10 @@ set -euo pipefail
 if [ -z "${NESTED_CLEAN_ENV:-}" ]; then
     keep=(NESTED_CLEAN_ENV=1 "HOME=$HOME" "USER=${USER:-$(id -un)}"
           "LOGNAME=${LOGNAME:-$(id -un)}" "PATH=/usr/local/bin:/usr/bin:/bin")
+    # Xephyr is a client of the host display, so it alone needs these; they
+    # are kept under other names so nothing else in the session sees :0.
+    [ -n "${DISPLAY:-}" ] && keep+=("NESTED_HOST_DISPLAY=$DISPLAY")
+    [ -n "${XAUTHORITY:-}" ] && keep+=("NESTED_HOST_XAUTHORITY=$XAUTHORITY")
     for v in SHELL TERM TZ LANG LANGUAGE NESTED_BASE \
              QT_QPA_PLATFORMTHEME QT_QUICK_CONTROLS_STYLE QT_STYLE_OVERRIDE \
              GTK_THEME XCURSOR_THEME XCURSOR_SIZE XDG_DATA_DIRS \
@@ -162,12 +166,15 @@ EOF
     : > "$S/pids"
     # ── X server ──
     if [ "$server" = xephyr ]; then
+        [ -n "${NESTED_HOST_DISPLAY:-}" ] || die "--xephyr needs DISPLAY set to the host display"
+        DISPLAY="$NESTED_HOST_DISPLAY" XAUTHORITY="${NESTED_HOST_XAUTHORITY:-}" \
         Xephyr "$disp" -screen "$size" -resizeable -title "nested: $name ($disp)" \
             -ac -br -noreset >"$S/log/x.log" 2>&1 &
     else
         Xvfb "$disp" -screen 0 "${size}x24" -ac -nolisten tcp \
             >"$S/log/x.log" 2>&1 &
     fi
+    unset NESTED_HOST_DISPLAY NESTED_HOST_XAUTHORITY
     echo "x $!" >> "$S/pids"
     for _ in $(seq 50); do [ -e "/tmp/.X11-unix/X${disp#:}" ] && break; sleep 0.1; done
     [ -e "/tmp/.X11-unix/X${disp#:}" ] || die "X server did not start (see $S/log/x.log)"
