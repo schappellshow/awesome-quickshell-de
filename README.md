@@ -213,7 +213,10 @@ without root. `qs ipc call sysmon status` reports the state.
 ## Screenshots
 
 `Print` freezes the screen, lets you drag a region and opens the annotation
-editor on it (see below); `Esc` at any point cancels with nothing saved.
+editor on it (see below); a plain click instead of a drag selects the window
+under the pointer. `Esc` at any point cancels with nothing saved. The grab is
+kept as raw PPM and each capture gets its own file, so it appears fast and the
+editor never shows an earlier shot.
 `Shift+Print` saves the whole screen to `~/Pictures/Screenshots/`, copies it
 and notifies, with no editor. Spectacle is only a fallback now, used when
 quickshell is not running. `Alt+Print` opens the screenshot menu. On a 60% board where Print is `Fn+K`, hold Right Alt:
