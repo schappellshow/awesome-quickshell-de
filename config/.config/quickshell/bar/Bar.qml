@@ -492,42 +492,36 @@ PanelWindow {
     // left out so an empty one is never mistaken for a blank one.
     readonly property var paintedIds: ["tags", "clock"]
 
-    // Grab each of those sections to <prefix>-<id>.png and call
-    // done(paths, missing) once every grab has come back. `paths` are the
-    // files written; `missing` lists sections that should have been grabbed
-    // but could not be (zero size, not in a pill) — a section that is laid
-    // out with no size at all counts as a failure too.
-    function snapshotSections(prefix, done) {
-        const jobs = [];
-        const paths = [];
-        const missing = [];
+    // Where each of those sections sits in this window, in window pixels:
+    // [{ id, x, y, w, h }]. Sections that are hidden, still in the pool or
+    // not laid out yet are left out. BarHealth captures the real X window
+    // and looks inside these rectangles; Item.grabToImage is not used
+    // because it renders the item offscreen and so cannot see a section
+    // that is missing from the window's own scene graph.
+    // The window's size and absolute position, as xwininfo prints them
+    // ("36x1080" and "+1080+0"). Quickshell exposes no X window id, so
+    // BarHealth finds the window by exactly this geometry, the way
+    // modules/blur.lua finds clients.
+    readonly property string sizeKey: Math.round(bar.width) + "x" + Math.round(bar.height)
+    readonly property string posKey: "+" + (bar.screenX + (BarEdge.edge === "right"
+            ? bar.screenW - Math.round(bar.width) : 0))
+        + "+" + (bar.screenY + (BarEdge.edge === "bottom"
+            ? bar.screenH - Math.round(bar.height) : 0))
+
+    function sectionRects() {
+        const rects = [];
+        if (bar.shown < 1)
+            return rects;
         for (const id of bar.paintedIds) {
             const item = bar.sectionItems[id];
-            if (!item || !item.visible || item.parent === pool)
-                continue;      // not shown in this arrangement
-            jobs.push({ id: id, item: item });
+            if (!item || !item.visible || item.parent === pool
+                || item.width < 1 || item.height < 1)
+                continue;
+            const p = item.mapToItem(null, 0, 0);
+            rects.push({ id: id, x: Math.round(p.x), y: Math.round(p.y),
+                         w: Math.round(item.width), h: Math.round(item.height) });
         }
-        let left = jobs.length;
-        if (left === 0 || bar.shown < 1) {
-            done([], []);
-            return;
-        }
-        for (const job of jobs) {
-            const path = prefix + "-" + job.id + ".png";
-            const ok = job.item.grabToImage(result => {
-                if (result.saveToFile(path))
-                    paths.push(path);
-                else
-                    missing.push(job.id);
-                if (--left === 0)
-                    done(paths, missing);
-            });
-            if (!ok) {
-                missing.push(job.id);
-                if (--left === 0)
-                    done(paths, missing);
-            }
-        }
+        return rects;
     }
 
     Connections {

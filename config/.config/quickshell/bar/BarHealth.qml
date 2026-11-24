@@ -3,6 +3,8 @@ import Quickshell
 import Quickshell.Io
 import "../common"
 
+// The paint check captures the bar's real X window and looks inside each
+// section's rectangle (see Bar.qml sectionRects); Item.grabToImage is not used.
 // Makes the bar verify itself after anything that has been seen to break it,
 // and rebuild its windows (what Super+B does) if the check fails.
 //
@@ -59,13 +61,6 @@ Scope {
         onTriggered: health.verify()
     }
 
-    // Nothing is checked unless the grabs come back; this is the backstop.
-    Timer {
-        id: watchdog
-        interval: 4000
-        onTriggered: health.finish(["grab timed out"])
-    }
-
     function wantNames() {
         // Worked out from Settings afresh, not from what the shell last
         // handed Variants: the point is to catch the two disagreeing.
@@ -90,64 +85,57 @@ Scope {
             return;
         }
 
-        let waiting = bars.length;
-        if (waiting === 0) {
-            health.finish([]);
-            return;
-        }
-        const files = [];
-        watchdog.restart();
+        // Capture each bar's real X window (what the server holds for it,
+        // which is what the screen shows) and count the distinct colors
+        // inside every section's rectangle. The pill behind a section is one
+        // flat color, so a section that painted nothing crops to exactly one
+        // color and any text or icon makes it several.
+        const jobs = [];
         for (const b of bars) {
-            b.snapshotSections(health.dir + "/aqs-bar-grab-" + gen + "-" + b.screenName,
-                (paths, missing) => {
-                    if (gen !== health.generation)
-                        return;
-                    for (const id of missing)
-                        problems.push(b.screenName + ": section '" + id + "' could not be grabbed");
-                    for (const p of paths)
-                        files.push(p);
-                    if (--waiting === 0) {
-                        watchdog.stop();
-                        health.checkPixels(files, problems);
-                    }
-                });
+            for (const r of b.sectionRects())
+                jobs.push({ size: b.sizeKey, pos: b.posKey, name: b.screenName + "/" + r.id,
+                            geo: r.w + "x" + r.h + "+" + r.x + "+" + r.y });
         }
-    }
-
-    // One ImageMagick call for every grabbed file: prints "<max alpha> <path>"
-    // per line. A section with any painted pixel has a max alpha above 0.
-    function checkPixels(files, problems) {
-        if (files.length === 0) {
+        if (jobs.length === 0) {
             health.finish(problems);
             return;
         }
         pixelProbe.pending = problems;
-        pixelProbe.files = files;
-        pixelProbe.command = ["sh", "-c",
-            'for f in "$@"; do printf "%s %s\\n" "$(magick "$f" -alpha extract -format "%[fx:maxima]" info: 2>&1)" "$f"; rm -f "$f"; done',
-            "aqs-heal"].concat(files);
+        pixelProbe.names = jobs.map(j => j.name);
+        const tmp = health.dir + "/aqs-bar-grab-" + gen + ".png";
+        // Window ids by geometry: the inner window named "quickshell" whose
+        // size and absolute position match this bar's.
+        let script = 'find() { xwininfo -root -tree | grep -F "quickshell\\": ()  $1+" | grep -F " $2" | head -1 | grep -o "0x[0-9a-f]*"; }; ';
+        for (const j of jobs)
+            script += 'W=$(find ' + j.size + ' ' + j.pos + '); import -window "$W" png:"' + tmp + '" 2>/dev/null'
+                + ' && echo "$(magick "' + tmp + '" -crop ' + j.geo
+                + ' +repage -format %k info: 2>&1) ' + j.name + '" || echo "0 ' + j.name + ' capture-failed"; ';
+        script += 'rm -f "' + tmp + '"';
+        pixelProbe.command = ["sh", "-c", script];
         pixelProbe.running = true;
     }
 
     Process {
         id: pixelProbe
         property var pending: []
-        property var files: []
+        property var names: []
         stdout: StdioCollector {
             onStreamFinished: {
                 const problems = pixelProbe.pending;
                 const seen = {};
                 for (const line of text.split("\n")) {
-                    const m = line.match(/^(\S+) (.*)$/);
+                    const m = line.match(/^(\d+) (\S+)( capture-failed)?/);
                     if (!m)
                         continue;
                     seen[m[2]] = true;
-                    if (!(parseFloat(m[1]) > 0))
-                        problems.push("blank: " + m[2].replace(/.*aqs-bar-grab-/, ""));
+                    if (m[3])
+                        problems.push("capture failed: " + m[2]);
+                    else if (parseInt(m[1]) < 2)
+                        problems.push("blank: " + m[2]);
                 }
-                for (const f of pixelProbe.files)
-                    if (!seen[f])
-                        problems.push("unchecked: " + f);
+                for (const n of pixelProbe.names)
+                    if (!seen[n])
+                        problems.push("unchecked: " + n);
                 health.finish(problems);
             }
         }
