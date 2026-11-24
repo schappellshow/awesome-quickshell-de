@@ -85,6 +85,36 @@ freeze() {
 # geometry. Quickshell's overlays are override-redirect and so are not in
 # the client list.
 windowat() {
+    local px="$1" py="$2" out
+    # Ask awesome first: it knows which clients are on a selected tag and not
+    # minimized (a client on another tag stays in the X client list without
+    # being marked hidden). Topmost first, WxH+X+Y including the border.
+    out=$(awesome-client "
+local px, py = $px, $py
+local list = client.get(nil, true)
+for i = #list, 1, -1 do
+    local c = list[i]
+    if c:isvisible() and not c.minimized and not c.hidden then
+        local g, b = c:geometry(), c.border_width or 0
+        local x, y, w, h = g.x - b, g.y - b, g.width + 2 * b, g.height + 2 * b
+        if px >= x and px < x + w and py >= y and py < y + h then
+            return string.format('%dx%d+%d+%d', w, h, x, y)
+        end
+    end
+end
+return ''" 2>/dev/null) || out="ERR"
+    if [ "$out" != "ERR" ] && [ -n "$out" ]; then
+        out=$(printf '%s' "$out" | sed -n 's/.*"\(.*\)".*/\1/p')
+        if [ -n "$out" ]; then echo "$out"; return 0; fi
+        return 1                       # awesome answered: nothing there
+    fi
+    [ "$out" = "ERR" ] || return 1     # awesome answered with an empty string
+    windowat_xprop "$px" "$py"
+}
+
+# Fallback when awesome-client is unavailable: the X stacking list, minus
+# windows marked hidden (cannot see other tags).
+windowat_xprop() {
     local px="$1" py="$2" ids id g x y w h
     ids=$(xprop -root _NET_CLIENT_LIST_STACKING 2>/dev/null | sed 's/.*# //' | tr -d ',' | tr ' ' '\n' | tac)
     for id in $ids; do
