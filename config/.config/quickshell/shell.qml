@@ -63,17 +63,57 @@ ShellRoot {
     function updateBarScreens() {
         const match = Quickshell.screens.filter(
             s => s.name === Settings.barScreen);
-        barScreens = match.length > 0 ? match : Quickshell.screens;
+        const next = match.length > 0 ? match : Quickshell.screens;
+        // Only hand Variants a new array when the set of screens really
+        // differs (see above); a screen being unplugged also lands here.
+        const same = next.length === barScreens.length
+            && next.every((s, i) => s === barScreens[i]);
+        if (!same)
+            barScreens = next;
     }
 
     Connections {
         target: Settings
-        function onBarScreenChanged() { updateBarScreens(); }
+        function onBarScreenChanged() {
+            updateBarScreens();
+            barHealth.trigger("barScreen changed");
+        }
+    }
+
+    Connections {
+        target: Quickshell
+        function onScreensChanged() {
+            updateBarScreens();
+            barHealth.trigger("screens changed");
+        }
+    }
+
+    Connections {
+        target: AwesomeState
+        function onEpochChanged() { barHealth.trigger("awesome restarted"); }
+    }
+
+    Connections {
+        target: BarSections
+        function onArrangementChanged() { barHealth.trigger("arrangement changed"); }
     }
 
     Variants {
+        id: barVariants
         model: barScreens
         Bar {}
+    }
+
+    // Verifies the bar a moment after each of the triggers above and rebuilds
+    // it when it is wrong. Log: $XDG_RUNTIME_DIR/aqs-bar-heal.log
+    BarHealth {
+        id: barHealth
+        variants: barVariants
+        onHeal: {
+            barScreens = [];
+            barRecreate.restart();
+        }
+        Component.onCompleted: trigger("config loaded")
     }
 
     // `qs ipc call bar recreate` — Super+b.
@@ -97,10 +137,8 @@ ShellRoot {
     // it should be — holding barScreens as a stable property reduced that
     // drift but evidently did not end it.
     //
-    // Deliberately manual. Doing this automatically at startup would fight
-    // the reason barScreens is a stable property (see above) and cost a
-    // flicker every login, to work around a bug whose cause is still not
-    // established.
+    // The shell now does this by itself when BarHealth finds the bar wrong
+    // (see below); this stays as the manual fallback.
     IpcHandler {
         target: "bar"
 
