@@ -141,13 +141,18 @@ awful.rules.rules = {
     -- shoved the meeting itself aside. Zoom re-opens it repeatedly during a
     -- call, so every open has to be caught here.
     --
-    -- It floats at its own size, on top, exactly where Zoom puts it, and
-    -- never takes focus when it appears, so the meeting keeps the keyboard.
-    -- Zoom shows it while the pointer is over a shared screen and hides it
-    -- the moment the pointer leaves the share, so it must stay inside the
-    -- share: moving it anywhere else (it was once centered along the top of
-    -- the screen, over the participant strip) made it vanish before it could
-    -- be clicked. If you never annotate, add `hidden = true` below.
+    -- It floats at its own size, on top, and never takes focus when it
+    -- appears, so the meeting keeps the keyboard.
+    --
+    -- Zoom shows it only while the pointer is over a shared screen and hides
+    -- it as soon as the pointer leaves the share, so it has to appear INSIDE
+    -- the share. Zoom's own spot is the top center of the meeting window,
+    -- which with the participant strip along the top is outside the share:
+    -- the toolbar vanished on the way to it. The pointer, though, is over the
+    -- share whenever Zoom maps the toolbar, so it opens just beside the
+    -- pointer (kept on that monitor). Zoom withdraws and re-maps the same
+    -- window each time, and every map is a fresh "manage", so this applies
+    -- on every hover. If you never annotate, add `hidden = true` below.
     {
         rule = { class = "zoom", name = "annotate_toolbar" },
         properties = {
@@ -157,7 +162,16 @@ awful.rules.rules = {
             titlebars_enabled = false,
             skip_taskbar      = true,
             focus             = false,
-            placement         = false,
+            placement         = function(c)
+                local m = mouse.coords()
+                c.screen = mouse.screen
+                local wa = mouse.screen.workarea
+                -- Just below and right of the pointer, so the pointer is not
+                -- already on top of it, and clamped to the monitor.
+                local x = math.min(m.x + 12, wa.x + wa.width - c.width)
+                local y = math.min(m.y + 12, wa.y + wa.height - c.height)
+                c:geometry({ x = math.max(wa.x, x), y = math.max(wa.y, y) })
+            end,
         }
     },
 
