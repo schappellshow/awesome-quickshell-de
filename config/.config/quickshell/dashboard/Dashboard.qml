@@ -189,68 +189,6 @@ Scope {
         }
     }
 
-    // Small clickable pill used by the gear panel
-    component Chip: Rectangle {
-        id: chip
-        property string text
-        property bool active: false
-        property bool dim: false
-        signal clicked()
-        width: chipText.implicitWidth + 16
-        height: 22
-        radius: 11
-        color: chip.active ? Theme.accent : chipHover.hovered ? Theme.surfaceAlt : Theme.surface
-        opacity: chip.dim ? 0.5 : 1
-        Text {
-            id: chipText
-            anchors.centerIn: parent
-            text: chip.text
-            font.family: Theme.fontFamily
-            font.pointSize: 8
-            color: chip.active ? Theme.base : Theme.text
-        }
-        HoverHandler { id: chipHover }
-        MouseArea { anchors.fill: parent; onClicked: chip.clicked() }
-    }
-
-    // Percent slider for the gear panel
-    component MiniSlider: Item {
-        id: ms
-        property real from: 40
-        property real to: 100
-        property real value: 100
-        property alias pressed: msArea.pressed
-        signal moved(real value)
-        height: 20
-        readonly property real ratio: (ms.value - ms.from) / (ms.to - ms.from)
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: parent.width; height: 4; radius: 2
-            color: Theme.surfaceAlt
-        }
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: ms.ratio * parent.width; height: 4; radius: 2
-            color: Theme.accent
-        }
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            x: ms.ratio * (parent.width - width)
-            width: 14; height: 14; radius: 7
-            color: Theme.accentBright
-        }
-        MouseArea {
-            id: msArea
-            anchors.fill: parent
-            function update(mx) {
-                const r = Math.max(0, Math.min(1, mx / width));
-                ms.moved(Math.round(ms.from + r * (ms.to - ms.from)));
-            }
-            onPressed: m => update(m.x)
-            onPositionChanged: m => { if (pressed) update(m.x); }
-        }
-    }
-
     // The window is only mapped while shown; its contents are built by the
     // Loader below, so closed holds no scene and samples nothing.
     Item {
@@ -504,7 +442,7 @@ Scope {
                             spacing: 6
                             Repeater {
                                 model: DashboardState.positionIds
-                                Chip {
+                                DashChip {
                                     required property string modelData
                                     text: DashboardState.positionLabel(modelData)
                                     active: DashboardState.position === modelData
@@ -540,7 +478,7 @@ Scope {
                         Item {
                             width: parent.width; height: 24
                             Label { text: "Blur behind"; anchors.verticalCenter: parent.verticalCenter; color: Theme.text }
-                            Chip {
+                            DashChip {
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: Settings.dashboardBlur ? "On" : "Off"
@@ -573,18 +511,18 @@ Scope {
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
                                     spacing: 4
-                                    Chip {
+                                    DashChip {
                                         text: DashboardState.cardEnabled(orow.modelData) ? "Shown" : "Hidden"
                                         active: DashboardState.cardEnabled(orow.modelData)
                                         onClicked: DashboardState.setCardEnabled(
                                             orow.modelData, !DashboardState.cardEnabled(orow.modelData))
                                     }
-                                    Chip {
+                                    DashChip {
                                         text: "\u25B2"
                                         dim: orow.index === 0
                                         onClicked: DashboardState.moveCard(orow.modelData, -1)
                                     }
-                                    Chip {
+                                    DashChip {
                                         text: "\u25BC"
                                         dim: orow.index === DashboardState.order.length - 1
                                         onClicked: DashboardState.moveCard(orow.modelData, 1)
