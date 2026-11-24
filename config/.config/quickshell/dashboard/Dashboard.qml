@@ -196,7 +196,9 @@ Scope {
             id: win
 
             screen: root.targetScreen
-            visible: DashboardState.visible
+            // Mapped only once the cards are built and the height is known,
+            // so the first placement is already the final one.
+            visible: DashboardState.visible && implicitHeight > 0
             color: "transparent"
             exclusionMode: ExclusionMode.Ignore
             // Popout: over the windows. Pinned: on the desktop, under them.
@@ -223,7 +225,15 @@ Scope {
             readonly property int clear: Settings.barWidth + BarEdge.gap + 2
             readonly property bool screenKnown:
                 Quickshell.screens.some(s => s.name === Settings.barScreen)
-            readonly property bool hasBar: !screenKnown || (screen && screen.name === Settings.barScreen)
+            // All placement maths uses the screen the dashboard was ASSIGNED
+            // (root.targetScreen), never the window's own `screen`: Qt
+            // re-derives that from where X first maps the window, which can be
+            // another monitor (a portrait one at 0,0 here). Reading it made
+            // the dashboard place itself with that monitor's size, land off
+            // screen, flip screens again and chase itself, a resize loop that
+            // hung awesome on 2026-11-24.
+            readonly property var home: root.targetScreen
+            readonly property bool hasBar: !screenKnown || (home && home.name === Settings.barScreen)
             // What the bar reserves on its edge: nothing while it auto-hides
             readonly property int reserve:
                 hasBar && !Settings.barAutoHide ? clear : edgeGap
@@ -231,8 +241,8 @@ Scope {
             readonly property int insetR: BarEdge.edge === "right" ? reserve : edgeGap
             readonly property int insetT: BarEdge.edge === "top" ? reserve : edgeGap
             readonly property int insetB: BarEdge.edge === "bottom" ? reserve : edgeGap
-            readonly property real sw: screen ? screen.width : 1920
-            readonly property real sh: screen ? screen.height : 1080
+            readonly property real sw: home ? home.width : 1920
+            readonly property real sh: home ? home.height : 1080
 
             // A pending drag, in screen coordinates; null when not dragging
             property var drag: null
@@ -256,7 +266,7 @@ Scope {
                     return [insetL + (sw - insetL - insetR - w) / 2,
                             insetT + (sh - insetT - insetB - h) / 2];
                 case "custom": {
-                    const p = DashboardState.customPos(screen ? screen.name : "");
+                    const p = DashboardState.customPos(home ? home.name : "");
                     if (p)
                         return [p[0], p[1]];
                     // fall through: never placed, start where it would be
@@ -285,7 +295,7 @@ Scope {
             function dragEnd() {
                 if (!win.drag)
                     return;
-                const name = screen ? screen.name : "";
+                const name = home ? home.name : "";
                 DashboardState.setCustomPos(name, win.drag[0], win.drag[1]);
                 Settings.dashboardPosition = "custom";
                 win.drag = null;
@@ -293,9 +303,9 @@ Scope {
 
             // Switch position; "custom" keeps the dashboard where it is
             function usePosition(mode) {
-                if (mode === "custom" && !DashboardState.customPos(screen ? screen.name : "")) {
+                if (mode === "custom" && !DashboardState.customPos(home ? home.name : "")) {
                     const here = win.spot(DashboardState.position);
-                    DashboardState.setCustomPos(screen ? screen.name : "",
+                    DashboardState.setCustomPos(home ? home.name : "",
                                                 win.clampX(here[0]), win.clampY(here[1]));
                 }
                 Settings.dashboardPosition = mode;
@@ -313,7 +323,9 @@ Scope {
             Loader {
                 id: body
                 anchors.fill: parent
-                active: win.visible
+                // Built as soon as the dashboard is wanted, before the window
+                // maps (see visible above); torn down when it closes.
+                active: DashboardState.visible
                 sourceComponent: frameComp
             }
 
