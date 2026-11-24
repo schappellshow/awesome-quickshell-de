@@ -75,7 +75,20 @@ Singleton {
     // ── Compositor ────────────────────────────────────────────────────
     readonly property string trigger:
         Settings.windowAnimations + "|" + (active ? "1" : "0")
-    onTriggerChanged: applyTimer.restart()
+    onTriggerChanged: { applyTimer.interval = 250; applyTimer.restart(); }
+
+    // The user's transparency and blur values (Settings -> Transparency &
+    // blur), handed to picom-effects, which writes them into the generated
+    // config and restarts picom only if they differ from what it is running.
+    // Each apply restarts picom (a flicker), so a slider being dragged must
+    // not apply per tick: wait until it has been still for a moment.
+    readonly property var fxArgs: [
+        "blur=" + (Settings.blurEnabled ? "1" : "0"),
+        "blur-strength=" + Settings.blurStrength,
+        "inactive-opacity=" + Settings.inactiveOpacity,
+        "popup-opacity=" + Settings.popupOpacity
+    ]
+    onFxArgsChanged: { applyTimer.interval = 400; applyTimer.restart(); }
 
     // Coalesce changes (and the several that arrive at startup) into one
     // picom restart.
@@ -85,8 +98,9 @@ Singleton {
         onTriggered: {
             Quickshell.execDetached(["sh", "-c",
                 "p=$(command -v picom-effects || echo \"$HOME/.local/bin/picom-effects\"); " +
-                "exec \"$p\" apply \"$1\" \"$2\"",
-                "picom-effects", Settings.windowAnimations, root.active ? "1" : "0"]);
+                "exec \"$p\" apply \"$@\"",
+                "picom-effects", Settings.windowAnimations, root.active ? "1" : "0"]
+                .concat(root.fxArgs));
         }
     }
 

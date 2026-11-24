@@ -213,8 +213,8 @@ its settings panel in place (the same controls are in Settings → Bar):
 - **Cards**: show/hide and move each of System, Processors, Memory, Drives,
   Network and GPU up or down. Cards fill left, right, left, right in order.
 - **Opacity** (40–100%) of the panel and cards; text stays fully opaque.
-- **Blur behind** (default on): the setting is stored as `dashboardBlur`;
-  the compositor hint that acts on it is wired separately.
+- **Blur behind** (default on): stored as `dashboardBlur`. Opacity and blur are
+  also in Settings → Appearance → Transparency (same settings).
 
 For scripts: `qs ipc call sysmon settings true|false`, `position <name>`,
 `placeAt <x> <y>`, `opacity <percent>`, `blur <bool>`, `move <card> <±1>`.
@@ -225,6 +225,43 @@ sampling. Readings: `/proc`, `df`, `ip`, and sysfs for the CPU temperature
 (k10temp/coretemp hwmon) and the GPU (`/sys/class/drm/card*/device`
 `gpu_busy_percent`, `mem_info_vram_*`, hwmon `temp1_input`) — all readable
 without root. `qs ipc call sysmon status` reports the state.
+
+## Transparency and blur
+
+Settings → Appearance → **Transparency** puts every see-through value in one
+place. The defaults are the look the desktop shipped with, so nothing changes
+until you touch a control, and **Reset to defaults** puts them all back.
+
+| Control | Default | What it changes |
+|---|---|---|
+| Blur behind windows | on | Compositor blur everywhere (picom); off means see-through surfaces show the windows behind them unblurred |
+| Blur strength | 5 (1–10) | How strong the blur is |
+| Inactive window opacity | 92% | Windows without focus; 100% turns it off |
+| App menus, dropdowns and tooltips | 85% | The menus, lists and tooltips programs open (picom) |
+| Desktop and start menu | 75% | awesome's own menu; text stays solid |
+| Dashboard opacity / blur | 100% / on | The same settings as the dashboard's gear |
+| Quick-actions ring opacity / blur | 55% / on | The ring's disc; without blur it keeps at least 74% to stay readable |
+
+**How the values reach picom.** picom reads its config once, so a change means
+restarting it. `picom-effects apply <preset> <0|1> [blur=0|1]
+[blur-strength=N] [inactive-opacity=P] [popup-opacity=P]` (the shell calls it,
+see `common/PerformanceMode.qml`) copies `picom/fx-normal.conf` with the
+values swapped into its tagged lines (`# @fx:<name>`), writes the copy and the
+generated config under `$XDG_RUNTIME_DIR/picom-effects/`, and restarts only
+the picom of the current `$DISPLAY`. The values are part of the recorded
+state, so an unchanged call never restarts picom and a changed one restarts it
+once. The shell waits until a control has been still for 400 ms, so dragging a
+slider causes one restart, on release. The tagged lines hold the defaults, so
+`picom.conf` still works on its own. Performance mode stays blur-free and
+ignores all of these.
+
+**The desktop menu** is drawn by awesome, which paints its background twice
+(on the window and again behind each entry), so the alpha compounds. The
+setting stores the resulting opacity (`menuOpacity`) and
+`modules/translucency.lua` works out the per-layer alpha. awesome reads it
+from `settings.json` at startup; a change from Settings reaches the running
+awesome through `awesome-client` (`shell_menu_opacity`), which rebuilds the
+menu without a restart. An open menu closes.
 
 ## Screenshots
 

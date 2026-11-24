@@ -135,6 +135,38 @@ Singleton {
     property alias ringEnabled: adapter.ringEnabled
     property alias ringActions: adapter.ringActions
 
+    // Transparency & blur (Settings -> Transparency & blur; see
+    // common/Translucency.qml). Every default is today's look, so nothing
+    // changes until a control is touched. Percentages are opacity: 100 is
+    // solid.
+    //   blurEnabled / blurStrength   compositor blur everywhere, and how strong
+    //   popupOpacity     app menus, dropdowns and tooltips (picom)
+    //   inactiveOpacity  windows without focus (picom); 100 = off
+    //   menuOpacity      awesome's desktop / start menu, the RESULTING opacity
+    //                    (it is painted twice, so the layers are worked out
+    //                    from this: modules/translucency.lua)
+    //   ringOpacity / ringBlur   the quick-actions ring's disc
+    // The dashboard's own dashboardOpacity / dashboardBlur appear there too.
+    property alias blurEnabled: adapter.blurEnabled
+    property alias blurStrength: adapter.blurStrength
+    property alias popupOpacity: adapter.popupOpacity
+    property alias inactiveOpacity: adapter.inactiveOpacity
+    property alias menuOpacity: adapter.menuOpacity
+    property alias ringOpacity: adapter.ringOpacity
+    property alias ringBlur: adapter.ringBlur
+
+    function resetTransparency() {
+        blurEnabled = true;
+        blurStrength = 5;
+        popupOpacity = 85;
+        inactiveOpacity = 92;
+        menuOpacity = 75;
+        ringOpacity = 55;
+        ringBlur = true;
+        dashboardOpacity = 100;
+        dashboardBlur = true;
+    }
+
     // Power (0 = never)
     property alias keepAwake: adapter.keepAwake
     property alias blankMinutes: adapter.blankMinutes
@@ -417,6 +449,13 @@ Singleton {
             property string defaultLayout: ""
             property string windowAnimations: "subtle"
             property bool ringEnabled: true
+            property bool blurEnabled: true
+            property int blurStrength: 5
+            property int popupOpacity: 85
+            property int inactiveOpacity: 92
+            property int menuOpacity: 75
+            property int ringOpacity: 55
+            property bool ringBlur: true
             property var ringActions: ["screenshot", "scratchpad", "float",
                 "close", "overview", "launcher", "lock", "perf"]
             property bool perfAutoGame: true

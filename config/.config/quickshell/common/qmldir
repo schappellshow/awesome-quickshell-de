@@ -38,6 +38,7 @@ singleton StartMenu StartMenu.qml
 singleton SuperTap SuperTap.qml
 singleton Backup Backup.qml
 singleton PerformanceMode PerformanceMode.qml
+singleton Translucency Translucency.qml
 singleton Drives Drives.qml
 singleton WallpaperPalette WallpaperPalette.qml
 singleton RofiColors RofiColors.qml
