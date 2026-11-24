@@ -79,7 +79,12 @@ theme.notification_width     = dpi(360)
 theme.notification_max_height = dpi(120)
 
 -- Menu
-theme.menu_bg_normal    = om.surface
+-- Translucent so picom's blur shows through it; the text and the
+-- highlighted entry stay solid. awful.menu paints this color twice, on the
+-- menu window and again behind every entry, so the alpha compounds: 80
+-- (50%) per layer comes out at about 75% opaque. picom keeps this menu at
+-- full window opacity (fx-normal.conf) so only the background is see-through.
+theme.menu_bg_normal    = om.surface .. "80"
 theme.menu_fg_normal    = om.text
 theme.menu_bg_focus     = om.blue
 theme.menu_fg_focus     = om.text
