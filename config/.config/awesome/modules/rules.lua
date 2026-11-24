@@ -141,10 +141,13 @@ awful.rules.rules = {
     -- shoved the meeting itself aside. Zoom re-opens it repeatedly during a
     -- call, so every open has to be caught here.
     --
-    -- It floats at its own size, on top, centered along the top edge of the
-    -- workarea (clear of the bar), and never takes focus when it appears, so
-    -- the meeting keeps the keyboard. Click it to annotate as usual. If you
-    -- never annotate and want it gone again, add `hidden = true` below.
+    -- It floats at its own size, on top, exactly where Zoom puts it, and
+    -- never takes focus when it appears, so the meeting keeps the keyboard.
+    -- Zoom shows it while the pointer is over a shared screen and hides it
+    -- the moment the pointer leaves the share, so it must stay inside the
+    -- share: moving it anywhere else (it was once centered along the top of
+    -- the screen, over the participant strip) made it vanish before it could
+    -- be clicked. If you never annotate, add `hidden = true` below.
     {
         rule = { class = "zoom", name = "annotate_toolbar" },
         properties = {
@@ -154,12 +157,7 @@ awful.rules.rules = {
             titlebars_enabled = false,
             skip_taskbar      = true,
             focus             = false,
-            placement         = function(c)
-                awful.placement.top(c, {
-                    honor_workarea = true,
-                    margins        = { top = 8 },
-                })
-            end,
+            placement         = false,
         }
     },
 
