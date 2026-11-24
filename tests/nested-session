@@ -211,7 +211,7 @@ EOF
         fi
         if [ "$qs" = 1 ]; then
             qs >"$S/log/qs.log" 2>&1 &
-            echo "qs $!" >> "$S/pids"
+            local qspid=$!
             if [ "$seed" = 1 ]; then
                 sleep 3
                 local real
@@ -220,10 +220,16 @@ EOF
                 mine="$(ls -d "$S"/state/quickshell/by-shell/*/ 2>/dev/null | head -1 || true)"
                 if [ -n "$real" ] && [ -n "$mine" ]; then
                     cp "$real" "$mine/settings.json"   # COPY of the real file; real one untouched
-                    touch "$cfg/quickshell/shell.qml" 2>/dev/null || true
+                    # Restart THIS session's qs to read it. Never touch the
+                    # config to make it reload: when the checkout under test
+                    # is the live one, that reloads the live shell too.
+                    kill "$qspid" 2>/dev/null; wait "$qspid" 2>/dev/null || true
+                    qs >>"$S/log/qs.log" 2>&1 &
+                    qspid=$!
                     echo "seeded settings from $real" >> "$S/log/qs.log"
                 fi
             fi
+            echo "qs $qspid" >> "$S/pids"
         fi
     )
     echo "$disp" > "$S/display"

@@ -21,20 +21,42 @@ import "../common"
 Scope {
     id: root
 
-    property var targetScreen: null
-
-    function updateTargetScreen() {
-        const match = Quickshell.screens.filter(
-            s => s.name === Settings.barScreen);
-        root.targetScreen = match.length > 0 ? match[0] : Quickshell.screens[0];
-        DashboardState.screenName = root.targetScreen ? root.targetScreen.name : "";
+    // The monitor the dashboard is ASSIGNED to. Named positions are on the
+    // primary monitor (common/PrimaryScreen.qml); a custom spot is on
+    // whichever monitor contains it, or on the primary if none does (the
+    // monitor it was on is gone). A binding, so it follows the settings,
+    // the primary and monitors coming and going.
+    readonly property var targetScreen: {
+        const prim = PrimaryScreen.screen;
+        if (DashboardState.position === "custom") {
+            const g = DashboardState.customGlobal();
+            const at = g ? PrimaryScreen.screenAt(g[0], g[1]) : null;
+            if (at)
+                return at;
+        }
+        return prim;
     }
 
-    Component.onCompleted: updateTargetScreen()
+    onTargetScreenChanged:
+        DashboardState.screenName = root.targetScreen ? root.targetScreen.name : ""
 
-    Connections {
-        target: Settings
-        function onBarScreenChanged() { root.updateTargetScreen(); }
+    Component.onCompleted:
+        DashboardState.screenName = root.targetScreen ? root.targetScreen.name : ""
+
+    // A drop (header released, or `qs ipc call sysmon placeAt`): the
+    // dashboard's top-left in GLOBAL coordinates. The monitor containing its
+    // center becomes the target, and it is kept fully on that monitor and
+    // clear of that monitor's bar.
+    function dropAt(gx, gy) {
+        const w = win.implicitWidth, h = win.implicitHeight;
+        const scr = PrimaryScreen.screenAt(gx + w / 2, gy + h / 2)
+            ?? PrimaryScreen.screenAt(gx, gy) ?? root.targetScreen;
+        if (!scr)
+            return;
+        const x = scr.x + win.clampX(gx - scr.x, scr);
+        const y = scr.y + win.clampY(gy - scr.y, scr);
+        DashboardState.setCustomGlobal(x, y);
+        Settings.dashboardPosition = "custom";
     }
 
     // ── Formatting ──
@@ -196,7 +218,9 @@ Scope {
             id: win
 
             screen: root.targetScreen
-            visible: DashboardState.visible
+            // Mapped only once the cards are built and the height is known,
+            // so the first placement is already the final one.
+            visible: DashboardState.visible && implicitHeight > 0
             color: "transparent"
             exclusionMode: ExclusionMode.Ignore
             // Popout: over the windows. Pinned: on the desktop, under them.
@@ -223,25 +247,64 @@ Scope {
             readonly property int clear: Settings.barWidth + BarEdge.gap + 2
             readonly property bool screenKnown:
                 Quickshell.screens.some(s => s.name === Settings.barScreen)
-            readonly property bool hasBar: !screenKnown || (screen && screen.name === Settings.barScreen)
-            // What the bar reserves on its edge: nothing while it auto-hides
-            readonly property int reserve:
-                hasBar && !Settings.barAutoHide ? clear : edgeGap
+            // Whether `scr` has a bar: every monitor does unless the bar is
+            // on one known monitor
+            function barOn(scr) {
+                return !screenKnown || (scr && scr.name === Settings.barScreen);
+            }
+            // What the bar reserves on its edge of `scr`: nothing while it
+            // auto-hides, and only the plain gap where there is no bar
+            function reserveOn(scr) {
+                return barOn(scr) && !Settings.barAutoHide ? clear : edgeGap;
+            }
+            // All placement maths uses the screen the dashboard was ASSIGNED
+            // (root.targetScreen), never the window's own `screen`: Qt
+            // re-derives that from where X first maps the window, which can be
+            // another monitor (a portrait one at 0,0 here). Reading it made
+            // the dashboard place itself with that monitor's size, land off
+            // screen, flip screens again and chase itself, a resize loop that
+            // hung awesome on 2026-11-24.
+            readonly property var home: root.targetScreen
+            readonly property int reserve: reserveOn(home)
             readonly property int insetL: BarEdge.edge === "left" ? reserve : edgeGap
             readonly property int insetR: BarEdge.edge === "right" ? reserve : edgeGap
             readonly property int insetT: BarEdge.edge === "top" ? reserve : edgeGap
             readonly property int insetB: BarEdge.edge === "bottom" ? reserve : edgeGap
-            readonly property real sw: screen ? screen.width : 1920
-            readonly property real sh: screen ? screen.height : 1080
+            readonly property real sw: home ? home.width : 1920
+            readonly property real sh: home ? home.height : 1080
 
             // A pending drag, in screen coordinates; null when not dragging
             property var drag: null
 
-            function clampX(x) {
-                return Math.max(insetL, Math.min(x, sw - insetR - implicitWidth));
+            // Keep x / y (local to `scr`, default the assigned screen) fully
+            // on that screen and clear of its bar
+            function clampX(x, scr) {
+                const s = scr ?? home;
+                const r = reserveOn(s);
+                const l = BarEdge.edge === "left" ? r : edgeGap;
+                const rt = BarEdge.edge === "right" ? r : edgeGap;
+                return Math.max(l, Math.min(x, (s ? s.width : 1920) - rt - implicitWidth));
             }
-            function clampY(y) {
-                return Math.max(insetT, Math.min(y, sh - insetB - implicitHeight));
+            function clampY(y, scr) {
+                const s = scr ?? home;
+                const r = reserveOn(s);
+                const t = BarEdge.edge === "top" ? r : edgeGap;
+                const b = BarEdge.edge === "bottom" ? r : edgeGap;
+                return Math.max(t, Math.min(y, (s ? s.height : 1080) - b - implicitHeight));
+            }
+            // While dragging the window may roam over the whole desktop
+            // (coordinates local to the assigned screen); the drop snaps it.
+            function roamX(x) {
+                const xs = Quickshell.screens;
+                const lo = Math.min(...xs.map(s => s.x)) - (home ? home.x : 0);
+                const hi = Math.max(...xs.map(s => s.x + s.width)) - (home ? home.x : 0);
+                return Math.max(lo, Math.min(x, hi - implicitWidth));
+            }
+            function roamY(y) {
+                const ys = Quickshell.screens;
+                const lo = Math.min(...ys.map(s => s.y)) - (home ? home.y : 0);
+                const hi = Math.max(...ys.map(s => s.y + s.height)) - (home ? home.y : 0);
+                return Math.max(lo, Math.min(y, hi - implicitHeight));
             }
 
             // Top-left for a named position
@@ -256,10 +319,13 @@ Scope {
                     return [insetL + (sw - insetL - insetR - w) / 2,
                             insetT + (sh - insetT - insetB - h) / 2];
                 case "custom": {
-                    const p = DashboardState.customPos(screen ? screen.name : "");
-                    if (p)
-                        return [p[0], p[1]];
-                    // fall through: never placed, start where it would be
+                    // Saved globally; it is on this screen unless that
+                    // monitor is gone (then home is the primary)
+                    const g = DashboardState.customGlobal();
+                    if (g && home && PrimaryScreen.contains(home, g[0], g[1]))
+                        return [g[0] - home.x, g[1] - home.y];
+                    // fall through: never placed, or its monitor is gone,
+                    // so use the default spot
                 }
                 default:
                     // Beside the bar: against the bar's edge, the other
@@ -279,32 +345,33 @@ Scope {
                 const cur = win.drag ? win.drag
                     : win.spot(DashboardState.position === "custom" ? "custom"
                                : DashboardState.position);
-                win.drag = [win.clampX(cur[0] + dx), win.clampY(cur[1] + dy)];
+                win.drag = [win.roamX(cur[0] + dx), win.roamY(cur[1] + dy)];
             }
 
             function dragEnd() {
                 if (!win.drag)
                     return;
-                const name = screen ? screen.name : "";
-                DashboardState.setCustomPos(name, win.drag[0], win.drag[1]);
-                Settings.dashboardPosition = "custom";
+                const gx = (home ? home.x : 0) + win.drag[0];
+                const gy = (home ? home.y : 0) + win.drag[1];
                 win.drag = null;
+                root.dropAt(gx, gy);
             }
 
             // Switch position; "custom" keeps the dashboard where it is
             function usePosition(mode) {
-                if (mode === "custom" && !DashboardState.customPos(screen ? screen.name : "")) {
+                if (mode === "custom" && !DashboardState.customGlobal()) {
                     const here = win.spot(DashboardState.position);
-                    DashboardState.setCustomPos(screen ? screen.name : "",
-                                                win.clampX(here[0]), win.clampY(here[1]));
+                    DashboardState.setCustomGlobal(
+                        (home ? home.x : 0) + win.clampX(here[0]),
+                        (home ? home.y : 0) + win.clampY(here[1]));
                 }
                 Settings.dashboardPosition = mode;
             }
 
             anchors { top: true; left: true }
             margins {
-                left: Math.round(win.clampX(win.place[0]))
-                top: Math.round(win.clampY(win.place[1]))
+                left: Math.round(win.drag ? win.place[0] : win.clampX(win.place[0]))
+                top: Math.round(win.drag ? win.place[1] : win.clampY(win.place[1]))
             }
 
             implicitWidth: 760
@@ -313,7 +380,9 @@ Scope {
             Loader {
                 id: body
                 anchors.fill: parent
-                active: win.visible
+                // Built as soon as the dashboard is wanted, before the window
+                // maps (see visible above); torn down when it closes.
+                active: DashboardState.visible
                 sourceComponent: frameComp
             }
 

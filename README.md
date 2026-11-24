@@ -191,6 +191,16 @@ rebinds any of it — the table below is the defaults.
 
 ---
 
+## Primary monitor
+
+Settings → Bar → **Primary monitor** (`primaryScreen`, an output name). With
+the bar on one monitor, that monitor is the primary and the control is locked.
+With bars on all monitors it is your choice; until you choose, X's RandR
+primary output is used, else the first monitor, and a saved name that is not
+connected falls back the same way (the page says so). The resolved value is
+`PrimaryScreen.screen` / `PrimaryScreen.name` in `common/PrimaryScreen.qml`
+for other single-screen surfaces to use; only the dashboard does today.
+
 ## System dashboard
 
 Settings → Bar → System monitor. **Dashboard** chooses Quickshell (default)
@@ -207,9 +217,13 @@ or conky; conky behaves exactly as before and keeps its config field.
 its settings panel in place (the same controls are in Settings → Bar):
 
 - **Position**: beside the bar (default), the four screen corners, center, or
-  custom. Drag the header to place it yourself; that switches to custom and
-  the spot is remembered per screen. It always stays on screen and clear of
-  the bar, in both popout and pinned modes.
+  custom. The named positions are on the **primary monitor** (Settings → Bar
+  → Primary monitor). Drag the header to place it yourself, onto any monitor;
+  on release the monitor holding its center becomes its screen, and it stays
+  fully on that monitor and clear of that monitor's bar. The spot is saved
+  as one offset from the primary monitor's top-left (`dashboardCustomPos`,
+  `[dx, dy]`; the older per-screen form is still read). If the monitor it was
+  on is unplugged, it falls back to the default spot on the primary.
 - **Cards**: show/hide and move each of System, Processors, Memory, Drives,
   Network and GPU up or down. Cards fill left, right, left, right in order.
 - **Opacity** (40–100%) of the panel and cards; text stays fully opaque.
