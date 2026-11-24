@@ -36,6 +36,7 @@ Singleton {
     property alias barPosition: adapter.barPosition
     property alias barWidth: adapter.barWidth
     property alias barScreen: adapter.barScreen
+    property alias primaryScreen: adapter.primaryScreen
     // Slide the bar out of the way until the pointer hits its screen edge;
     // windows then get the strip it used to reserve (see bar/Bar.qml)
     property alias barAutoHide: adapter.barAutoHide
@@ -329,6 +330,9 @@ Singleton {
             // Output name (e.g. "DisplayPort-2") for a single bar;
             // "" or an unplugged output falls back to bars on every screen
             property string barScreen: ""
+            // Output name of the primary monitor, used when the bar is on
+            // every screen (common/PrimaryScreen.qml); "" = X's primary
+            property string primaryScreen: ""
             // Off by default: the bar reserves its strip and stays put,
             // exactly as before this setting existed.
             property bool barAutoHide: false

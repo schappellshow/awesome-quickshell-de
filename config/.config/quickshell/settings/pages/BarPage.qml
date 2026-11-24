@@ -59,6 +59,30 @@ SettingsPage {
         }
     }
 
+    CycleRow {
+        label: "Primary monitor"
+        // One bar: that monitor is the primary and the choice is locked
+        enabled: !PrimaryScreen.barOnOne
+        opacity: enabled ? 1 : 0.5
+        value: PrimaryScreen.name
+        onCycle: {
+            const names = Quickshell.screens.map(s => s.name);
+            const i = names.indexOf(PrimaryScreen.name);
+            Settings.primaryScreen = names[(i + 1) % names.length];
+        }
+    }
+
+    HintText {
+        text: PrimaryScreen.barOnOne
+            ? "With the bar on one monitor, that monitor is the primary."
+            : PrimaryScreen.fellBack
+            ? "The saved primary monitor (" + Settings.primaryScreen
+              + ") is not connected, so " + PrimaryScreen.name
+              + " is used until it returns."
+            : "Where the system dashboard opens, and other single-screen "
+              + "surfaces will follow. Starts as the primary output X reports."
+    }
+
     ToggleRow {
         label: "Auto-hide the bar"
         checked: Settings.barAutoHide

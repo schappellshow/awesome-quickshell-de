@@ -149,7 +149,7 @@ ShellRoot {
     Ring {}
     // System dashboard (native conky replacement) — `qs ipc call sysmon
     // toggle`, Super+Shift+M. Exists only while shown.
-    Dashboard {}
+    Dashboard { id: dashboard }
 
     // Volume/brightness pill, driven by the audio/brightness handlers below
     Osd { id: osd }
@@ -266,11 +266,20 @@ ShellRoot {
             DashboardState.moveCard(card, delta);
         }
 
-        // Remember a custom spot (screen coordinates of the top-left
-        // corner) on the dashboard's screen and switch to it
+        // Drop the dashboard with its top-left at global desktop
+        // coordinates (what releasing the header does): the monitor holding
+        // its center becomes its screen, and it is saved as custom
         function placeAt(x: int, y: int): void {
-            DashboardState.setCustomPos(DashboardState.screenName, x, y);
-            Settings.dashboardPosition = "custom";
+            dashboard.dropAt(x, y);
+        }
+
+        // Where the dashboard is: "<screen> <x> <y>" in global coordinates,
+        // for scripts and tests
+        function where(): string {
+            const t = dashboard.targetScreen;
+            const g = DashboardState.customGlobal();
+            return (t ? t.name : "-") + " " + PrimaryScreen.name
+                + " " + (g ? g.join(",") : "-");
         }
 
         // Which dashboard is up, for scripts and tests

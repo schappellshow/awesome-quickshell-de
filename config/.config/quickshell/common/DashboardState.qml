@@ -135,24 +135,53 @@ Singleton {
     readonly property string position:
         root.positionIds.includes(Settings.dashboardPosition) ? Settings.dashboardPosition : "bar"
 
-    // Remembered spot of the "custom" position, per screen name: the
-    // window's top-left in screen coordinates, or null if never placed.
-    function customPos(screenName) {
+    // Remembered spot of the "custom" position: ONE offset, the window's
+    // top-left in global coordinates minus the primary monitor's top-left
+    // (common/PrimaryScreen.qml), saved as "[dx, dy]". Offsets rather than
+    // per-screen spots because the dashboard may sit on any monitor.
+    //
+    // Older files saved per screen name, {"DP-3": [44, 470]} with the spot
+    // local to that screen. Those are read as: the primary's entry, else any
+    // entry, converted through that screen's origin (or taken as is if the
+    // monitor is gone). The next save writes the new form.
+    function customOffset() {
+        const prim = PrimaryScreen.screen;
+        if (!prim)
+            return null;
+        const ok = p => Array.isArray(p) && p.length === 2
+            && isFinite(p[0]) && isFinite(p[1]);
         try {
-            const p = JSON.parse(Settings.dashboardCustomPos || "{}")[screenName];
-            if (Array.isArray(p) && p.length === 2 && isFinite(p[0]) && isFinite(p[1]))
-                return p;
+            const v = JSON.parse(Settings.dashboardCustomPos || "{}");
+            if (ok(v))
+                return [Number(v[0]), Number(v[1])];
+            if (typeof v !== "object" || v === null || Array.isArray(v))
+                return null;
+            const name = ok(v[prim.name]) ? prim.name
+                : Object.keys(v).find(k => ok(v[k]));
+            if (name === undefined)
+                return null;
+            const src = Quickshell.screens.find(s => s.name === name);
+            return src ? [src.x + Number(v[name][0]) - prim.x,
+                          src.y + Number(v[name][1]) - prim.y]
+                       : [Number(v[name][0]), Number(v[name][1])];
         } catch (e) {}
         return null;
     }
 
-    function setCustomPos(screenName, x, y) {
-        let m = {};
-        try { m = JSON.parse(Settings.dashboardCustomPos || "{}"); } catch (e) {}
-        if (typeof m !== "object" || m === null || Array.isArray(m))
-            m = {};
-        m[screenName] = [Math.round(x), Math.round(y)];
-        Settings.dashboardCustomPos = JSON.stringify(m);
+    // The saved spot in global coordinates, or null if never placed
+    function customGlobal() {
+        const off = root.customOffset();
+        const prim = PrimaryScreen.screen;
+        return off && prim ? [prim.x + off[0], prim.y + off[1]] : null;
+    }
+
+    // Remember a spot given in global coordinates
+    function setCustomGlobal(gx, gy) {
+        const prim = PrimaryScreen.screen;
+        if (!prim)
+            return;
+        Settings.dashboardCustomPos = JSON.stringify(
+            [Math.round(gx - prim.x), Math.round(gy - prim.y)]);
     }
 
     // Background opacity of the panel and cards, 0.4–1; text is unaffected.

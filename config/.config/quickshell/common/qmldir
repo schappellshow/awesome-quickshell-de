@@ -44,3 +44,4 @@ singleton WallpaperPalette WallpaperPalette.qml
 singleton RofiColors RofiColors.qml
 singleton RingActions RingActions.qml
 BlurHint BlurHint.qml
+singleton PrimaryScreen PrimaryScreen.qml
