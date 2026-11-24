@@ -139,27 +139,27 @@ awful.rules.rules = {
     -- marks it as a dialog or utility window, so the default rule tiled it
     -- like an application: awesome handed it half the meeting (928x1064) and
     -- shoved the meeting itself aside. Zoom re-opens it repeatedly during a
-    -- call, so closing it by hand never stuck.
+    -- call, so every open has to be caught here.
     --
-    -- floating alone only downgrades the problem — it then hovers over the
-    -- meeting instead of splitting it. hidden keeps it out of the way
-    -- entirely, which is what you want unless you actually annotate shared
-    -- screens. To get it back for a call, drop the `hidden` line and reload
-    -- (Super+Ctrl+R), or unhide the live window:
-    --
-    --   awesome-client 'for _,c in ipairs(client.get()) do
-    --       if c.class == "zoom" and tostring(c.name):match("annotate_toolbar")
-    --       then c.hidden = false end end'
+    -- It floats at its own size, on top, centered along the top edge of the
+    -- workarea (clear of the bar), and never takes focus when it appears, so
+    -- the meeting keeps the keyboard. Click it to annotate as usual. If you
+    -- never annotate and want it gone again, add `hidden = true` below.
     {
         rule = { class = "zoom", name = "annotate_toolbar" },
         properties = {
             floating          = true,
-            placement         = false,
+            ontop             = true,
             border_width      = 0,
             titlebars_enabled = false,
             skip_taskbar      = true,
             focus             = false,
-            hidden            = true,
+            placement         = function(c)
+                awful.placement.top(c, {
+                    honor_workarea = true,
+                    margins        = { top = 8 },
+                })
+            end,
         }
     },
 
