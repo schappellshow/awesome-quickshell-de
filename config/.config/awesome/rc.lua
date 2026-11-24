@@ -72,6 +72,7 @@ local keys      = require("modules.keys")
 local qs_bridge = require("modules.quickshell")
 local scr_mem   = require("modules.screen_memory")
 local _rules    = require("modules.rules")
+local _blur     = require("modules.blur")
 local _auto     = require("modules.autostart")
 
 awful.screen.connect_for_each_screen(function(s)

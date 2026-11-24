@@ -283,8 +283,17 @@ Scope {
         }
     }
 
+    // Three surfaces, so the compositor can blur exactly the ring:
+    //   catcher  the whole screen, transparent and unblurred, only there to
+    //            take a click outside the ring and cancel. Its input mask
+    //            leaves the ring's circle out, so it never competes with it.
+    //   panel    the ring, a square just big enough for it. picom blurs
+    //            behind a whole window, so this is what has to be small and
+    //            round (BlurHint level "round", see fx-normal.conf).
+    //   labelWin the name of the highlighted entry, under the ring. It lives
+    //            in its own window because it hangs outside the circle.
     PanelWindow {
-        id: panel
+        id: catcher
 
         screen: root.target ?? Quickshell.screens[0]
         visible: root.shown
@@ -293,20 +302,55 @@ Scope {
         aboveWindows: true
         anchors { top: true; bottom: true; left: true; right: true }
 
-        // Click anywhere outside the ring: cancel.
+        mask: Region {
+            width: catcher.width
+            height: catcher.height
+            Region {
+                shape: RegionShape.Ellipse
+                intersection: Intersection.Subtract
+                x: root.cx - root.half
+                y: root.cy - root.half
+                width: root.half * 2
+                height: root.half * 2
+            }
+        }
+
         MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.AllButtons
             onClicked: root.close()
         }
+    }
+
+    PanelWindow {
+        id: panel
+
+        screen: root.target ?? Quickshell.screens[0]
+        visible: root.shown
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        aboveWindows: true
+        anchors { top: true; left: true }
+        margins {
+            left: Math.round(root.cx - root.half)
+            top: Math.round(root.cy - root.half)
+        }
+        implicitWidth: root.half * 2
+        implicitHeight: root.half * 2
+
+        // Clicks in the square's corners belong to the catcher.
+        mask: Region { shape: RegionShape.Ellipse; width: panel.width; height: panel.height }
+
+        BlurHint {
+            window: panel
+            enabled: !PerformanceMode.active
+            radius: 130
+        }
 
         Item {
             id: ring
 
-            x: root.cx - root.half
-            y: root.cy - root.half
-            width: root.half * 2
-            height: root.half * 2
+            anchors.fill: parent
             transformOrigin: Item.Center
 
             // 0 -> 1 on open. Not animated, it jumps straight to 1.
@@ -339,13 +383,13 @@ Scope {
                 }
             }
 
-            // Disc behind everything. Translucent rather than blurred:
-            // picom leaves quickshell surfaces unblurred on purpose, so the
-            // alpha is what lets the desktop show through.
+            // Disc behind everything. Translucent so the blur shows through
+            // it; without blur (performance mode) it needs more body to stay readable.
             Rectangle {
                 anchors.fill: parent
                 radius: width / 2
-                color: Qt.rgba(Theme.base.r, Theme.base.g, Theme.base.b, 0.74)
+                color: Qt.rgba(Theme.base.r, Theme.base.g, Theme.base.b,
+                               PerformanceMode.active ? 0.74 : 0.55)
                 border.width: 1
                 border.color: Theme.surfaceAlt
 
@@ -434,35 +478,52 @@ Scope {
                     }
                 }
             }
+        }
+    }
 
-            // Name of the highlighted entry, under the ring.
-            Rectangle {
-                readonly property var entry:
-                    root.hot >= 0 ? root.items[root.hot] : null
-                readonly property string label:
-                    root.hot === -2 ? "Close"
-                    : entry ? entry.label + (root.actionEnabled(entry) ? ""
-                                                : " (needs a window)")
-                    : ""
+    PanelWindow {
+        id: labelWin
 
-                visible: label !== ""
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: parent.height + 4
-                width: labelText.implicitWidth + 20
-                height: 26
-                radius: height / 2
-                color: Qt.rgba(Theme.base.r, Theme.base.g, Theme.base.b, 0.86)
-                border.width: 1
-                border.color: Theme.surfaceAlt
+        readonly property string label:
+            root.hot === -2 ? "Close"
+            : (root.hot >= 0 && root.items[root.hot])
+                ? root.items[root.hot].label
+                  + (root.actionEnabled(root.items[root.hot]) ? "" : " (needs a window)")
+                : ""
 
-                Text {
-                    id: labelText
-                    anchors.centerIn: parent
-                    text: parent.label
-                    font.family: Theme.fontFamily
-                    font.pointSize: 10
-                    color: Theme.text
-                }
+        screen: root.target ?? Quickshell.screens[0]
+        visible: root.shown
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        aboveWindows: true
+        anchors { top: true; left: true }
+        margins {
+            left: Math.round(root.cx - root.half)
+            top: Math.round(root.cy + root.half + 4)
+        }
+        implicitWidth: root.half * 2
+        implicitHeight: 26
+
+        // Clicks pass through to the catcher.
+        mask: Region {}
+
+        Rectangle {
+            visible: labelWin.label !== ""
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: labelText.implicitWidth + 20
+            height: 26
+            radius: height / 2
+            color: Qt.rgba(Theme.base.r, Theme.base.g, Theme.base.b, 0.86)
+            border.width: 1
+            border.color: Theme.surfaceAlt
+
+            Text {
+                id: labelText
+                anchors.centerIn: parent
+                text: labelWin.label
+                font.family: Theme.fontFamily
+                font.pointSize: 10
+                color: Theme.text
             }
         }
     }

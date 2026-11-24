@@ -60,6 +60,41 @@ stows `config bin session` into `$HOME`. See the top-level `README.md` and
 sudo dnf install quickshell quickshell-x11
 ```
 
+## Blur behind a surface
+
+picom blurs behind a window only when a rule says so, and every quickshell
+`PanelWindow` is a dock, for which blur is off (the bar looked wrong frosted).
+A surface opts in with one line:
+
+```qml
+PanelWindow {
+    id: panel
+    color: "transparent"
+    BlurHint { window: panel }                       // on by default
+    // BlurHint { window: panel; enabled: Settings.x; radius: 16 }
+}
+```
+
+- `window`: the PanelWindow. `enabled`: on/off (default on).
+- `radius`: corner radius in px of the blur, to match the surface's own rounded
+  corners. Only fixed steps exist: 0, 10 (default), 16, 24, and any value above
+  24 means "round" (the ring, 130). Other values snap to the nearest step.
+- `refresh()`: call after moving a window without resizing it.
+- Draw the surface translucent (alpha around 0.5-0.75) or nothing shows.
+  Performance mode removes blur in the compositor; give the surface a more
+  opaque fallback (`PerformanceMode.active`) as the ring does.
+
+How it works: a PanelWindow exposes no title or X window id and quickshell
+cannot set X properties, so `BlurHint` reports the window's rectangle to awesome
+(`shell_blur` in `modules/blur.lua`), which finds the dock client with exactly
+that geometry and sets the `_AQS_BLUR` property (a level, 1-5). picom's rules at
+the end of `picom/fx-normal.conf` match it and turn blur and the matching corner
+radius on. A new radius step needs a new level and rule in both places.
+Menus, dropdowns and tooltips are not opted in this way: they get blur from
+picom directly and a fixed opacity of 0.85, independent of focus.
+
+Opted in so far: the quick-actions ring.
+
 ## IPC
 
 ```sh
