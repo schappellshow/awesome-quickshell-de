@@ -264,11 +264,18 @@ Scope {
             // Popout: over the windows. Pinned: on the desktop, under them.
             aboveWindows: DashboardState.above
 
-            // TODO(blur): attach the compositor blur hint here once the
-            // BlurHint component lands, e.g.
-            //     BlurHint { window: win; enabled: win.blurWanted }
-            // Not wired yet: no picom/compositor change belongs to this branch.
+            // Compositor blur behind the dashboard (common/BlurHint.qml).
+            // The frame fills the window with Theme.radius corners, so the
+            // blur uses the same radius. Moving the dashboard changes its
+            // margins, not its size, so a move needs an explicit refresh.
             readonly property bool blurWanted: Settings.dashboardBlur
+            BlurHint {
+                id: blurHint
+                window: win
+                enabled: win.blurWanted
+                radius: Theme.radius
+            }
+            onPlaceChanged: blurHint.refresh()
 
             // ── Placement ──
             // The window is always anchored top-left and positioned by
