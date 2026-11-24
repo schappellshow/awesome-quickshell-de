@@ -269,46 +269,99 @@ SettingsPage {
             Settings.dashboardMode === "pinned" ? "popout" : "pinned"
     }
 
-    ToggleRow {
+    CycleRow {
         visible: Settings.sysmonDashboard !== "conky"
-        label: "System card"
-        checked: Settings.dashSectionSystem
-        onToggled: value => Settings.dashSectionSystem = value
+        label: "Position"
+        value: DashboardState.positionLabel(DashboardState.position)
+        onCycle: {
+            const ids = DashboardState.positionIds;
+            Settings.dashboardPosition =
+                ids[(ids.indexOf(DashboardState.position) + 1) % ids.length];
+        }
+    }
+
+    SliderRow {
+        visible: Settings.sysmonDashboard !== "conky"
+        label: "Dashboard opacity"
+        from: 40
+        to: 100
+        step: 5
+        suffix: "%"
+        value: Math.round(DashboardState.bgAlpha * 100)
+        onMoved: value => Settings.dashboardOpacity = value
     }
 
     ToggleRow {
         visible: Settings.sysmonDashboard !== "conky"
-        label: "Processors card"
-        checked: Settings.dashSectionCpu
-        onToggled: value => Settings.dashSectionCpu = value
+        label: "Blur behind the dashboard"
+        checked: Settings.dashboardBlur
+        onToggled: value => Settings.dashboardBlur = value
     }
 
-    ToggleRow {
-        visible: Settings.sysmonDashboard !== "conky"
-        label: "Memory card"
-        checked: Settings.dashSectionMemory
-        onToggled: value => Settings.dashSectionMemory = value
-    }
+    // One row per card, in dashboard order: show/hide and move up/down
+    Repeater {
+        model: Settings.sysmonDashboard !== "conky" ? DashboardState.order : []
+        Item {
+            id: cardRow
+            required property string modelData
+            required property int index
+            width: parent ? parent.width : 0
+            height: 28
 
-    ToggleRow {
-        visible: Settings.sysmonDashboard !== "conky"
-        label: "Drives card"
-        checked: Settings.dashSectionDrives
-        onToggled: value => Settings.dashSectionDrives = value
-    }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: DashboardState.cardTitle(cardRow.modelData) + " card"
+                font.family: Theme.fontFamily
+                font.pointSize: 10
+                color: DashboardState.cardEnabled(cardRow.modelData) ? Theme.text : Theme.muted
+            }
 
-    ToggleRow {
-        visible: Settings.sysmonDashboard !== "conky"
-        label: "Network card"
-        checked: Settings.dashSectionNetwork
-        onToggled: value => Settings.dashSectionNetwork = value
-    }
-
-    ToggleRow {
-        visible: Settings.sysmonDashboard !== "conky"
-        label: "GPU card"
-        checked: Settings.dashSectionGpu
-        onToggled: value => Settings.dashSectionGpu = value
+            Row {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+                Repeater {
+                    model: [
+                        { t: DashboardState.cardEnabled(cardRow.modelData) ? "Shown" : "Hidden", k: "toggle" },
+                        { t: "\u25B2", k: "up" },
+                        { t: "\u25BC", k: "down" }
+                    ]
+                    Rectangle {
+                        id: pill
+                        required property var modelData
+                        width: pillText.implicitWidth + 20
+                        height: 24
+                        radius: 12
+                        color: pillHover.hovered ? Theme.surfaceAlt : Theme.surface
+                        opacity: (modelData.k === "up" && cardRow.index === 0)
+                              || (modelData.k === "down"
+                                  && cardRow.index === DashboardState.order.length - 1) ? 0.4 : 1
+                        Text {
+                            id: pillText
+                            anchors.centerIn: parent
+                            text: pill.modelData.t
+                            font.family: Theme.fontFamily
+                            font.pointSize: 9
+                            color: pill.modelData.k === "toggle"
+                                   && DashboardState.cardEnabled(cardRow.modelData)
+                                   ? Theme.accentBright : Theme.text
+                        }
+                        HoverHandler { id: pillHover }
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                if (pill.modelData.k === "toggle")
+                                    DashboardState.setCardEnabled(cardRow.modelData,
+                                        !DashboardState.cardEnabled(cardRow.modelData));
+                                else
+                                    DashboardState.moveCard(cardRow.modelData,
+                                        pill.modelData.k === "up" ? -1 : 1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     TextFieldRow {
