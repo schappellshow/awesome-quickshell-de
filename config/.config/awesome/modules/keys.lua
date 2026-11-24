@@ -855,8 +855,17 @@ _G.shortcut_capture_stop = capture_stop
 
 -- ── Menus and mouse ──────────────────────────────────────────────────────
 -- Client mouse buttons
+-- Any click outside the desktop menu closes it: a left click on a window
+-- (here) or on the desktop (rootbuttons), as well as the right click that
+-- toggles it. awful.menu has no "click outside" of its own. The menu is
+-- created further down, so it is looked up at click time.
+local function hide_main_menu()
+    if M.mainmenu and M.mainmenu.wibox.visible then M.mainmenu:hide() end
+end
+
 M.clientbuttons = gears.table.join(
     awful.button({ }, 1, function(c)
+        hide_main_menu()
         c:emit_signal("request::activate", "mouse_click", { raise = true })
     end),
     awful.button({ modkey }, 1, function(c)
@@ -968,6 +977,7 @@ end
 -- Root (desktop) mouse buttons — right-click menu; scroll to switch tags.
 -- Scroll down (button 5) = next tag, matching the bar taglist direction.
 M.rootbuttons = gears.table.join(
+    awful.button({ }, 1, hide_main_menu),
     awful.button({ }, 3, function() M.mainmenu:toggle() end),
     awful.button({ modkey }, 2, function() ring.press(nil) end, ring.release),
     awful.button({ }, 4, awful.tag.viewprev),
