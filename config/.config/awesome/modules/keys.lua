@@ -26,6 +26,7 @@ end
 local scratchpad = require("modules.scratchpad")
 local tag_float  = require("modules.tag_float")
 local ring       = require("modules.ring")
+local translucency = require("modules.translucency")
 
 local modkey = "Mod4"
 local unpack = table.unpack or unpack
@@ -881,8 +882,11 @@ M.clientbuttons = gears.table.join(
     awful.button({ modkey }, 2, ring.press, ring.release)
 )
 
--- Desktop right-click menu (styled by theme.lua's menu_* settings)
-M.mainmenu = awful.menu({
+-- Desktop right-click menu (styled by theme.lua's menu_* settings). Built by
+-- a function because awful.menu reads its colors only when it is created, so
+-- a new menu opacity (shell_menu_opacity below) means making a new menu.
+local function build_mainmenu()
+    return awful.menu({
     items = {
         -- Browsing, not typing: a scrollable list you can read through,
         -- versus rofi's type-to-filter prompt. Rofi keeps its own keys
@@ -899,7 +903,19 @@ M.mainmenu = awful.menu({
         } },
         { "Power",          power_menu_open },
     },
-})
+    })
+end
+M.mainmenu = build_mainmenu()
+
+-- Settings -> Transparency & blur: the menu's resulting opacity, in percent.
+-- A menu that is open is closed first; the next one opens with the new look.
+_G.shell_menu_opacity = function(percent)
+    translucency.apply(percent)
+    if M.mainmenu then
+        pcall(function() M.mainmenu:hide() end)
+    end
+    M.mainmenu = build_mainmenu()
+end
 
 -- The bar's start button opens this same menu through awesome-client, so it
 -- needs a global entry point. Toggling (not showing) means a second click on
