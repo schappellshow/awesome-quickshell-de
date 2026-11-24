@@ -343,7 +343,7 @@ Scope {
 
         BlurHint {
             window: panel
-            enabled: !PerformanceMode.active
+            enabled: Translucency.blurOn && Settings.ringBlur
             radius: 130
         }
 
@@ -384,12 +384,16 @@ Scope {
             }
 
             // Disc behind everything. Translucent so the blur shows through
-            // it; without blur (performance mode) it needs more body to stay readable.
+            // it (Settings -> Transparency & blur sets how much); without
+            // blur it needs more body to stay readable, so it is never
+            // thinner than 74% then.
             Rectangle {
                 anchors.fill: parent
                 radius: width / 2
                 color: Qt.rgba(Theme.base.r, Theme.base.g, Theme.base.b,
-                               PerformanceMode.active ? 0.74 : 0.55)
+                               (Translucency.blurOn && Settings.ringBlur)
+                                   ? Settings.ringOpacity / 100
+                                   : Math.max(0.74, Settings.ringOpacity / 100))
                 border.width: 1
                 border.color: Theme.surfaceAlt
 

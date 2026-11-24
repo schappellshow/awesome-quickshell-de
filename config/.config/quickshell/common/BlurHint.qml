@@ -45,8 +45,10 @@ Scope {
         return 3;
     }
 
+    // Settings -> Transparency & blur can turn blur off everywhere; then no
+    // surface asks for it (picom would not blur anyway).
     readonly property bool active:
-        root.enabled && root.window !== null && root.window.backingWindowVisible
+        root.enabled && Settings.blurEnabled && root.window !== null && root.window.backingWindowVisible
     readonly property string key: "blur" + Math.random().toString(36).slice(2, 10)
 
     // Last request sent, so an unchanged one is not sent twice.

@@ -84,7 +84,10 @@ theme.notification_max_height = dpi(120)
 -- menu window and again behind every entry, so the alpha compounds: 80
 -- (50%) per layer comes out at about 75% opaque. picom keeps this menu at
 -- full window opacity (fx-normal.conf) so only the background is see-through.
-theme.menu_bg_normal    = om.surface .. "80"
+-- The opacity is a setting (Settings -> Transparency & blur); modules/
+-- translucency.lua turns the stored resulting percent into the per-layer alpha.
+local translucency = require("modules.translucency")
+theme.menu_bg_normal    = translucency.hex_for(translucency.stored_percent())
 theme.menu_fg_normal    = om.text
 theme.menu_bg_focus     = om.blue
 theme.menu_fg_focus     = om.text

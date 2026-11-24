@@ -46,6 +46,7 @@ ShellRoot {
         SuperTap.init();
         Shortcuts.init();
         PerformanceMode.init();
+        Translucency.init();
     }
 
     // One bar on Settings.barScreen; if it's unset or that output isn't

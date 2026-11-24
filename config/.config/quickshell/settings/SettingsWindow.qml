@@ -37,6 +37,7 @@ FloatingWindow {
             { id: "display",    title: "Displays",    source: "pages/DisplayPage.qml" },
             { id: "windows",    title: "Windows",     source: "pages/WindowsPage.qml" },
             { id: "theme",      title: "Theme",       source: "pages/AppearancePage.qml" },
+            { id: "transparency", title: "Transparency", source: "pages/TransparencyPage.qml" },
             { id: "bar",        title: "Bar",         source: "pages/BarPage.qml" },
             { id: "startmenu",  title: "Start Menu",  source: "pages/StartMenuPage.qml" },
             { id: "nightlight", title: "Night Light", source: "pages/NightLightPage.qml" },

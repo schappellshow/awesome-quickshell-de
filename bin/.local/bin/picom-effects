@@ -1,14 +1,27 @@
 #!/usr/bin/env bash
 # picom-effects — switch the running compositor between effect variants.
 #
-#   picom-effects apply <off|subtle|lively> <0|1>
-#       animation preset, performance mode (1 = on)
+#   picom-effects apply <off|subtle|lively> <0|1> [name=value ...]
+#       animation preset, performance mode (1 = on), and optionally the
+#       user's transparency and blur values (Settings -> Transparency & blur):
+#         blur=0|1              blur on or off
+#         blur-strength=1..20   dual_kawase strength
+#         inactive-opacity=10..100   unfocused windows, percent (100 = off)
+#         popup-opacity=10..100      menus, dropdowns and tooltips, percent
+#       Anything left out keeps its shipped default (what fx-normal.conf has).
 #
 # picom reads its config once, and its `animations`/`rules` can't be changed
 # over D-Bus, so a change means restarting it. The parts live next to
 # picom.conf (base.conf, fx-*.conf, anim-*.conf — see picom.conf); this
 # writes a three-line config that includes the chosen parts, and restarts
 # picom on it.
+#
+# The user's values go into fx-normal.conf's tagged lines (`# @fx:<name>`):
+# a copy of that file with the values swapped is written next to the
+# generated config and included in place of the original. `rules` is one
+# list, and libconfig cannot include a file from inside a list, so the
+# values are substituted in place rather than included. Performance mode
+# (fx-performance.conf) has none of these settings and ignores them.
 #
 # Display scoping — the one hard rule: this only ever touches the picom that
 # owns the CURRENT $DISPLAY: the X server must show a picom window, and the
@@ -30,17 +43,42 @@ set -u
 
 default_preset=subtle
 default_perf=0
+# The shipped look: what the tagged lines in fx-normal.conf say.
+default_fx="b1 s5 i92 p85"
 
 die() { echo "picom-effects: $*" >&2; exit 1; }
 
-[ "${1:-}" = apply ] || die "usage: picom-effects apply <off|subtle|lively> <0|1>"
+[ "${1:-}" = apply ] || die "usage: picom-effects apply <off|subtle|lively> <0|1> [name=value ...]"
 preset="${2:-}" perf="${3:-}"
+shift 3 2>/dev/null
 case "$preset" in off|subtle|lively) ;; *) die "unknown preset '$preset'" ;; esac
 case "$perf" in 0|1) ;; *) die "performance must be 0 or 1" ;; esac
 [ -n "${DISPLAY:-}" ] || die "no \$DISPLAY"
 # Performance mode forces animations off, so the preset is irrelevant then:
 # don't restart picom just because it changed.
 [ "$perf" = 1 ] && preset=off
+
+# The user's values, as the part of the recorded state that follows the
+# preset: "b<blur> s<strength> i<inactive %> p<popup %>".
+fx_blur=1 fx_strength=5 fx_inactive=92 fx_popup=85
+num() {   # num <name> <value> <min> <max>
+    case "$2" in ''|*[!0-9]*) die "$1 must be a whole number" ;; esac
+    [ "$2" -ge "$3" ] && [ "$2" -le "$4" ] || die "$1 must be $3-$4"
+}
+for kv in "$@"; do
+    v=${kv#*=}
+    case "$kv" in
+        blur=*)             case "$v" in 0|1) fx_blur=$v ;; *) die "blur must be 0 or 1" ;; esac ;;
+        blur-strength=*)    num blur-strength "$v" 1 20;   fx_strength=$v ;;
+        inactive-opacity=*) num inactive-opacity "$v" 10 100; fx_inactive=$v ;;
+        popup-opacity=*)    num popup-opacity "$v" 10 100;    fx_popup=$v ;;
+        *) die "unknown setting '$kv'" ;;
+    esac
+done
+fx="b$fx_blur s$fx_strength i$fx_inactive p$fx_popup"
+# Performance mode shows none of it, so a slider moved meanwhile must not
+# restart picom: record the defaults.
+[ "$perf" = 1 ] && fx=$default_fx
 
 # The picom on this display (empty if none).
 #
@@ -83,21 +121,54 @@ flock 9
 
 pid=$(find_pid1)
 allpids=$(find_pid)
-want="$pid $preset $perf"
+want="$pid $preset $perf $fx"
 if [ -n "$pid" ]; then
-    have="$pid $default_preset $default_perf"
+    have="$pid $default_preset $default_perf $default_fx"
     [ -r "$state" ] && read -r have < "$state"
     # A state recorded for another pid is stale: that picom is gone.
-    case "$have" in "$pid "*) ;; *) have="$pid $default_preset $default_perf" ;; esac
+    # A state from before the user's values existed has no fx field.
+    [ "$(echo $have | wc -w)" = 3 ] && have="$have $default_fx"
+    case "$have" in "$pid "*) ;; *) have="$pid $default_preset $default_perf $default_fx" ;; esac
     [ "$have" = "$want" ] && exit 0
 fi
 
-fx=normal anim=$preset
-if [ "$perf" = 1 ]; then fx=performance anim=off; fi
+fxfile="$cfgdir/fx-normal.conf" anim=$preset
+if [ "$perf" = 1 ]; then fxfile="$cfgdir/fx-performance.conf" anim=off
+else
+    # fx-normal.conf with the user's values in its tagged lines. A tag this
+    # script does not know, or a tagged line it cannot rewrite, is an error
+    # (checked below), not a silent default.
+    method=dual_kawase; [ "$fx_blur" = 1 ] || method=none
+    if awk -v method="$method" -v strength="$fx_strength" \
+           -v inactive="$fx_inactive" -v popup="$fx_popup" '
+        /= *[^;]*; *# @fx:[a-z-]+ *$/ {
+            tag = $0; sub(/.*# @fx:/, "", tag); sub(/ *$/, "", tag)
+            if      (tag == "blur-method")      v = "\"" method "\""
+            else if (tag == "blur-strength")    v = strength
+            else if (tag == "inactive-opacity") v = sprintf("%.2f", inactive / 100)
+            else if (tag == "popup-opacity")    v = sprintf("%.2f", popup / 100)
+            else { print "unknown tag " tag > "/dev/stderr"; bad = 1; next_ = 1 }
+            if (!next_) {
+                pre = $0; sub(/= *[^;]*;.*$/, "", pre)
+                post = $0; sub(/^[^;]*; */, "", post)
+                $0 = pre "= " v ";   " post; seen++
+            }
+            next_ = 0
+        }
+        { print }
+        END { if (bad || seen != 5) { print "expected 5 tagged lines, saw " seen > "/dev/stderr"; exit 1 } }
+    ' "$cfgdir/fx-normal.conf" > "$live.fx.new"; then
+        mv -f "$live.fx.new" "$live.fx"
+        fxfile=$live.fx
+    else
+        rm -f "$live.fx.new"
+        die "could not apply the transparency settings to fx-normal.conf"
+    fi
+fi
 cat > "$live.new" <<CONF
 # Generated by picom-effects. Do not edit.
 @include "$cfgdir/base.conf"
-@include "$cfgdir/fx-$fx.conf"
+@include "$fxfile"
 @include "$cfgdir/anim-$anim.conf"
 CONF
 mv -f "$live.new" "$live"
@@ -162,7 +233,7 @@ fi
 
 if start "$live"; then
     sleep 0.5    # let --daemon finish forking: the pid changes once
-    echo "$(find_pid1) $preset $perf" > "$state"
+    echo "$(find_pid1) $preset $perf $fx" > "$state"
 else
     # Put back what was running so the session keeps a compositor.
     echo "picom-effects: new config failed to start; restoring" >&2
