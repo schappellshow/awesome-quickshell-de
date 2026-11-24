@@ -239,6 +239,39 @@ ShellRoot {
             SysMon.toggleDashboard();
         }
 
+        // The gear panel (position / cards / opacity / blur), open or closed
+        function settings(open: bool): void {
+            DashboardState.settingsOpen = open;
+        }
+
+        // A named position: bar, topleft, topright, bottomleft,
+        // bottomright, center, custom
+        function position(name: string): void {
+            Settings.dashboardPosition = name;
+        }
+
+        // Background opacity in percent (40-100) and blur on/off
+        function opacity(percent: int): void {
+            Settings.dashboardOpacity = Math.max(40, Math.min(100, percent));
+        }
+
+        function blur(on: bool): void {
+            Settings.dashboardBlur = on;
+        }
+
+        // Move a card (system, cpu, memory, drives, network, gpu) up (-1)
+        // or down (1) in the order
+        function move(card: string, delta: int): void {
+            DashboardState.moveCard(card, delta);
+        }
+
+        // Remember a custom spot (screen coordinates of the top-left
+        // corner) on the dashboard's screen and switch to it
+        function placeAt(x: int, y: int): void {
+            DashboardState.setCustomPos(DashboardState.screenName, x, y);
+            Settings.dashboardPosition = "custom";
+        }
+
         // Which dashboard is up, for scripts and tests
         function status(): string {
             if (Settings.sysmonDashboard === "conky")

@@ -203,6 +203,22 @@ or conky; conky behaves exactly as before and keeps its config field.
   (so fullscreen covers it), not focusable. The pill / key then lifts it
   above the windows to peek; press again to put it back.
 
+**Customizing it.** Hover the dashboard's header and click the gear to open
+its settings panel in place (the same controls are in Settings → Bar):
+
+- **Position**: beside the bar (default), the four screen corners, center, or
+  custom. Drag the header to place it yourself; that switches to custom and
+  the spot is remembered per screen. It always stays on screen and clear of
+  the bar, in both popout and pinned modes.
+- **Cards**: show/hide and move each of System, Processors, Memory, Drives,
+  Network and GPU up or down. Cards fill left, right, left, right in order.
+- **Opacity** (40–100%) of the panel and cards; text stays fully opaque.
+- **Blur behind** (default on): the setting is stored as `dashboardBlur`;
+  the compositor hint that acts on it is wired separately.
+
+For scripts: `qs ipc call sysmon settings true|false`, `position <name>`,
+`placeAt <x> <y>`, `opacity <percent>`, `blur <bool>`, `move <card> <±1>`.
+
 Nothing is sampled or running while it is closed; open, one small script runs
 every 2 s (6 s in performance mode). Pinned mode is "always open", so it keeps
 sampling. Readings: `/proc`, `df`, `ip`, and sysfs for the CPU temperature

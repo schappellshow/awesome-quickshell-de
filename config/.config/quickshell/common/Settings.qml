@@ -89,6 +89,16 @@ Singleton {
     property alias dashSectionDrives: adapter.dashSectionDrives
     property alias dashSectionNetwork: adapter.dashSectionNetwork
     property alias dashSectionGpu: adapter.dashSectionGpu
+    // Dashboard layout, set from the gear in the dashboard or Settings -> Bar:
+    // card order (comma-separated ids, see DashboardState), where it sits
+    // (bar|topleft|topright|bottomleft|bottomright|center|custom), the spot
+    // custom remembers per screen name (JSON), background opacity in percent
+    // (text stays opaque) and whether the compositor blurs behind it.
+    property alias dashOrder: adapter.dashOrder
+    property alias dashboardPosition: adapter.dashboardPosition
+    property alias dashboardCustomPos: adapter.dashboardCustomPos
+    property alias dashboardOpacity: adapter.dashboardOpacity
+    property alias dashboardBlur: adapter.dashboardBlur
 
     // Notifications
     property alias notifTimeoutMs: adapter.notifTimeoutMs
@@ -344,6 +354,11 @@ Singleton {
             property bool dashSectionDrives: true
             property bool dashSectionNetwork: true
             property bool dashSectionGpu: true
+            property string dashOrder: "system,memory,cpu,drives,gpu,network"
+            property string dashboardPosition: "bar"
+            property string dashboardCustomPos: "{}"
+            property int dashboardOpacity: 100
+            property bool dashboardBlur: true
             // "busy" | "always". New key, so an existing settings.json gets
             // the default (busy) without a migration.
             property string sysmonMode: "busy"
