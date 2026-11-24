@@ -79,6 +79,9 @@ FloatingWindow {
         selected = -1; draft = null; typing = false; confirmClose = false;
         rev = 0; cleanRev = 0; status = "";
         imgW = 0; imgH = 0;
+        // Drop the old picture first: assigning a path equal to the current
+        // one is no change, so a still-open editor would keep the old image.
+        source = "";
         source = path;
         const probe = Qt.createQmlObject('import QtQuick; Image { cache: false; visible: false }', win);
         probe.statusChanged.connect(() => {
@@ -88,6 +91,7 @@ FloatingWindow {
                                       (maxH - 24 - chrome) / probe.implicitHeight);
                 implicitWidth = Math.max(820, Math.round(probe.implicitWidth * z) + 24);
                 implicitHeight = Math.max(420, Math.round(probe.implicitHeight * z) + 24 + chrome);
+                imgW = probe.implicitWidth; imgH = probe.implicitHeight;
                 visible = true;
                 probe.destroy();
             } else if (probe.status === Image.Error) {

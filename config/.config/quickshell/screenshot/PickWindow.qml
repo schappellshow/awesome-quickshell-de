@@ -118,7 +118,7 @@ PanelWindow {
                 id: hint
                 anchors.centerIn: parent
                 text: win.picking ? "Click a pixel · Esc to cancel"
-                                  : "Drag to select · Esc to cancel"
+                                  : "Drag to select, click a window · Esc to cancel"
                 font.family: Theme.fontFamily
                 font.pointSize: 10
                 color: Theme.text
@@ -260,8 +260,10 @@ PanelWindow {
                     const r = win.shot.selection;
                     if (r.width >= 3 && r.height >= 3)
                         win.shot.pickDone(r, 0, 0);
-                    else
-                        win.shot.selB = win.shot.selA;   // a click, not a drag
+                    else {
+                        win.shot.selB = win.shot.selA;   // a click, not a drag:
+                        win.shot.clickPick(g.x, g.y);    // take the window under it
+                    }
                 }
             }
         }

@@ -39,6 +39,7 @@ Scope {
     property string frozen: ""         // path of the frozen grab while picking
     property point pointer: Qt.point(0, 0)      // pointer, X screen coordinates
     property string menuScreen: ""     // output the menu card is drawn on
+    property bool fromMenu: false      // the menu was on screen just before this capture
     property bool toEditor: false      // open the capture in the editor instead of saving it
 
     // Selection while dragging (X screen coordinates).
@@ -109,6 +110,7 @@ Scope {
         selected = 0;
         toEditor = false;
         activeWin = "";
+        fromMenu = true;
         winProbe.running = true;
         ptrProbe.running = true;
         phase = "menu";
@@ -141,6 +143,9 @@ Scope {
             countdown.restart();
         } else {
             phase = "settle";
+            // Nothing was on screen to fade out unless the menu was (a
+            // direct Print capture): then grab at once.
+            settle.interval = fromMenu ? 450 : 0;
             settle.restart();
         }
     }
@@ -154,6 +159,7 @@ Scope {
             if (root.remaining <= 0) {
                 stop();
                 root.phase = "settle";      // pill goes away with the phase
+                settle.interval = 450;
                 settle.restart();
             }
         }
@@ -248,6 +254,7 @@ Scope {
         if (phase !== "idle")
             finish();
         toEditor = edit && what !== "ocr" && what !== "color";
+        fromMenu = false;
         activeWin = "";
         winProbe.running = true;
         begin(what, secs);
@@ -255,6 +262,25 @@ Scope {
 
     // Fire-and-forget: the result arrives as a notification.
     function run(cmd) { Quickshell.execDetached(cmd); }
+
+    // A plain click in region mode selects the window under the pointer.
+    function clickPick(x, y) {
+        if (windowAt.running)
+            return;
+        windowAt.command = ["screenshot", "windowat", String(Math.round(x)), String(Math.round(y))];
+        windowAt.running = true;
+    }
+
+    Process {
+        id: windowAt
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const m = /^(\d+)x(\d+)\+(-?\d+)\+(-?\d+)$/.exec(text.trim());
+                if (m && root.phase === "pick")
+                    root.pickDone(Qt.rect(+m[3], +m[4], +m[1], +m[2]), 0, 0);
+            }
+        }
+    }
 
     // The overlay reports the finished drag / click here.
     function pickDone(r, px, py) {

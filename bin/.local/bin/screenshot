@@ -7,6 +7,7 @@
 #
 #   screenshot freeze                 grab every screen into the work dir,
 #                                     print the file's path
+#   screenshot windowat <X> <Y>       geometry of the top window under a point
 #   screenshot geometry <what>        print WxH+X+Y for: all | screen |
 #                                     window <xid>   (screen = monitor under
 #                                     the pointer)
@@ -20,7 +21,7 @@
 #   screenshot now <what> [xid]       freeze + geometry + save in one go
 #
 # Editor support (the annotation editor, quickshell/screenshot/Editor.qml):
-#   screenshot crop <WxH+X+Y>         crop the frozen grab to $work/edit.png
+#   screenshot crop <WxH+X+Y>         crop the frozen grab to a fresh $work/edit-<ts>.png
 #                                     (no save, no clipboard), print its path
 #   screenshot cropnow <what> [xid]   freeze + geometry + crop in one go
 #   screenshot newpath                print a free ~/Pictures/Screenshots name
@@ -45,7 +46,9 @@
 set -u
 
 work="${XDG_RUNTIME_DIR:-/tmp}/screenshot"
-frozen="$work/frozen.png"
+# `frozen` always names the LATEST grab: a symlink to a uniquely named file,
+# so nothing that reads it can see an earlier capture.
+frozen="$work/frozen.ppm"
 shots="${SCREENSHOT_DIR:-$HOME/Pictures/Screenshots}"
 mkdir -p "$work"
 
@@ -66,9 +69,34 @@ clip_text() {
     printf '%s' "$1" | setsid -f xclip -selection clipboard -i >/dev/null 2>&1
 }
 
+# Grabbed as raw PPM: PNG compression of a two-monitor desktop took ~1.5 s
+# and PPM takes ~0.2 s. Every grab gets its own name (Qt and the editor key
+# their caches on the path, so a reused name can show an old picture); the
+# previous grabs are removed.
 freeze() {
-    import -window root "$frozen" 2>/dev/null || die "could not grab the screen"
-    echo "$frozen"
+    local out="$work/frozen-$(date +%s%N).ppm" old
+    import -window root -depth 8 "$out" 2>/dev/null || { rm -f "$out"; die "could not grab the screen"; }
+    ln -sfn "$out" "$frozen"
+    for old in "$work"/frozen-*.ppm; do [ "$old" = "$out" ] || rm -f "$old"; done
+    echo "$out"
+}
+
+# The managed window under a screen point, topmost first; prints its
+# geometry. Quickshell's overlays are override-redirect and so are not in
+# the client list.
+windowat() {
+    local px="$1" py="$2" ids id g x y w h
+    ids=$(xprop -root _NET_CLIENT_LIST_STACKING 2>/dev/null | sed 's/.*# //' | tr -d ',' | tr ' ' '\n' | tac)
+    for id in $ids; do
+        xprop -id "$id" _NET_WM_STATE 2>/dev/null | grep -q HIDDEN && continue
+        g=$(geometry window "$id") || continue
+        [[ "$g" =~ ^([0-9]+)x([0-9]+)\+(-?[0-9]+)\+(-?[0-9]+)$ ]] || continue
+        w=${BASH_REMATCH[1]} h=${BASH_REMATCH[2]} x=${BASH_REMATCH[3]} y=${BASH_REMATCH[4]}
+        if [ "$px" -ge "$x" ] && [ "$px" -lt $((x + w)) ] && [ "$py" -ge "$y" ] && [ "$py" -lt $((y + h)) ]; then
+            echo "$g"; return 0
+        fi
+    done
+    return 1
 }
 
 # Monitors as "name x y w h", from RandR monitors so a split-up screen
@@ -176,8 +204,11 @@ save() {
 crop() {
     [ -f "$frozen" ] || die "nothing frozen; run 'screenshot freeze' first"
     local g; g=$(clamp "$1") || exit 1
-    local out="$work/edit.png"
+    # A new name per capture, so the editor can never be handed a path it
+    # has already loaded.
+    local out="$work/edit-$(date +%s%N).png" old
     magick "$frozen" -crop "$g" +repage "$out" || die "could not write $out"
+    for old in "$work"/edit-*.png; do [ "$old" = "$out" ] || rm -f "$old"; done
     echo "$out"
 }
 
@@ -255,6 +286,7 @@ color() {
 case "${1:-}" in
     freeze)   freeze ;;
     geometry) shift; geometry "$@" ;;
+    windowat) windowat "${2:?x}" "${3:?y}" ;;
     save)     save "${2:?geometry}" ;;
     ocr)      ocr "${2:?geometry}" ;;
     color)    color "${2:?x}" "${3:?y}" ;;
