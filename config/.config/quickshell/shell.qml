@@ -63,17 +63,83 @@ ShellRoot {
     function updateBarScreens() {
         const match = Quickshell.screens.filter(
             s => s.name === Settings.barScreen);
-        barScreens = match.length > 0 ? match : Quickshell.screens;
+        const next = match.length > 0 ? match : Quickshell.screens;
+        // Only hand Variants a new array when the set of screens really
+        // differs (see above); a screen being unplugged also lands here.
+        const same = next.length === barScreens.length
+            && next.every((s, i) => s === barScreens[i]);
+        if (!same)
+            barScreens = next;
     }
 
     Connections {
         target: Settings
-        function onBarScreenChanged() { updateBarScreens(); }
+        function onBarScreenChanged() {
+            updateBarScreens();
+            barHealth.trigger("barScreen changed");
+        }
+    }
+
+    Connections {
+        target: Quickshell
+        function onScreensChanged() {
+            updateBarScreens();
+            barHealth.trigger("screens changed");
+        }
+    }
+
+    Connections {
+        target: AwesomeState
+        function onEpochChanged() { barHealth.trigger("awesome restarted"); }
+    }
+
+    Connections {
+        target: BarSections
+        function onArrangementChanged() { barHealth.trigger("arrangement changed"); }
+    }
+
+    // The bars are not created until awesome's state has arrived (or it has
+    // clearly not, see the timer). A bar created while AwesomeState.screens
+    // is still empty comes up with its start pill sized for its content and
+    // the content missing from the window: tag numbers, the start button,
+    // even a plain Rectangle placed inside the taglist group. Reproduced on
+    // every cold start nested, gone when the bar is created after the state
+    // loads (and when it is recreated later, which is why Super+B always
+    // cured it). Latched: once true it stays true, so an awesome restart
+    // that briefly empties the state does not tear the bar down.
+    property bool awesomeReady: false
+
+    Connections {
+        target: AwesomeState
+        function onScreensChanged() {
+            if (AwesomeState.screens.length > 0)
+                awesomeReady = true;
+        }
+    }
+
+    // No awesome (or no bridge): show the bar anyway rather than never.
+    Timer {
+        running: !awesomeReady
+        interval: 3000
+        onTriggered: awesomeReady = true
     }
 
     Variants {
-        model: barScreens
+        id: barVariants
+        model: awesomeReady ? barScreens : []
         Bar {}
+    }
+
+    // Verifies the bar a moment after each of the triggers above and rebuilds
+    // it when it is wrong. Log: $XDG_RUNTIME_DIR/aqs-bar-heal.log
+    BarHealth {
+        id: barHealth
+        variants: barVariants
+        onHeal: {
+            barScreens = [];
+            barRecreate.restart();
+        }
+        Component.onCompleted: trigger("config loaded")
     }
 
     // `qs ipc call bar recreate` — Super+b.
@@ -97,10 +163,8 @@ ShellRoot {
     // it should be — holding barScreens as a stable property reduced that
     // drift but evidently did not end it.
     //
-    // Deliberately manual. Doing this automatically at startup would fight
-    // the reason barScreens is a stable property (see above) and cost a
-    // flicker every login, to work around a bug whose cause is still not
-    // established.
+    // The shell now does this by itself when BarHealth finds the bar wrong
+    // (see below); this stays as the manual fallback.
     IpcHandler {
         target: "bar"
 

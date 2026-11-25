@@ -180,7 +180,7 @@ rebinds any of it — the table below is the defaults.
 | `Super+Shift+B` · `Super+Shift+X` · `Super+D` | Notification center · clear · do-not-disturb |
 | `Super+V` · `Super+A` | Calendar · media panel |
 | `Super+Z` | Keep awake (inhibit auto-lock) |
-| `Super+B` | Rebuild the bar — recovers a section that draws blank, or a bar left on the wrong screen |
+| `Super+B` | Rebuild the bar by hand. The bar now also checks itself after a config load, awesome restart, screen change or Bar screen change, and rebuilds itself if wrong (at most twice per trigger); see `$XDG_RUNTIME_DIR/aqs-bar-heal.log` |
 | `Super+Shift+T` · `Super+Shift+N` | Dark/light mode · night light |
 | `Super+Shift+M` | System dashboard: native Quickshell popout (default), or lifts the pinned one above windows; conky if chosen in Settings → Bar |
 | `Super+BackSpace` · `Ctrl+Alt+L` | Power menu · lock now |

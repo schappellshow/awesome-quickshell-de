@@ -13,7 +13,16 @@ PanelWindow {
     screen: modelData
 
     // Awesome's view of this screen (tags, layout), matched by output name
-    readonly property var awScreen: AwesomeState.forOutput(bar.screen.name)
+    // bar.screen goes null for a moment when its monitor is unplugged, before
+    // the shell hands this window to another one (or destroys it); everything
+    // below reads the screen through these guarded copies.
+    readonly property string screenName: bar.screen ? bar.screen.name : ""
+    readonly property int screenX: bar.screen ? bar.screen.x : 0
+    readonly property int screenY: bar.screen ? bar.screen.y : 0
+    readonly property int screenW: bar.screen ? bar.screen.width : 0
+    readonly property int screenH: bar.screen ? bar.screen.height : 0
+
+    readonly property var awScreen: AwesomeState.forOutput(bar.screenName)
 
     readonly property bool vertical: BarEdge.vertical
 
@@ -31,7 +40,7 @@ PanelWindow {
                 for (const qs of Quickshell.screens)
                     if (qs.name === out)
                         x = Math.min(x, qs.x);
-                if (out === bar.screen.name)
+                if (out === bar.screenName)
                     isHere = true;
                 label = out.replace("DisplayPort-", "DP")
                            .replace("HDMI-A-", "HD");
@@ -86,7 +95,7 @@ PanelWindow {
     readonly property bool popupOpen: BarState.calendarOpen
         || networkWidget.panelOpen || bluetoothWidget.panelOpen
         || drivesWidget.panelOpen || traySection.openMenus > 0
-        || Media.openOn === bar.screen.name
+        || Media.openOn === bar.screenName
 
     readonly property bool wantShown: !Settings.barAutoHide
         || pointerRevealed || popupOpen || attention
@@ -118,10 +127,10 @@ PanelWindow {
             if (t.selected)
                 tagsShown[t.index] = true;
         return AwesomeState.allClients.some(c =>
-            c.output === bar.screen.name && !c.minimized
+            c.output === bar.screenName && !c.minimized
             && (c.tags || []).some(t => tagsShown[t])
-            && c.x <= bar.screen.x && c.y <= bar.screen.y
-            && c.width >= bar.screen.width && c.height >= bar.screen.height);
+            && c.x <= bar.screenX && c.y <= bar.screenY
+            && c.width >= bar.screenW && c.height >= bar.screenH);
     }
 
     Timer {
@@ -222,10 +231,10 @@ PanelWindow {
             // screen's, so the offset is zero; on the right or bottom it is
             // however far in from that edge the bar starts.
             // PreserveAspectCrop matches feh --bg-fill.
-            x: BarEdge.edge === "right" ? -(bar.screen.width - bar.width) : 0
-            y: BarEdge.edge === "bottom" ? -(bar.screen.height - bar.height) : 0
-            width: bar.screen.width
-            height: bar.screen.height
+            x: BarEdge.edge === "right" ? -(bar.screenW - bar.width) : 0
+            y: BarEdge.edge === "bottom" ? -(bar.screenH - bar.height) : 0
+            width: bar.screenW
+            height: bar.screenH
             fillMode: Image.PreserveAspectCrop
             visible: false          // drawn only through the effect below
             asynchronous: true
@@ -399,7 +408,7 @@ PanelWindow {
                         if (Media.active)
                             Media.active.togglePlaying();
                     } else {
-                        Media.toggleOn(bar.screen.name);
+                        Media.toggleOn(bar.screenName);
                     }
                 }
             }
@@ -475,6 +484,45 @@ PanelWindow {
     }
 
     Component.onCompleted: bar.reflow()
+
+    // ── Self-check support (see common/BarHealth.qml) ───────────────────
+    // Sections that always have something to draw while they are visible:
+    // the taglist always has tag numbers, the clock always has a time.
+    // Anything that can legitimately be empty (tray, media, drives...) is
+    // left out so an empty one is never mistaken for a blank one.
+    readonly property var paintedIds: ["tags", "clock"]
+
+    // Where each of those sections sits in this window, in window pixels:
+    // [{ id, x, y, w, h }]. Sections that are hidden, still in the pool or
+    // not laid out yet are left out. BarHealth captures the real X window
+    // and looks inside these rectangles; Item.grabToImage is not used
+    // because it renders the item offscreen and so cannot see a section
+    // that is missing from the window's own scene graph.
+    // The window's size and absolute position, as xwininfo prints them
+    // ("36x1080" and "+1080+0"). Quickshell exposes no X window id, so
+    // BarHealth finds the window by exactly this geometry, the way
+    // modules/blur.lua finds clients.
+    readonly property string sizeKey: Math.round(bar.width) + "x" + Math.round(bar.height)
+    readonly property string posKey: "+" + (bar.screenX + (BarEdge.edge === "right"
+            ? bar.screenW - Math.round(bar.width) : 0))
+        + "+" + (bar.screenY + (BarEdge.edge === "bottom"
+            ? bar.screenH - Math.round(bar.height) : 0))
+
+    function sectionRects() {
+        const rects = [];
+        if (bar.shown < 1)
+            return rects;
+        for (const id of bar.paintedIds) {
+            const item = bar.sectionItems[id];
+            if (!item || !item.visible || item.parent === pool
+                || item.width < 1 || item.height < 1)
+                continue;
+            const p = item.mapToItem(null, 0, 0);
+            rects.push({ id: id, x: Math.round(p.x), y: Math.round(p.y),
+                         w: Math.round(item.width), h: Math.round(item.height) });
+        }
+        return rects;
+    }
 
     Connections {
         target: BarSections
